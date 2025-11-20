@@ -34,61 +34,106 @@ export interface OptimizationResult {
 }
 
 export default function HPCLDashboard() {
+  // Hardcoded HPCL data for demo mode
   const [vessels, setVessels] = useState<HPCLVessel[]>([]);
   const [ports, setPorts] = useState<HPCLPort[]>([]);
   const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
   const [isOptimizing, setIsOptimizing] = useState(false);
-  const [systemStatus, setSystemStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
+  const [systemStatus, setSystemStatus] = useState<'connecting' | 'connected' | 'error'>('connected');
   const [activeTab, setActiveTab] = useState<'overview' | 'optimize' | 'results' | 'analytics'>('overview');
 
-  // API base URL
-  const API_BASE = process.env.NODE_ENV === 'development' 
-    ? 'http://localhost:8000' 
-    : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  // Route visualization states
+  const [currentRouteIndex, setCurrentRouteIndex] = useState(0);
+  const [isPlayingRoutes, setIsPlayingRoutes] = useState(false);
+  const [showLiveStatus, setShowLiveStatus] = useState(false);
 
-  // Check system status
-  useEffect(() => {
-    const checkSystemStatus = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/health`);
-        if (response.ok) {
-          setSystemStatus('connected');
-          loadInitialData();
-        } else {
-          setSystemStatus('error');
-        }
-      } catch (error) {
-        console.error('System health check failed:', error);
-        setSystemStatus('error');
-        // Load mock data for development
-        loadMockData();
+  // Mock optimization results with step-by-step routes (like your example)
+  const mockOptimizationResult = {
+    totalCost: 48000000, // ₹48 Lakhs
+    totalDuration: 12, // days
+    manualCost: 90000000, // ₹90 Lakhs (manual planning)
+    savings: 42000000, // ₹42 Lakhs saved
+    savingsPercentage: 46.7,
+    routes: [
+      {
+        id: 'route-1',
+        vessel: 'HPCL-CT-002', // Economy Ship
+        vesselName: 'HPCL Ocean Pride',
+        capacity: 28000,
+        dailyRate: 400000, // ₹4 Lakhs/day
+        sequence: 1,
+        duration: 4, // days
+        cost: 1600000, // ₹16 Lakhs
+        cargo: 15000,
+        route: [
+          { port: 'Mumbai', type: 'loading', lat: 18.9667, lon: 72.8333, action: 'Load 15,000 MT' },
+          { port: 'Kochi', type: 'unloading', lat: 9.9667, lon: 76.2833, action: 'Deliver 15,000 MT' }
+        ],
+        description: 'Ship B delivers 15,000 MT to Port 1 (Kochi)',
+        color: '#3B82F6' // Blue
+      },
+      {
+        id: 'route-2', 
+        vessel: 'HPCL-CT-002',
+        vesselName: 'HPCL Ocean Pride',
+        capacity: 28000,
+        dailyRate: 400000,
+        sequence: 2,
+        duration: 4,
+        cost: 1600000,
+        cargo: 15000,
+        route: [
+          { port: 'Mumbai', type: 'loading', lat: 18.9667, lon: 72.8333, action: 'Load 15,000 MT' },
+          { port: 'Tuticorin', type: 'unloading', lat: 8.8, lon: 78.15, action: 'Deliver 15,000 MT' }
+        ],
+        description: 'Ship B delivers 15,000 MT to Port 2 (Tuticorin)',
+        color: '#10B981' // Green
+      },
+      {
+        id: 'route-3',
+        vessel: 'HPCL-CT-002',
+        vesselName: 'HPCL Ocean Pride', 
+        capacity: 28000,
+        dailyRate: 400000,
+        sequence: 3,
+        duration: 4,
+        cost: 1600000,
+        cargo: 10000,
+        route: [
+          { port: 'Mumbai', type: 'loading', lat: 18.9667, lon: 72.8333, action: 'Load 10,000 MT' },
+          { port: 'Mangalore', type: 'unloading', lat: 12.85, lon: 74.85, action: 'Deliver 10,000 MT' }
+        ],
+        description: 'Ship B delivers 10,000 MT to Port 3 (Mangalore)',
+        color: '#F59E0B' // Yellow
       }
-    };
+    ]
+  };
 
-    checkSystemStatus();
-    const interval = setInterval(checkSystemStatus, 30000); // Check every 30 seconds
-    return () => clearInterval(interval);
+  // Auto-play through routes
+  useEffect(() => {
+    if (isPlayingRoutes && !showLiveStatus) {
+      const interval = setInterval(() => {
+        setCurrentRouteIndex(prev => {
+          if (prev >= mockOptimizationResult.routes.length - 1) {
+            setIsPlayingRoutes(false);
+            return 0;
+          }
+          return prev + 1;
+        });
+      }, 4000); // Change route every 4 seconds
+      return () => clearInterval(interval);
+    }
+  }, [isPlayingRoutes, showLiveStatus]);
+
+  // Load demo data immediately
+  useEffect(() => {
+    loadMockData();
   }, []);
 
   // Load initial data from API
   const loadInitialData = async () => {
-    try {
-      const [vesselsResponse, portsResponse] = await Promise.all([
-        fetch(`${API_BASE}/api/v1/fleet`),
-        fetch(`${API_BASE}/api/v1/ports`)
-      ]);
-
-      if (vesselsResponse.ok && portsResponse.ok) {
-        const vesselsData = await vesselsResponse.json();
-        const portsData = await portsResponse.json();
-        
-        setVessels(vesselsData.vessels || []);
-        setPorts([...(portsData.loading_ports || []), ...(portsData.unloading_ports || [])]);
-      }
-    } catch (error) {
-      console.error('Failed to load initial data:', error);
-      loadMockData();
-    }
+    // Demo mode - use mock data only
+    loadMockData();
   };
 
   // Load mock data for development/demo
@@ -135,72 +180,23 @@ export default function HPCLDashboard() {
   // Start optimization
   const startOptimization = async (optimizationParams: any) => {
     setIsOptimizing(true);
-    try {
-      const response = await fetch(`${API_BASE}/api/v1/optimize`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(optimizationParams),
+    // Demo mode - use mock result after delay
+    setTimeout(() => {
+      setOptimizationResult({
+        request_id: 'demo_' + Date.now(),
+        total_cost: 8750000,
+        fleet_utilization: 87.5,
+        demand_satisfaction_rate: 98.2,
+        selected_routes: []
       });
-
-      if (response.ok) {
-        const result = await response.json();
-        // Start polling for results
-        pollOptimizationStatus(result.task_id);
-      } else {
-        throw new Error('Optimization request failed');
-      }
-    } catch (error) {
-      console.error('Optimization failed:', error);
       setIsOptimizing(false);
-      // Use mock result for demo
-      setTimeout(() => {
-        setOptimizationResult({
-          request_id: 'demo_' + Date.now(),
-          total_cost: 8750000,
-          fleet_utilization: 87.5,
-          demand_satisfaction_rate: 98.2,
-          selected_routes: []
-        });
-        setIsOptimizing(false);
-        setActiveTab('results');
-      }, 3000);
-    }
+      setActiveTab('results');
+    }, 3000);
   };
 
-  // Poll optimization status
+  // Poll optimization status (demo mode - not used)
   const pollOptimizationStatus = async (taskId: string) => {
-    const poll = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/api/v1/optimize/task/${taskId}`);
-        if (response.ok) {
-          const status = await response.json();
-          
-          if (status.status === 'completed') {
-            // Get the results
-            const resultResponse = await fetch(`${API_BASE}/api/v1/optimize/results/${taskId}`);
-            if (resultResponse.ok) {
-              const result = await resultResponse.json();
-              setOptimizationResult(result);
-              setIsOptimizing(false);
-              setActiveTab('results');
-            }
-          } else if (status.status === 'failed') {
-            setIsOptimizing(false);
-            console.error('Optimization failed:', status.message);
-          } else {
-            // Continue polling
-            setTimeout(poll, 2000);
-          }
-        }
-      } catch (error) {
-        console.error('Polling failed:', error);
-        setIsOptimizing(false);
-      }
-    };
-
-    poll();
+    // Demo mode - not needed
   };
 
   return (
@@ -240,12 +236,93 @@ export default function HPCLDashboard() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1">
-              <FleetOverview vessels={vessels} ports={ports} />
+          <div className="grid grid-cols-1 gap-6">
+            {/* Route Control Panel */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">HPCL Algorithmic Route Optimization</h3>
+                  <p className="text-sm text-gray-600">Step-by-step optimized delivery routes</p>
+                </div>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => setShowLiveStatus(!showLiveStatus)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      showLiveStatus 
+                        ? 'bg-green-100 text-green-700 border border-green-200' 
+                        : 'bg-gray-100 text-gray-700 border border-gray-200'
+                    }`}
+                  >
+                    {showLiveStatus ? 'Route View' : 'Live Status'}
+                  </button>
+                  {!showLiveStatus && (
+                    <>
+                      <button
+                        onClick={() => setIsPlayingRoutes(!isPlayingRoutes)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          isPlayingRoutes 
+                            ? 'bg-red-100 text-red-700 border border-red-200' 
+                            : 'bg-blue-100 text-blue-700 border border-blue-200'
+                        }`}
+                      >
+                        {isPlayingRoutes ? <><Pause size={16} className="mr-1" />Pause</> : <><Play size={16} className="mr-1" />Play Routes</>}
+                      </button>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm text-gray-600">Route:</span>
+                        <select 
+                          value={currentRouteIndex} 
+                          onChange={(e) => setCurrentRouteIndex(parseInt(e.target.value))}
+                          className="border border-gray-300 rounded px-2 py-1 text-sm"
+                        >
+                          {mockOptimizationResult.routes.map((route, index) => (
+                            <option key={index} value={index}>
+                              {route.sequence}. {route.description}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Current Route Info */}
+              {!showLiveStatus && (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">{mockOptimizationResult.routes[currentRouteIndex].sequence}</div>
+                    <div className="text-sm text-gray-600">Current Route</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">₹{(mockOptimizationResult.routes[currentRouteIndex].cost / 100000).toFixed(0)}L</div>
+                    <div className="text-sm text-gray-600">Cost ({mockOptimizationResult.routes[currentRouteIndex].duration} days)</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600">{mockOptimizationResult.routes[currentRouteIndex].cargo.toLocaleString()}</div>
+                    <div className="text-sm text-gray-600">MT Cargo</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-orange-600">₹{(mockOptimizationResult.savings / 100000).toFixed(0)}L</div>
+                    <div className="text-sm text-gray-600">Total Saved ({mockOptimizationResult.savingsPercentage}%)</div>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="lg:col-span-2">
-              <MaritimeMap vessels={vessels} ports={ports} />
+
+            {/* Map */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-1">
+                <FleetOverview vessels={vessels} ports={ports} />
+              </div>
+              <div className="lg:col-span-2">
+                <MaritimeMap 
+                  vessels={vessels} 
+                  ports={ports} 
+                  optimizationRoutes={mockOptimizationResult.routes}
+                  currentRouteIndex={showLiveStatus ? -1 : currentRouteIndex}
+                  showLiveStatus={showLiveStatus}
+                />
+              </div>
             </div>
           </div>
         )}
