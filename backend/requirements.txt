@@ -1,0 +1,51 @@
+# FastAPI and ASGI
+fastapi==0.117.1
+uvicorn==0.37.0
+pydantic==2.11.9
+
+# Optimization and OR-Tools
+ortools==9.14.6206
+pulp==2.9.0
+numpy>=1.26.0
+
+# Maritime routing
+searoute==1.4.3
+
+# Data processing
+pandas>=2.0.0
+geopy==2.4.1
+
+# Async task processing
+celery==5.4.0
+redis==5.2.1
+
+# Database
+motor==3.7.1
+pymongo==4.10.1
+
+# HTTP requests
+httpx==0.28.1
+requests==2.32.3
+
+# Security and authentication
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+python-multipart==0.0.17
+
+# Environment and configuration
+python-dotenv==1.0.1
+pydantic-settings==2.8.0
+
+# Date and time handling
+python-dateutil==2.9.0
+
+# JSON handling
+ujson==5.10.0
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.24.0
+
+# Development
+black==24.10.0
+flake8==7.1.1
