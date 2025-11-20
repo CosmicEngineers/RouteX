@@ -109,6 +109,25 @@ export default function HPCLDashboard() {
     ]
   };
 
+  // Route navigation functions
+  const goToNextRoute = () => {
+    if (currentRouteIndex < mockOptimizationResult.routes.length - 1) {
+      setCurrentRouteIndex(prev => prev + 1);
+    }
+  };
+
+  const goToPrevRoute = () => {
+    if (currentRouteIndex > 0) {
+      setCurrentRouteIndex(prev => prev - 1);
+    }
+  };
+
+  const goToRoute = (index: number) => {
+    if (index >= 0 && index < mockOptimizationResult.routes.length) {
+      setCurrentRouteIndex(index);
+    }
+  };
+
   // Auto-play through routes
   useEffect(() => {
     if (isPlayingRoutes && !showLiveStatus) {
@@ -271,7 +290,7 @@ export default function HPCLDashboard() {
                         <span className="text-sm text-gray-600">Route:</span>
                         <select 
                           value={currentRouteIndex} 
-                          onChange={(e) => setCurrentRouteIndex(parseInt(e.target.value))}
+                          onChange={(e) => goToRoute(parseInt(e.target.value))}
                           className="border border-gray-300 rounded px-2 py-1 text-sm"
                         >
                           {mockOptimizationResult.routes.map((route, index) => (
@@ -321,6 +340,10 @@ export default function HPCLDashboard() {
                   optimizationRoutes={mockOptimizationResult.routes}
                   currentRouteIndex={showLiveStatus ? -1 : currentRouteIndex}
                   showLiveStatus={showLiveStatus}
+                  onNextRoute={goToNextRoute}
+                  onPrevRoute={goToPrevRoute}
+                  onGoToRoute={goToRoute}
+                  totalRoutes={mockOptimizationResult.routes.length}
                 />
               </div>
             </div>

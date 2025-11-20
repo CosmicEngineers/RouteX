@@ -11,6 +11,10 @@ interface MaritimeMapProps {
   optimizationRoutes?: any[];
   currentRouteIndex?: number;
   showLiveStatus?: boolean;
+  onNextRoute?: () => void;
+  onPrevRoute?: () => void;
+  onGoToRoute?: (index: number) => void;
+  totalRoutes?: number;
   selectedRoutes?: any[];
 }
 
@@ -20,6 +24,10 @@ export function MaritimeMap({
   optimizationRoutes = [], 
   currentRouteIndex = -1, 
   showLiveStatus = false,
+  onNextRoute,
+  onPrevRoute,
+  onGoToRoute,
+  totalRoutes = 0,
   selectedRoutes = [] 
 }: MaritimeMapProps) {
   const [viewState, setViewState] = useState({
@@ -41,6 +49,30 @@ export function MaritimeMap({
     }, 100);
     return () => clearInterval(interval);
   }, []);
+
+  // Keyboard navigation for routes
+  useEffect(() => {
+    if (showLiveStatus || !onNextRoute || !onPrevRoute) return;
+
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        onNextRoute();
+      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        onPrevRoute();
+      } else if (event.key >= '1' && event.key <= '9') {
+        event.preventDefault();
+        const routeIndex = parseInt(event.key) - 1;
+        if (onGoToRoute && routeIndex < totalRoutes) {
+          onGoToRoute(routeIndex);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [showLiveStatus, onNextRoute, onPrevRoute, onGoToRoute, totalRoutes]);
 
   // Enhanced HPCL Port Data with realistic coordinates
   const enhancedPorts = useMemo(() => {
@@ -465,13 +497,114 @@ export function MaritimeMap({
           </button>
         </div>
 
+        {/* Route Navigation Controls - Only show in route mode */}
+        {!showLiveStatus && optimizationRoutes.length > 0 && (
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
+            <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-4 min-w-96">
+              <div className="flex items-center justify-between space-x-4">
+                {/* Previous Button */}
+                <button
+                  onClick={onPrevRoute}
+                  disabled={currentRouteIndex <= 0}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center space-x-2 ${
+                    currentRouteIndex <= 0 
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                      : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>Previous</span>
+                </button>
+
+                {/* Route Info */}
+                <div className="text-center flex-1">
+                  <div className="text-sm text-gray-600 mb-1">
+                    Route {(currentRouteIndex + 1)} of {totalRoutes}
+                  </div>
+                  {currentRoute && (
+                    <div className="text-xs text-gray-500">
+                      {currentRoute.description}
+                    </div>
+                  )}
+                  
+                  {/* Progress Dots */}
+                  <div className="flex justify-center space-x-2 mt-2">
+                    {optimizationRoutes.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => onGoToRoute && onGoToRoute(index)}
+                        className={`w-2 h-2 rounded-full transition-all ${
+                          index === currentRouteIndex 
+                            ? 'bg-blue-600' 
+                            : index < currentRouteIndex
+                              ? 'bg-green-400'
+                              : 'bg-gray-300'
+                        }`}
+                        title={`Go to Route ${index + 1}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Next Button */}
+                <button
+                  onClick={onNextRoute}
+                  disabled={currentRouteIndex >= totalRoutes - 1}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center space-x-2 ${
+                    currentRouteIndex >= totalRoutes - 1
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                      : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                  }`}
+                >
+                  <span>Next</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Route Details */}
+              {currentRoute && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <div className="grid grid-cols-3 gap-4 text-xs">
+                    <div className="text-center">
+                      <div className="font-semibold text-green-600">₹{(currentRoute.cost / 100000).toFixed(0)}L</div>
+                      <div className="text-gray-500">Cost</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-semibold text-blue-600">{currentRoute.duration} days</div>
+                      <div className="text-gray-500">Duration</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-semibold text-purple-600">{currentRoute.cargo.toLocaleString()} MT</div>
+                      <div className="text-gray-500">Cargo</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Fleet Info Overlay */}
         <div className="absolute bottom-4 left-4 bg-black/70 text-white p-3 rounded-lg text-sm z-10">
-          <div className="font-bold text-green-400">⚓ Live Fleet Status</div>
+          <div className="font-bold text-green-400">⚓ {showLiveStatus ? 'Live Fleet Status' : 'Route Progress'}</div>
           <div className="space-y-1 mt-2 text-xs">
-            <div>🚢 {enhancedVessels.filter(v => v.status === 'sailing').length} vessels at sea</div>
-            <div>🏭 {enhancedVessels.filter(v => v.status === 'loading').length} loading operations</div>
-            <div>🔧 {enhancedVessels.filter(v => v.status === 'maintenance').length} in maintenance</div>
+            {showLiveStatus ? (
+              <>
+                <div>🚢 {enhancedVessels.filter(v => v.status === 'sailing').length} vessels at sea</div>
+                <div>🏭 {enhancedVessels.filter(v => v.status === 'loading').length} loading operations</div>
+                <div>🔧 {enhancedVessels.filter(v => v.status === 'maintenance').length} in maintenance</div>
+              </>
+            ) : (
+              <>
+                <div>📍 Step {(currentRouteIndex + 1)} of {totalRoutes}</div>
+                <div>💰 Total Saved: ₹{((48000000 - 90000000) / 100000 * -1).toFixed(0)}L</div>
+                <div>⌨️ Use arrow keys or buttons to navigate</div>
+              </>
+            )}
           </div>
         </div>
       </div>
