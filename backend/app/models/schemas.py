@@ -43,23 +43,23 @@ class HPCLPort(BaseModel):
     """HPCL Indian Coastal Port Model"""
     id: str = Field(..., description="Unique port identifier")
     name: str = Field(..., description="Official port name")
-    code: str = Field(..., description="Port code (e.g., INMAA for Mumbai)")
+    code: Optional[str] = Field(default=None, description="Port code (e.g., INMAA for Mumbai)")
     type: PortType = Field(..., description="Loading or unloading port")
     latitude: float = Field(..., ge=-90, le=90, description="Port latitude")
     longitude: float = Field(..., ge=-180, le=180, description="Port longitude")
     
     # HPCL-Specific Port Data
     state: str = Field(..., description="Indian state")
-    draft_limitation: float = Field(..., description="Maximum vessel draft (meters)")
-    berth_capacity: int = Field(..., description="Number of berths")
-    storage_capacity: float = Field(..., description="Storage capacity (MT)")
-    loading_rate: float = Field(..., description="Loading rate (MT/hour)")
-    unloading_rate: float = Field(..., description="Unloading rate (MT/hour)")
+    draft_limitation: Optional[float] = Field(default=12.0, description="Maximum vessel draft (meters)")
+    berth_capacity: Optional[int] = Field(default=2, description="Number of berths")
+    storage_capacity: Optional[float] = Field(default=300000.0, description="Storage capacity (MT)")
+    loading_rate: Optional[float] = Field(default=1000.0, description="Loading rate (MT/hour)")
+    unloading_rate: Optional[float] = Field(default=800.0, description="Unloading rate (MT/hour)")
     
     # Cost Components
-    port_charges_per_visit: float = Field(..., description="Fixed port charges (₹)")
-    grt_charge: float = Field(..., description="Charge per GRT (₹/GRT)")
-    cargo_handling_rate: float = Field(..., description="Cargo handling (₹/MT)")
+    port_charges_per_visit: Optional[float] = Field(default=60000.0, description="Fixed port charges (₹)")
+    grt_charge: Optional[float] = Field(default=2.5, description="Charge per GRT (₹/GRT)")
+    cargo_handling_rate: Optional[float] = Field(default=300.0, description="Cargo handling (₹/MT)")
     
     @validator('type')
     def validate_port_type(cls, v):
