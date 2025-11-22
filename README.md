@@ -2,8 +2,6 @@
 
 **An intelligent maritime logistics platform that transforms HPCL's coastal shipping operations through advanced mathematical optimization and AI-powered decision support.**
 
-RouteX Production Application: [Deploy Link Coming Soon]
-
 ![RouteX Dashboard](https://img.shields.io/badge/Status-Production%20Ready-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.0-blue) ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ---
