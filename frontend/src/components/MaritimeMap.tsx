@@ -13,31 +13,68 @@ function calculateCoastalRoute(
 ): { lat: number; lng: number }[] {
   const waypoints = [start];
   
-  // Determine if route is going north-south or needs to curve around peninsula
   const latDiff = end.lat - start.lat;
   const lngDiff = end.lng - start.lng;
   
-  // If going along west coast (Mumbai to Kochi area)
-  if (start.lat > 15 && end.lat < 12 && start.lng < 75) {
-    // Add waypoint to curve around Goa/Karnataka coast
-    waypoints.push({ lat: (start.lat + end.lat) / 2, lng: Math.min(start.lng, end.lng) - 1 });
+  // Kanyakumari coordinates (southern tip of India)
+  const southernTip = { lat: 8.0883, lng: 77.5385 };
+  
+  // Mumbai coordinates (reference for west coast)
+  const mumbaiLat = 18.9667;
+  const mumbaiLng = 72.8333;
+  
+  // Determine if we need to go around the peninsula
+  const isWestCoast = (port: { lat: number; lng: number }) => port.lng < 77;
+  const isEastCoast = (port: { lat: number; lng: number }) => port.lng > 77;
+  const isSouthernRegion = (port: { lat: number; lng: number }) => port.lat < 10;
+  
+  const startWest = isWestCoast(start);
+  const endWest = isWestCoast(end);
+  const startEast = isEastCoast(start);
+  const endEast = isEastCoast(end);
+  
+  // Case 1: West coast to East coast (or vice versa) - MUST go around southern tip
+  if ((startWest && endEast) || (startEast && endWest)) {
+    // Going from west to east
+    if (startWest && endEast) {
+      // Add waypoint offshore from southern tip (stay in ocean)
+      waypoints.push({ lat: 7.5, lng: 76.5 }); // Southwest of tip
+      waypoints.push({ lat: 7.5, lng: 77.8 }); // Southeast of tip
+    } else {
+      // Going from east to west
+      waypoints.push({ lat: 7.5, lng: 77.8 }); // Southeast of tip
+      waypoints.push({ lat: 7.5, lng: 76.5 }); // Southwest of tip
+    }
   }
-  // If going from west coast to east coast (around peninsula)
-  else if (Math.abs(lngDiff) > 8) {
-    // Add waypoint at southern tip (near Kanyakumari)
-    waypoints.push({ lat: 8.0, lng: 77.5 });
+  // Case 2: Both on same coast but crossing southern region
+  else if (startWest && endWest && (isSouthernRegion(start) || isSouthernRegion(end))) {
+    // Stay offshore along west coast
+    const offshoreOffset = -1.5; // Go 1.5 degrees into Arabian Sea
+    const midLat = (start.lat + end.lat) / 2;
+    waypoints.push({ lat: midLat, lng: Math.min(start.lng, end.lng) + offshoreOffset });
   }
-  // If going along east coast
-  else if (start.lng > 78 && end.lng > 78) {
-    // Add waypoint to follow coastline
-    waypoints.push({ lat: (start.lat + end.lat) / 2, lng: Math.max(start.lng, end.lng) + 0.5 });
+  else if (startEast && endEast && (isSouthernRegion(start) || isSouthernRegion(end))) {
+    // Stay offshore along east coast
+    const offshoreOffset = 1.5; // Go 1.5 degrees into Bay of Bengal
+    const midLat = (start.lat + end.lat) / 2;
+    waypoints.push({ lat: midLat, lng: Math.max(start.lng, end.lng) + offshoreOffset });
   }
-  // For shorter routes, add intermediate point offshore
-  else {
+  // Case 3: Long distance on same coast
+  else if (Math.abs(latDiff) > 8) {
+    if (startWest && endWest) {
+      // West coast - stay offshore in Arabian Sea
+      waypoints.push({ lat: (start.lat + end.lat) / 2, lng: Math.min(start.lng, end.lng) - 1 });
+    } else if (startEast && endEast) {
+      // East coast - stay offshore in Bay of Bengal
+      waypoints.push({ lat: (start.lat + end.lat) / 2, lng: Math.max(start.lng, end.lng) + 1 });
+    }
+  }
+  // Case 4: Shorter routes - add simple offshore waypoint
+  else if (Math.abs(latDiff) > 2 || Math.abs(lngDiff) > 2) {
     const midLat = (start.lat + end.lat) / 2;
     const midLng = (start.lng + end.lng) / 2;
-    // Offset slightly into the ocean
-    const offsetLng = midLng + (latDiff > 0 ? -0.5 : 0.5);
+    // Offset into ocean (away from land)
+    const offsetLng = startWest ? midLng - 0.8 : midLng + 0.8;
     waypoints.push({ lat: midLat, lng: offsetLng });
   }
   
@@ -268,12 +305,43 @@ export function MaritimeMap({
     const map = new google.maps.Map(mapRef.current, {
       center: { lat: 15.8, lng: 76.5 },
       zoom: 6,
-      mapTypeId: 'terrain',
+      mapTypeId: 'hybrid', // Hybrid view shows water bodies clearly
       styles: [
         {
           featureType: 'water',
           elementType: 'geometry',
-          stylers: [{ color: '#a1cce6' }]
+          stylers: [{ color: '#0D47A1' }] // Deep ocean blue
+        },
+        {
+          featureType: 'water',
+          elementType: 'labels.text.fill',
+          stylers: [{ color: '#BBDEFB' }]
+        },
+        {
+          featureType: 'landscape',
+          elementType: 'geometry',
+          stylers: [{ color: '#2E3B3B' }] // Dark land for maritime focus
+        },
+        {
+          featureType: 'landscape',
+          stylers: [{ lightness: -20 }]
+        },
+        {
+          featureType: 'road',
+          stylers: [{ visibility: 'off' }] // Hide roads - not relevant for maritime
+        },
+        {
+          featureType: 'transit',
+          stylers: [{ visibility: 'off' }] // Hide transit
+        },
+        {
+          featureType: 'poi',
+          stylers: [{ visibility: 'off' }] // Hide points of interest
+        },
+        {
+          featureType: 'administrative',
+          elementType: 'geometry.stroke',
+          stylers: [{ color: '#4A5568' }, { weight: 0.5 }] // Subtle borders
         }
       ]
     });
@@ -439,7 +507,7 @@ export function MaritimeMap({
   return (
     <div className="bg-white rounded-lg shadow-lg overflow-hidden">
       {/* Enhanced Map Header */}
-      <div className="px-6 py-4 bg-gradient-to-r from-blue-900 to-blue-700 text-white">
+      <div className="px-6 py-4 bg-linear-to-r from-blue-900 to-blue-700 text-white">
         <div className="flex justify-between items-center">
           <div>
             <h3 className="text-xl font-bold">
