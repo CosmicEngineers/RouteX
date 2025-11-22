@@ -2,47 +2,18 @@
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { HPCLVessel, HPCLPort } from './HPCLDashboard';
+import { calculateMaritimeRoute } from '../utils/jps-pathfinding';
 
 // Google Maps API Key
 const GOOGLE_MAPS_API_KEY = 'AIzaSyCPRoWBNwsGeC6TTl0149U1xKPBwq3QsLs';
 
-// Helper function to calculate coastal route between two points
+// Helper function to calculate coastal route between two points using JPS
 function calculateCoastalRoute(
   start: { lat: number; lng: number },
   end: { lat: number; lng: number }
 ): { lat: number; lng: number }[] {
-  const waypoints = [start];
-  
-  // Determine if route is going north-south or needs to curve around peninsula
-  const latDiff = end.lat - start.lat;
-  const lngDiff = end.lng - start.lng;
-  
-  // If going along west coast (Mumbai to Kochi area)
-  if (start.lat > 15 && end.lat < 12 && start.lng < 75) {
-    // Add waypoint to curve around Goa/Karnataka coast
-    waypoints.push({ lat: (start.lat + end.lat) / 2, lng: Math.min(start.lng, end.lng) - 1 });
-  }
-  // If going from west coast to east coast (around peninsula)
-  else if (Math.abs(lngDiff) > 8) {
-    // Add waypoint at southern tip (near Kanyakumari)
-    waypoints.push({ lat: 8.0, lng: 77.5 });
-  }
-  // If going along east coast
-  else if (start.lng > 78 && end.lng > 78) {
-    // Add waypoint to follow coastline
-    waypoints.push({ lat: (start.lat + end.lat) / 2, lng: Math.max(start.lng, end.lng) + 0.5 });
-  }
-  // For shorter routes, add intermediate point offshore
-  else {
-    const midLat = (start.lat + end.lat) / 2;
-    const midLng = (start.lng + end.lng) / 2;
-    // Offset slightly into the ocean
-    const offsetLng = midLng + (latDiff > 0 ? -0.5 : 0.5);
-    waypoints.push({ lat: midLat, lng: offsetLng });
-  }
-  
-  waypoints.push(end);
-  return waypoints;
+  // Use JPS pathfinding for optimal ocean route
+  return calculateMaritimeRoute(start, end);
 }
 
 interface MaritimeMapProps {
