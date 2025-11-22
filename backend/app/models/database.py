@@ -26,12 +26,25 @@ db = MongoDB()
 
 async def connect_to_mongo():
     """Create database connection"""
-    db.client = AsyncIOMotorClient(MONGODB_URL)
-    db.database = db.client[DATABASE_NAME]
-    
-    # Create indexes for performance
-    await create_indexes()
-    print(f"Connected to MongoDB: {DATABASE_NAME}")
+    try:
+        db.client = AsyncIOMotorClient(
+            MONGODB_URL,
+            serverSelectionTimeoutMS=5000,  # 5 second timeout
+            connectTimeoutMS=5000
+        )
+        db.database = db.client[DATABASE_NAME]
+        
+        # Test connection
+        await db.client.server_info()
+        
+        # Create indexes for performance
+        await create_indexes()
+        print(f"✅ Connected to MongoDB: {DATABASE_NAME}")
+    except Exception as e:
+        print(f"⚠️  MongoDB not available: {e}")
+        print("⚠️  Running without database persistence (using in-memory data)")
+        db.client = None
+        db.database = None
 
 
 async def close_mongo_connection():

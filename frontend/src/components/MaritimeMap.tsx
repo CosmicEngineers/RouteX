@@ -1,9 +1,49 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
-import DeckGL from '@deck.gl/react';
-import { ScatterplotLayer, TextLayer, ArcLayer } from '@deck.gl/layers';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { HPCLVessel, HPCLPort } from './HPCLDashboard';
+
+// Google Maps API Key
+const GOOGLE_MAPS_API_KEY = 'AIzaSyCPRoWBNwsGeC6TTl0149U1xKPBwq3QsLs';
+
+// Helper function to calculate coastal route between two points
+function calculateCoastalRoute(
+  start: { lat: number; lng: number },
+  end: { lat: number; lng: number }
+): { lat: number; lng: number }[] {
+  const waypoints = [start];
+  
+  // Determine if route is going north-south or needs to curve around peninsula
+  const latDiff = end.lat - start.lat;
+  const lngDiff = end.lng - start.lng;
+  
+  // If going along west coast (Mumbai to Kochi area)
+  if (start.lat > 15 && end.lat < 12 && start.lng < 75) {
+    // Add waypoint to curve around Goa/Karnataka coast
+    waypoints.push({ lat: (start.lat + end.lat) / 2, lng: Math.min(start.lng, end.lng) - 1 });
+  }
+  // If going from west coast to east coast (around peninsula)
+  else if (Math.abs(lngDiff) > 8) {
+    // Add waypoint at southern tip (near Kanyakumari)
+    waypoints.push({ lat: 8.0, lng: 77.5 });
+  }
+  // If going along east coast
+  else if (start.lng > 78 && end.lng > 78) {
+    // Add waypoint to follow coastline
+    waypoints.push({ lat: (start.lat + end.lat) / 2, lng: Math.max(start.lng, end.lng) + 0.5 });
+  }
+  // For shorter routes, add intermediate point offshore
+  else {
+    const midLat = (start.lat + end.lat) / 2;
+    const midLng = (start.lng + end.lng) / 2;
+    // Offset slightly into the ocean
+    const offsetLng = midLng + (latDiff > 0 ? -0.5 : 0.5);
+    waypoints.push({ lat: midLat, lng: offsetLng });
+  }
+  
+  waypoints.push(end);
+  return waypoints;
+}
 
 interface MaritimeMapProps {
   vessels: HPCLVessel[];
@@ -30,17 +70,35 @@ export function MaritimeMap({
   totalRoutes = 0,
   selectedRoutes = [] 
 }: MaritimeMapProps) {
-  const [viewState, setViewState] = useState({
-    longitude: 76.5,
-    latitude: 15.8,
-    zoom: 5.8,
-    pitch: 35,
-    bearing: 0,
-    maxZoom: 16,
-    minZoom: 4
-  });
-
+  const mapRef = useRef<HTMLDivElement>(null);
+  const googleMapRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<google.maps.Marker[]>([]);
+  const polylinesRef = useRef<google.maps.Polyline[]>([]);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [time, setTime] = useState(0);
+
+  // Load Google Maps script
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    // Check if Google Maps is already loaded
+    if (window.google && window.google.maps) {
+      setIsMapLoaded(true);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => setIsMapLoaded(true);
+    script.onerror = () => console.error('Failed to load Google Maps');
+    document.head.appendChild(script);
+
+    return () => {
+      // Cleanup if needed
+    };
+  }, []);
 
   // Animation loop for moving vessels
   useEffect(() => {
@@ -74,89 +132,86 @@ export function MaritimeMap({
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [showLiveStatus, onNextRoute, onPrevRoute, onGoToRoute, totalRoutes]);
 
-  // Enhanced HPCL Port Data with realistic coordinates
+  // Enhanced HPCL Port Data - Challenge 7.1 Specifications
   const enhancedPorts = useMemo(() => {
     const hpclPortData = [
-      // Loading Ports (6 major HPCL terminals)
-      { id: 'INMUN', name: 'Mumbai (HPCL)', type: 'loading', latitude: 18.9667, longitude: 72.8333, state: 'Maharashtra', capacity: 15000, status: 'active' },
-      { id: 'INKAN', name: 'Kandla (HPCL)', type: 'loading', latitude: 23.0333, longitude: 70.2167, state: 'Gujarat', capacity: 18000, status: 'active' },
-      { id: 'INVIZ', name: 'Visakhapatnam (HPCL)', type: 'loading', latitude: 17.7, longitude: 83.3, state: 'Andhra Pradesh', capacity: 20000, status: 'active' },
-      { id: 'INHAL', name: 'Haldia (HPCL)', type: 'loading', latitude: 22.0667, longitude: 88.1, state: 'West Bengal', capacity: 16000, status: 'active' },
-      { id: 'INPAR', name: 'Paradip (HPCL)', type: 'loading', latitude: 20.2667, longitude: 86.6167, state: 'Odisha', capacity: 14000, status: 'active' },
-      { id: 'INCHE', name: 'Chennai (HPCL)', type: 'loading', latitude: 13.0833, longitude: 80.2833, state: 'Tamil Nadu', capacity: 17000, status: 'active' },
+      // Loading Ports (L1-L6)
+      { id: 'L1', name: 'Loading Port L1', type: 'loading', latitude: 19.0, longitude: 72.8, state: 'Maharashtra', capacity: 999999, status: 'active' },
+      { id: 'L2', name: 'Loading Port L2', type: 'loading', latitude: 21.0, longitude: 72.0, state: 'Gujarat', capacity: 999999, status: 'active' },
+      { id: 'L3', name: 'Loading Port L3', type: 'loading', latitude: 20.5, longitude: 71.5, state: 'Gujarat', capacity: 999999, status: 'active' },
+      { id: 'L4', name: 'Loading Port L4', type: 'loading', latitude: 13.1, longitude: 80.3, state: 'Tamil Nadu', capacity: 999999, status: 'active' },
+      { id: 'L5', name: 'Loading Port L5', type: 'loading', latitude: 17.7, longitude: 83.3, state: 'Andhra Pradesh', capacity: 999999, status: 'active' },
+      { id: 'L6', name: 'Loading Port L6', type: 'loading', latitude: 22.5, longitude: 88.3, state: 'West Bengal', capacity: 999999, status: 'active' },
       
-      // Unloading Ports (11 distribution terminals)
-      { id: 'INKOC', name: 'Kochi Terminal', type: 'unloading', latitude: 9.9667, longitude: 76.2833, state: 'Kerala', capacity: 8000, status: 'active' },
-      { id: 'INTUT', name: 'Tuticorin Terminal', type: 'unloading', latitude: 8.8, longitude: 78.15, state: 'Tamil Nadu', capacity: 9000, status: 'active' },
-      { id: 'INCAL', name: 'Calicut Terminal', type: 'unloading', latitude: 11.25, longitude: 75.7833, state: 'Kerala', capacity: 7000, status: 'active' },
-      { id: 'INMANG', name: 'Mangalore Terminal', type: 'unloading', latitude: 12.85, longitude: 74.85, state: 'Karnataka', capacity: 10000, status: 'active' },
-      { id: 'INGOA', name: 'Goa Terminal', type: 'unloading', latitude: 15.4833, longitude: 73.8167, state: 'Goa', capacity: 6000, status: 'active' },
-      { id: 'INJNP', name: 'JNPT Terminal', type: 'unloading', latitude: 18.9333, longitude: 72.95, state: 'Maharashtra', capacity: 12000, status: 'active' },
-      { id: 'INDAH', name: 'Dahej Terminal', type: 'unloading', latitude: 21.7, longitude: 72.6, state: 'Gujarat', capacity: 11000, status: 'active' },
-      { id: 'INORK', name: 'Okha Terminal', type: 'unloading', latitude: 22.4667, longitude: 69.0833, state: 'Gujarat', capacity: 5000, status: 'active' },
-      { id: 'INENN', name: 'Ennore Terminal', type: 'unloading', latitude: 13.2167, longitude: 80.3167, state: 'Tamil Nadu', capacity: 13000, status: 'active' },
-      { id: 'INKAR', name: 'Kakinada Terminal', type: 'unloading', latitude: 16.9333, longitude: 82.2167, state: 'Andhra Pradesh', capacity: 9500, status: 'active' },
-      { id: 'INBHV', name: 'Bhavnagar Terminal', type: 'unloading', latitude: 21.7645, longitude: 72.1519, state: 'Gujarat', capacity: 8500, status: 'active' }
+      // Unloading Ports (U1-U11) with Demands
+      { id: 'U1', name: 'Unloading Port U1 (40K MT)', type: 'unloading', latitude: 18.5, longitude: 73.0, state: 'Maharashtra', capacity: 40000, status: 'active' },
+      { id: 'U2', name: 'Unloading Port U2 (135K MT)', type: 'unloading', latitude: 15.5, longitude: 73.8, state: 'Goa', capacity: 135000, status: 'active' },
+      { id: 'U3', name: 'Unloading Port U3 (5K MT)', type: 'unloading', latitude: 19.5, longitude: 72.5, state: 'Maharashtra', capacity: 5000, status: 'active' },
+      { id: 'U4', name: 'Unloading Port U4 (20K MT)', type: 'unloading', latitude: 18.0, longitude: 73.5, state: 'Maharashtra', capacity: 20000, status: 'active' },
+      { id: 'U5', name: 'Unloading Port U5 (20K MT)', type: 'unloading', latitude: 17.5, longitude: 73.0, state: 'Maharashtra', capacity: 20000, status: 'active' },
+      { id: 'U6', name: 'Unloading Port U6 (20K MT)', type: 'unloading', latitude: 16.0, longitude: 74.0, state: 'Karnataka', capacity: 20000, status: 'active' },
+      { id: 'U7', name: 'Unloading Port U7 (110K MT)', type: 'unloading', latitude: 10.0, longitude: 76.3, state: 'Kerala', capacity: 110000, status: 'active' },
+      { id: 'U8', name: 'Unloading Port U8 (30K MT)', type: 'unloading', latitude: 19.0, longitude: 72.5, state: 'Maharashtra', capacity: 30000, status: 'active' },
+      { id: 'U9', name: 'Unloading Port U9 (20K MT)', type: 'unloading', latitude: 18.2, longitude: 73.2, state: 'Maharashtra', capacity: 20000, status: 'active' },
+      { id: 'U10', name: 'Unloading Port U10 (20K MT)', type: 'unloading', latitude: 18.8, longitude: 72.9, state: 'Maharashtra', capacity: 20000, status: 'active' },
+      { id: 'U11', name: 'Unloading Port U11 (20K MT)', type: 'unloading', latitude: 15.0, longitude: 74.5, state: 'Karnataka', capacity: 20000, status: 'active' }
     ];
     return hpclPortData;
   }, []);
 
-  // Enhanced HPCL Vessel Fleet with current positions and animation
+  // Enhanced HPCL Vessel Fleet - Challenge 7.1 Specifications
   const enhancedVessels = useMemo(() => {
     return [
       { 
-        id: 'HPCL-CT-001', name: 'HPCL Coastal Spirit', capacity_mt: 32000, status: 'available', 
-        current_port: 'Mumbai (HPCL)', lat: 18.9767, lon: 72.8433, heading: 45,
-        speed: 0, fuel: 85, crew: 22, route: null
+        id: 'T1', name: 'Tanker T1 (50K MT)', capacity_mt: 50000, status: 'available', 
+        current_port: 'Loading Port L1', lat: 19.0, lon: 72.8, heading: 0,
+        speed: 0, fuel: 85, crew: 20, route: null, charter_rate: '₹0.63 Cr/day'
       },
       { 
-        id: 'HPCL-CT-002', name: 'HPCL Ocean Pride', capacity_mt: 28000, status: 'sailing', 
+        id: 'T2', name: 'Tanker T2 (50K MT)', capacity_mt: 50000, status: 'available', 
+        current_port: 'Loading Port L2', lat: 21.0, lon: 72.0, heading: 0,
+        speed: 0, fuel: 90, crew: 20, route: null, charter_rate: '₹0.49 Cr/day'
+      },
+      { 
+        id: 'T3', name: 'Tanker T3 (50K MT)', capacity_mt: 50000, status: 'available', 
+        current_port: 'Loading Port L3', lat: 20.5, lon: 71.5, heading: 0,
+        speed: 0, fuel: 88, crew: 20, route: null, charter_rate: '₹0.51 Cr/day'
+      },
+      { 
+        id: 'T4', name: 'Tanker T4 (50K MT)', capacity_mt: 50000, status: 'sailing', 
         current_port: 'En Route', 
-        lat: 20.5 + Math.sin(time * 0.5) * 0.1, 
-        lon: 71.2 + Math.cos(time * 0.3) * 0.15, 
+        lat: 16.0 + Math.sin(time * 0.3) * 0.1, 
+        lon: 75.0 + Math.cos(time * 0.4) * 0.15, 
         heading: 180 + time * 2,
-        speed: 12.5, fuel: 65, crew: 20, route: 'Mumbai → Kochi'
+        speed: 14.0, fuel: 75, crew: 20, route: 'L1 → U7', charter_rate: '₹0.51 Cr/day'
       },
       { 
-        id: 'HPCL-CT-003', name: 'HPCL Maritime Excel', capacity_mt: 35000, status: 'available', 
-        current_port: 'Visakhapatnam (HPCL)', lat: 17.7100, lon: 83.3100, heading: 0,
-        speed: 0, fuel: 95, crew: 24, route: null
+        id: 'T5', name: 'Tanker T5 (50K MT)', capacity_mt: 50000, status: 'available', 
+        current_port: 'Loading Port L5', lat: 17.7, lon: 83.3, heading: 0,
+        speed: 0, fuel: 82, crew: 20, route: null, charter_rate: '₹0.53 Cr/day'
       },
       { 
-        id: 'HPCL-CT-004', name: 'HPCL Coastal Warrior', capacity_mt: 30000, status: 'loading', 
-        current_port: 'Kandla (HPCL)', lat: 23.0433, lon: 70.2267, heading: 90,
-        speed: 0, fuel: 78, crew: 21, route: null
+        id: 'T6', name: 'Tanker T6 (50K MT)', capacity_mt: 50000, status: 'loading', 
+        current_port: 'Loading Port L6', lat: 22.5, lon: 88.3, heading: 0,
+        speed: 0, fuel: 78, crew: 20, route: null, charter_rate: '₹0.57 Cr/day'
       },
       { 
-        id: 'HPCL-CT-005', name: 'HPCL Blue Navigator', capacity_mt: 25000, status: 'maintenance', 
-        current_port: 'Chennai (HPCL)', lat: 13.0933, lon: 80.2933, heading: 0,
-        speed: 0, fuel: 45, crew: 19, route: null
+        id: 'T7', name: 'Tanker T7 (50K MT)', capacity_mt: 50000, status: 'available', 
+        current_port: 'Loading Port L4', lat: 13.1, lon: 80.3, heading: 0,
+        speed: 0, fuel: 70, crew: 20, route: null, charter_rate: '₹0.65 Cr/day'
       },
       { 
-        id: 'HPCL-CT-006', name: 'HPCL Eastern Star', capacity_mt: 33000, status: 'sailing', 
+        id: 'T8', name: 'Tanker T8 (25K MT)', capacity_mt: 25000, status: 'sailing', 
         current_port: 'En Route', 
-        lat: 19.8 + Math.sin(time * 0.4) * 0.08, 
-        lon: 85.2 + Math.cos(time * 0.6) * 0.12, 
-        heading: 225 + time * 1.5,
-        speed: 11.8, fuel: 72, crew: 23, route: 'Haldia → Chennai'
+        lat: 18.5 + Math.sin(time * 0.5) * 0.08, 
+        lon: 73.5 + Math.cos(time * 0.6) * 0.12, 
+        heading: 90 + time * 1.5,
+        speed: 13.0, fuel: 65, crew: 18, route: 'L2 → U2', charter_rate: '₹0.39 Cr/day'
       },
       { 
-        id: 'HPCL-CT-007', name: 'HPCL Western Gem', capacity_mt: 27000, status: 'unloading', 
-        current_port: 'Goa Terminal', lat: 15.4933, lon: 73.8267, heading: 0,
-        speed: 0, fuel: 68, crew: 20, route: null
-      },
-      { 
-        id: 'HPCL-CT-008', name: 'HPCL Southern Belle', capacity_mt: 29000, status: 'available', 
-        current_port: 'Tuticorin Terminal', lat: 8.8100, lon: 78.1600, heading: 0,
-        speed: 0, fuel: 88, crew: 21, route: null
-      },
-      { 
-        id: 'HPCL-CT-009', name: 'HPCL Coastal Champion', capacity_mt: 31000, status: 'sailing', 
-        current_port: 'En Route', 
-        lat: 16.2 + Math.sin(time * 0.3) * 0.06, 
-        lon: 81.8 + Math.cos(time * 0.4) * 0.1, 
-        heading: 315 + time * 1.8,
-        speed: 13.2, fuel: 55, crew: 22, route: 'Paradip → Kakinada'
+        id: 'T9', name: 'Tanker T9 (25K MT)', capacity_mt: 25000, status: 'unloading', 
+        current_port: 'Unloading Port U7', lat: 10.0, lon: 76.3, heading: 0,
+        speed: 0, fuel: 60, crew: 18, route: null, charter_rate: '₹0.38 Cr/day'
       }
     ];
   }, [time]);
@@ -206,158 +261,180 @@ export function MaritimeMap({
     ).flat();
   }, [optimizationRoutes, currentRouteIndex, showLiveStatus]);
 
-  // Create proper 3D layers for maritime visualization
-  const layers = [
-    // Completed routes (gray background)
-    new ArcLayer({
-      id: 'completed-routes',
-      data: completedRoutes,
-      pickable: false,
-      getSourcePosition: (d: any) => d.source,
-      getTargetPosition: (d: any) => d.target,
-      getSourceColor: [148, 163, 184, 120], // Gray for completed
-      getTargetColor: [148, 163, 184, 80],
-      getWidth: (d: any) => d.width || 2,
-      getHeight: 0.1,
-    }),
+  // Initialize Google Map
+  useEffect(() => {
+    if (!isMapLoaded || !mapRef.current || googleMapRef.current) return;
 
-    // Current active route (highlighted)
-    new ArcLayer({
-      id: 'current-route',
-      data: currentRouteArcs,
-      pickable: true,
-      getSourcePosition: (d: any) => d.source,
-      getTargetPosition: (d: any) => d.target,
-      getSourceColor: [59, 130, 246, 255], // Blue
-      getTargetColor: [59, 130, 246, 180],
-      getWidth: (d: any) => d.width || 6,
-      getHeight: 0.3,
-    }),
-
-    // Port markers (enhanced for route visualization)
-    new ScatterplotLayer({
-      id: 'ports',
-      data: enhancedPorts,
-      pickable: true,
-      opacity: 0.95,
-      stroked: true,
-      filled: true,
-      radiusScale: 1,
-      radiusMinPixels: 10,
-      radiusMaxPixels: 35,
-      lineWidthMinPixels: 2,
-      getPosition: (d: any) => [d.longitude, d.latitude, d.type === 'loading' ? 1500 : 800],
-      getRadius: (d: any) => {
-        // Highlight ports in current route
-        if (currentRoute && !showLiveStatus) {
-          const isInRoute = currentRoute.route.some((step: any) => step.port === d.name);
-          return isInRoute ? Math.sqrt(d.capacity || 10000) * 20 : Math.sqrt(d.capacity || 10000) * 12;
+    const map = new google.maps.Map(mapRef.current, {
+      center: { lat: 15.8, lng: 76.5 },
+      zoom: 6,
+      mapTypeId: 'terrain',
+      styles: [
+        {
+          featureType: 'water',
+          elementType: 'geometry',
+          stylers: [{ color: '#a1cce6' }]
         }
-        return Math.sqrt(d.capacity || 10000) * 15;
-      },
-      getFillColor: (d: any) => {
-        // Highlight ports in current route
-        if (currentRoute && !showLiveStatus) {
-          const isInRoute = currentRoute.route.some((step: any) => step.port === d.name);
-          if (isInRoute) {
-            return d.type === 'loading' ? [255, 215, 0, 255] : [255, 165, 0, 255]; // Gold highlight
-          }
-        }
-        return d.type === 'loading' 
-          ? [34, 197, 94, 255]   // Green for loading ports
-          : [59, 130, 246, 255]; // Blue for unloading ports
-      },
-      getLineColor: [255, 255, 255, 255],
-    }),
+      ]
+    });
 
-    // Vessel markers (show current vessel if in route mode)
-    new ScatterplotLayer({
-      id: 'vessels',
-      data: showLiveStatus ? enhancedVessels : (currentRoute ? [{
-        ...enhancedVessels.find(v => v.id === currentRoute.vessel),
-        lat: currentRoute.route[0].lat,
-        lon: currentRoute.route[0].lon,
-        highlighted: true
-      }] : enhancedVessels),
-      pickable: true,
-      opacity: 1.0,
-      stroked: true,
-      filled: true,
-      radiusScale: 1,
-      radiusMinPixels: 8,
-      radiusMaxPixels: 30,
-      lineWidthMinPixels: 3,
-      getPosition: (d: any) => [d.lon, d.lat, d.highlighted ? 800 : (d.status === 'sailing' ? 500 : 200)],
-      getRadius: (d: any) => d.highlighted ? 25 : Math.sqrt(d.capacity_mt) * 8,
-      getFillColor: (d: any) => {
-        if (d.highlighted) return [255, 215, 0, 255]; // Gold for highlighted vessel
+    googleMapRef.current = map;
+  }, [isMapLoaded]);
+
+  // Update markers and routes
+  useEffect(() => {
+    if (!googleMapRef.current || !isMapLoaded) return;
+
+    // Clear existing markers and polylines
+    markersRef.current.forEach(marker => marker.setMap(null));
+    polylinesRef.current.forEach(polyline => polyline.setMap(null));
+    markersRef.current = [];
+    polylinesRef.current = [];
+
+    const map = googleMapRef.current;
+
+    // Add port markers
+    enhancedPorts.forEach(port => {
+      const isInRoute = currentRoute && !showLiveStatus && 
+        currentRoute.route.some((step: any) => step.port === port.name);
+      
+      const marker = new google.maps.Marker({
+        position: { lat: port.latitude, lng: port.longitude },
+        map: map,
+        title: port.name,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: isInRoute ? 10 : 7,
+          fillColor: isInRoute ? '#FCD34D' : (port.type === 'loading' ? '#4ADE80' : '#60A5FA'),
+          fillOpacity: 1,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 2
+        }
+      });
+
+      const infoWindow = new google.maps.InfoWindow({
+        content: `
+          <div style="padding: 8px;">
+            <h3 style="margin: 0 0 8px 0; font-weight: bold; color: #1e40af;">
+              ${port.name.replace(' (HPCL)', '').replace(' Terminal', '')}
+            </h3>
+            <p style="margin: 4px 0; font-size: 13px;"><strong>Type:</strong> ${port.type === 'loading' ? 'Loading Port' : 'Unloading Port'}</p>
+            <p style="margin: 4px 0; font-size: 13px;"><strong>State:</strong> ${port.state}</p>
+            <p style="margin: 4px 0; font-size: 13px;"><strong>Capacity:</strong> ${port.capacity.toLocaleString()} MT</p>
+            <p style="margin: 4px 0; font-size: 13px;"><strong>Status:</strong> <span style="color: #059669;">${port.status}</span></p>
+          </div>
+        `
+      });
+
+      marker.addListener('click', () => {
+        infoWindow.open(map, marker);
+      });
+
+      markersRef.current.push(marker);
+    });
+
+    // Add vessel markers
+    const visibleVessels = showLiveStatus ? enhancedVessels : 
+      (currentRoute ? enhancedVessels.filter(v => v.id === currentRoute.vessel) : enhancedVessels);
+
+    visibleVessels.forEach(vessel => {
+      const marker = new google.maps.Marker({
+        position: { lat: vessel.lat, lng: vessel.lon },
+        map: map,
+        title: vessel.name,
+        icon: {
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+              <text x="16" y="24" font-size="24" text-anchor="middle">🚢</text>
+            </svg>
+          `),
+          scaledSize: new google.maps.Size(32, 32),
+          anchor: new google.maps.Point(16, 16)
+        }
+      });
+
+      const statusColor = {
+        available: '#10b981',
+        sailing: '#3b82f6',
+        loading: '#f59e0b',
+        unloading: '#a855f7',
+        maintenance: '#ef4444'
+      }[vessel.status] || '#6b7280';
+
+      const infoWindow = new google.maps.InfoWindow({
+        content: `
+          <div style="padding: 8px; min-width: 200px;">
+            <h3 style="margin: 0 0 8px 0; font-weight: bold; color: #1e40af;">
+              ${vessel.name}
+            </h3>
+            <p style="margin: 4px 0; font-size: 13px;"><strong>Status:</strong> <span style="color: ${statusColor}; text-transform: capitalize;">${vessel.status}</span></p>
+            <p style="margin: 4px 0; font-size: 13px;"><strong>Capacity:</strong> ${vessel.capacity_mt.toLocaleString()} MT</p>
+            ${vessel.charter_rate ? `<p style="margin: 4px 0; font-size: 13px;"><strong>Charter Rate:</strong> ${vessel.charter_rate}</p>` : ''}
+            <p style="margin: 4px 0; font-size: 13px;"><strong>Speed:</strong> ${vessel.speed} knots</p>
+            <p style="margin: 4px 0; font-size: 13px;"><strong>Fuel:</strong> ${vessel.fuel}%</p>
+            <p style="margin: 4px 0; font-size: 13px;"><strong>Crew:</strong> ${vessel.crew}</p>
+            ${vessel.route ? `<p style="margin: 4px 0; font-size: 13px;"><strong>Route:</strong> ${vessel.route}</p>` : ''}
+          </div>
+        `
+      });
+
+      marker.addListener('click', () => {
+        infoWindow.open(map, marker);
+      });
+
+      markersRef.current.push(marker);
+    });
+
+    // Draw route polylines with coastal routing
+    if (currentRoute && !showLiveStatus) {
+      // Create route segments with coastal waypoints
+      for (let i = 0; i < currentRoute.route.length - 1; i++) {
+        const start = currentRoute.route[i];
+        const end = currentRoute.route[i + 1];
         
-        switch (d.status) {
-          case 'available': return [34, 197, 94, 255];   // Green
-          case 'sailing': return [59, 130, 246, 255];    // Blue  
-          case 'loading': return [251, 191, 36, 255];    // Yellow
-          case 'unloading': return [168, 85, 247, 255];  // Purple
-          case 'maintenance': return [239, 68, 68, 255]; // Red
-          default: return [156, 163, 175, 255];          // Gray
-        }
-      },
-      getLineColor: [255, 255, 255, 255],
-      updateTriggers: {
-        getFillColor: [enhancedVessels, currentRoute, showLiveStatus],
-        getPosition: [enhancedVessels, currentRoute, showLiveStatus],
-        getRadius: [enhancedVessels, currentRoute, showLiveStatus]
+        // Calculate intermediate coastal waypoints to avoid land
+        const waypoints = calculateCoastalRoute(
+          { lat: start.lat, lng: start.lon },
+          { lat: end.lat, lng: end.lon }
+        );
+
+        const polyline = new google.maps.Polyline({
+          path: waypoints,
+          geodesic: true,
+          strokeColor: '#FCD34D',
+          strokeOpacity: 0.8,
+          strokeWeight: 4,
+          icons: [{
+            icon: {
+              path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+              scale: 3,
+              strokeColor: '#FCD34D'
+            },
+            offset: '100%',
+            repeat: '150px'
+          }]
+        });
+
+        polyline.setMap(map);
+        polylinesRef.current.push(polyline);
       }
-    }),
+    }
 
-    // Port labels (clear and readable)
-    new TextLayer({
-      id: 'port-labels',
-      data: enhancedPorts,
-      pickable: false,
-      getPosition: (d: any) => [d.longitude, d.latitude + 0.15, 2000],
-      getText: (d: any) => d.name.replace(' (HPCL)', '').replace(' Terminal', ''),
-      getSize: (d: any) => {
-        // Larger text for ports in current route
-        if (currentRoute && !showLiveStatus) {
-          const isInRoute = currentRoute.route.some((step: any) => step.port === d.name);
-          return isInRoute ? 18 : 14;
-        }
-        return 16;
-      },
-      getColor: (d: any) => {
-        // Highlight text for ports in current route
-        if (currentRoute && !showLiveStatus) {
-          const isInRoute = currentRoute.route.some((step: any) => step.port === d.name);
-          return isInRoute ? [255, 215, 0, 255] : [255, 255, 255, 255];
-        }
-        return [255, 255, 255, 255];
-      },
-      getAngle: 0,
-      getTextAnchor: 'middle',
-      getAlignmentBaseline: 'center',
-      fontFamily: 'Arial, sans-serif'
-    }),
+  }, [enhancedPorts, currentRoute, showLiveStatus, isMapLoaded, currentRouteIndex]);
 
-    // Vessel labels (ship names)
-    new TextLayer({
-      id: 'vessel-labels',
-      data: showLiveStatus ? enhancedVessels : (currentRoute ? [{
-        ...enhancedVessels.find(v => v.id === currentRoute.vessel),
-        lat: currentRoute.route[0].lat,
-        lon: currentRoute.route[0].lon,
-        highlighted: true
-      }] : enhancedVessels),
-      pickable: false,
-      getPosition: (d: any) => [d.lon, d.lat - 0.08, 700],
-      getText: (d: any) => d.highlighted ? `${d.name.replace('HPCL ', '')} (ACTIVE)` : d.name.replace('HPCL ', ''),
-      getSize: (d: any) => d.highlighted ? 14 : 12,
-      getColor: (d: any) => d.highlighted ? [255, 215, 0, 255] : [255, 255, 255, 220],
-      getAngle: 0,
-      getTextAnchor: 'middle',
-      getAlignmentBaseline: 'center',
-      fontFamily: 'Arial, sans-serif'
-    })
-  ];
+  // Separate effect to update vessel positions without recreating markers
+  useEffect(() => {
+    if (!googleMapRef.current || !isMapLoaded || markersRef.current.length === 0) return;
+    
+    // Only update existing vessel marker positions, don't recreate them
+    const portCount = enhancedPorts.length;
+    enhancedVessels.forEach((vessel, index) => {
+      const markerIndex = portCount + index;
+      if (markersRef.current[markerIndex]) {
+        markersRef.current[markerIndex].setPosition({ lat: vessel.lat, lng: vessel.lon });
+      }
+    });
+  }, [enhancedVessels, enhancedPorts.length, isMapLoaded]);
 
   return (
     <div className="bg-white rounded-lg shadow-lg overflow-hidden">
@@ -366,7 +443,7 @@ export function MaritimeMap({
         <div className="flex justify-between items-center">
           <div>
             <h3 className="text-xl font-bold">
-              {showLiveStatus ? 'HPCL Live Fleet Status' : 'HPCL Optimized Route Visualization'}
+              {showLiveStatus ? 'HPCL Live Fleet Status' : 'HPCL Route Visualization'}
             </h3>
             <p className="text-blue-100 text-sm">
               {showLiveStatus 
@@ -395,221 +472,66 @@ export function MaritimeMap({
               <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
               <span>Unloading Ports</span>
             </div>
-            {!showLiveStatus && (
-              <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
-                <span>Current Route</span>
-              </div>
-            )}
           </div>
         </div>
       </div>
 
-      {/* 3D Map Container with Ocean Background */}
-      <div className="relative h-[600px] bg-gradient-to-b from-blue-400 via-blue-600 to-blue-900">
-        <DeckGL
-          viewState={viewState}
-          onViewStateChange={(info: any) => setViewState(info.viewState)}
-          controller={{
-            touchRotate: true,
-            touchZoom: true,
-            dragRotate: true,
-            keyboard: true
-          }}
-          layers={layers}
-          style={{width: '100%', height: '100%'}}
-          getCursor={({isDragging, isHovering}) => 
-            isDragging ? 'grabbing' : isHovering ? 'pointer' : 'grab'
-          }
-        >
-          {/* Ocean Background with Indian coastline approximation */}
-          <div 
-            style={{
-              width: '100%',
-              height: '100%',
-              background: `
-                radial-gradient(ellipse at 30% 40%, rgba(139, 69, 19, 0.8) 0%, transparent 25%),
-                radial-gradient(ellipse at 85% 20%, rgba(139, 69, 19, 0.7) 0%, transparent 20%),
-                radial-gradient(ellipse at 90% 80%, rgba(139, 69, 19, 0.6) 0%, transparent 15%),
-                radial-gradient(ellipse at 15% 85%, rgba(139, 69, 19, 0.7) 0%, transparent 18%),
-                linear-gradient(180deg, #3B82F6 0%, #1E40AF 50%, #1E3A8A 100%)
-              `,
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              zIndex: -1
-            }}
-          >
-            {/* Ocean wave texture overlay */}
-            <div 
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(255,255,255,0.03) 8px, rgba(255,255,255,0.03) 16px)',
-                opacity: 0.4
-              }}
-            />
-            
-            {/* Additional depth effect */}
-            <div 
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.1) 70%)',
-              }}
-            />
-          </div>
-        </DeckGL>
-
-        {/* Map Controls */}
-        <div className="absolute top-4 right-4 space-y-2 z-10">
-          <button 
-            onClick={() => setViewState({...viewState, pitch: viewState.pitch === 0 ? 60 : 0})}
-            className="bg-white/90 hover:bg-white px-3 py-2 rounded-lg shadow text-sm font-medium transition-all"
-          >
-            {viewState.pitch === 0 ? '3D View' : '2D View'}
-          </button>
-          <button 
-            onClick={() => setViewState({
-              longitude: 76.5,
-              latitude: 15.8,
-              zoom: 5.8,
-              pitch: 35,
-              bearing: 0,
-              maxZoom: 16,
-              minZoom: 4
-            })}
-            className="bg-white/90 hover:bg-white px-3 py-2 rounded-lg shadow text-sm font-medium transition-all block"
-          >
-            Reset View
-          </button>
-          <button 
-            onClick={() => setViewState({...viewState, bearing: viewState.bearing + 45})}
-            className="bg-white/90 hover:bg-white px-3 py-2 rounded-lg shadow text-sm font-medium transition-all block"
-          >
-            Rotate
-          </button>
-        </div>
-
-        {/* Route Navigation Controls - Only show in route mode */}
-        {!showLiveStatus && optimizationRoutes.length > 0 && (
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
-            <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-4 min-w-96">
-              <div className="flex items-center justify-between space-x-4">
-                {/* Previous Button */}
-                <button
-                  onClick={onPrevRoute}
-                  disabled={currentRouteIndex <= 0}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center space-x-2 ${
-                    currentRouteIndex <= 0 
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                      : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  <span>Previous</span>
-                </button>
-
-                {/* Route Info */}
-                <div className="text-center flex-1">
-                  <div className="text-sm text-gray-600 mb-1">
-                    Route {(currentRouteIndex + 1)} of {totalRoutes}
-                  </div>
-                  {currentRoute && (
-                    <div className="text-xs text-gray-500">
-                      {currentRoute.description}
-                    </div>
-                  )}
-                  
-                  {/* Progress Dots */}
-                  <div className="flex justify-center space-x-2 mt-2">
-                    {optimizationRoutes.map((_, index) => (
-                      <button
-                        key={index}
-                        onClick={() => onGoToRoute && onGoToRoute(index)}
-                        className={`w-2 h-2 rounded-full transition-all ${
-                          index === currentRouteIndex 
-                            ? 'bg-blue-600' 
-                            : index < currentRouteIndex
-                              ? 'bg-green-400'
-                              : 'bg-gray-300'
-                        }`}
-                        title={`Go to Route ${index + 1}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Next Button */}
-                <button
-                  onClick={onNextRoute}
-                  disabled={currentRouteIndex >= totalRoutes - 1}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center space-x-2 ${
-                    currentRouteIndex >= totalRoutes - 1
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                      : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                  }`}
-                >
-                  <span>Next</span>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Route Details */}
-              {currentRoute && (
-                <div className="mt-3 pt-3 border-t border-gray-200">
-                  <div className="grid grid-cols-3 gap-4 text-xs">
-                    <div className="text-center">
-                      <div className="font-semibold text-green-600">₹{(currentRoute.cost / 100000).toFixed(0)}L</div>
-                      <div className="text-gray-500">Cost</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-semibold text-blue-600">{currentRoute.duration} days</div>
-                      <div className="text-gray-500">Duration</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-semibold text-purple-600">{currentRoute.cargo.toLocaleString()} MT</div>
-                      <div className="text-gray-500">Cargo</div>
-                    </div>
-                  </div>
-                </div>
-              )}
+      {/* Google Maps View */}
+      <div className="relative h-[600px] bg-gray-100">
+        {!isMapLoaded && (
+          <div className="absolute inset-0 flex items-center justify-center bg-blue-50">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading Google Maps...</p>
             </div>
           </div>
         )}
-
-        {/* Fleet Info Overlay */}
-        <div className="absolute bottom-4 left-4 bg-black/70 text-white p-3 rounded-lg text-sm z-10">
-          <div className="font-bold text-green-400">⚓ {showLiveStatus ? 'Live Fleet Status' : 'Route Progress'}</div>
-          <div className="space-y-1 mt-2 text-xs">
-            {showLiveStatus ? (
-              <>
-                <div>🚢 {enhancedVessels.filter(v => v.status === 'sailing').length} vessels at sea</div>
-                <div>🏭 {enhancedVessels.filter(v => v.status === 'loading').length} loading operations</div>
-                <div>🔧 {enhancedVessels.filter(v => v.status === 'maintenance').length} in maintenance</div>
-              </>
-            ) : (
-              <>
-                <div>📍 Step {(currentRouteIndex + 1)} of {totalRoutes}</div>
-                <div>💰 Total Saved: ₹{((48000000 - 90000000) / 100000 * -1).toFixed(0)}L</div>
-                <div>⌨️ Use arrow keys or buttons to navigate</div>
-              </>
-            )}
-          </div>
-        </div>
+        <div ref={mapRef} className="w-full h-full"></div>
       </div>
 
-      {/* Enhanced Fleet Statistics */}
+      {/* Route Navigation Controls - Only show in route mode */}
+      {!showLiveStatus && optimizationRoutes.length > 0 && (
+        <div className="px-6 py-4 bg-gray-50 border-t">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={onPrevRoute}
+              disabled={currentRouteIndex <= 0}
+              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                currentRouteIndex <= 0 
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+                  : 'bg-blue-500 text-white hover:bg-blue-600'
+              }`}
+            >
+              ← Previous
+            </button>
+            
+            <div className="text-center">
+              <div className="text-sm font-semibold">
+                Route {(currentRouteIndex + 1)} of {totalRoutes}
+              </div>
+              {currentRoute && (
+                <div className="text-xs text-gray-500 mt-1">
+                  {currentRoute.description}
+                </div>
+              )}
+            </div>
+            
+            <button
+              onClick={onNextRoute}
+              disabled={currentRouteIndex >= totalRoutes - 1}
+              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                currentRouteIndex >= totalRoutes - 1
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+                  : 'bg-blue-500 text-white hover:bg-blue-600'
+              }`}
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Fleet Statistics */}
       <div className="px-6 py-4 bg-gray-50 border-t">
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm">
           <div className="text-center">
@@ -638,14 +560,7 @@ export function MaritimeMap({
           </div>
         </div>
       </div>
-
-      {/* Add CSS animation */}
-      <style jsx>{`
-        @keyframes wave {
-          0% { transform: translateX(-20px); }
-          100% { transform: translateX(20px); }
-        }
-      `}</style>
     </div>
   );
 }
+

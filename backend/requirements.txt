@@ -1,11 +1,12 @@
 # FastAPI and ASGI
-fastapi==0.117.1
-uvicorn==0.37.0
-pydantic==2.11.9
+fastapi>=0.117.1
+uvicorn>=0.37.0
+pydantic>=2.11.0
 
 # Optimization and OR-Tools
-ortools==9.14.6206
-pulp==2.9.0
+# ortools==9.14.6206  # Not available for Python 3.14, using compatible alternative
+ortools>=9.0.0
+pulp>=2.9.0
 numpy>=1.26.0
 
 # Maritime routing

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Ship, Wifi, WifiOff, AlertTriangle, CheckCircle } from 'lucide-react';
 
 interface HPCLHeaderProps {
@@ -9,6 +9,28 @@ interface HPCLHeaderProps {
 }
 
 export function HPCLHeader({ systemStatus, isOptimizing }: HPCLHeaderProps) {
+  const [currentTime, setCurrentTime] = useState('');
+  const [currentDate, setCurrentDate] = useState('');
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setCurrentTime(now.toLocaleTimeString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        hour12: false
+      }));
+      setCurrentDate(now.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      }));
+    };
+
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const getStatusIcon = () => {
     switch (systemStatus) {
       case 'connected':
@@ -91,17 +113,10 @@ export function HPCLHeader({ systemStatus, isOptimizing }: HPCLHeaderProps) {
             {/* Current Time */}
             <div className="hidden lg:block text-right">
               <div className="text-sm font-medium text-gray-900">
-                {new Date().toLocaleTimeString('en-IN', {
-                  timeZone: 'Asia/Kolkata',
-                  hour12: false
-                })} IST
+                {currentTime} IST
               </div>
               <div className="text-xs text-gray-500">
-                {new Date().toLocaleDateString('en-IN', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric'
-                })}
+                {currentDate}
               </div>
             </div>
           </div>

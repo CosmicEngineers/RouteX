@@ -7,6 +7,7 @@ import { FleetOverview } from './FleetOverview';
 import { OptimizationPanel } from './OptimizationPanel';
 import { MaritimeMap } from './MaritimeMap';
 import { ResultsDisplay } from './ResultsDisplay';
+import { ChallengeOutput } from './ChallengeOutput';
 
 export interface HPCLVessel {
   id: string;
@@ -40,7 +41,7 @@ export default function HPCLDashboard() {
   const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [systemStatus, setSystemStatus] = useState<'connecting' | 'connected' | 'error'>('connected');
-  const [activeTab, setActiveTab] = useState<'overview' | 'optimize' | 'results' | 'analytics'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'optimize' | 'results' | 'analytics' | 'challenge'>('challenge');
 
   // Route visualization states
   const [currentRouteIndex, setCurrentRouteIndex] = useState(0);
@@ -230,9 +231,10 @@ export default function HPCLDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex space-x-8">
             {[
+              { id: 'challenge', name: 'Challenge Output', icon: BarChart3 },
               { id: 'overview', name: 'Fleet Overview', icon: Ship },
               { id: 'optimize', name: 'Optimization', icon: Settings },
-              { id: 'results', name: 'Results', icon: BarChart3 },
+              { id: 'results', name: 'Results', icon: CheckCircle },
               { id: 'analytics', name: 'Analytics', icon: Activity }
             ].map(({ id, name, icon: Icon }) => (
               <button
@@ -438,6 +440,12 @@ export default function HPCLDashboard() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'challenge' && (
+          <div className="space-y-6">
+            <ChallengeOutput />
           </div>
         )}
       </div>

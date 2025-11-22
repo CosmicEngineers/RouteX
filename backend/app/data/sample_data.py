@@ -9,17 +9,55 @@ from datetime import datetime, timedelta
 import random
 
 from ..models.schemas import HPCLVessel, HPCLPort, MonthlyDemand
+from .challenge_data import (
+    get_challenge_vessels,
+    get_challenge_loading_ports,
+    get_challenge_unloading_ports,
+    get_monthly_demands,
+    get_challenge_trip_times_load_to_unload,
+    get_challenge_trip_times_unload_to_unload
+)
 
 
 def generate_hpcl_sample_data() -> Dict[str, List[Dict]]:
     """
+    Generate comprehensive sample data for HPCL coastal tanker operations
+    Now using Challenge 7.1 exact specifications
+    
+    Returns:
+        Dictionary containing vessels, ports, and demand data
+    """
+    
+    # Use Challenge 7.1 data
+    vessels_data = get_challenge_vessels()
+    loading_ports_data = get_challenge_loading_ports()
+    unloading_ports_data = get_challenge_unloading_ports()
+    monthly_demands = get_monthly_demands()
+    
+    # Combine all ports
+    ports_data = loading_ports_data + unloading_ports_data
+    
+    return {
+        "vessels": vessels_data,
+        "ports": ports_data,
+        "loading_ports": loading_ports_data,
+        "unloading_ports": unloading_ports_data,
+        "demands": monthly_demands,
+        "trip_times_load_unload": get_challenge_trip_times_load_to_unload(),
+        "trip_times_unload_unload": get_challenge_trip_times_unload_to_unload()
+    }
+
+
+def generate_hpcl_sample_data_old() -> Dict[str, List[Dict]]:
+    """
+    OLD DEMO DATA - Keep for reference
     Generate comprehensive sample data for HPCL coastal tanker operations
     
     Returns:
         Dictionary containing vessels, ports, and demand data
     """
     
-    # HPCL's 9-vessel coastal tanker fleet
+    # HPCL's 9-vessel coastal tanker fleet (OLD DEMO DATA)
     vessels_data = [
         {
             "id": "HPCL-CT-001",

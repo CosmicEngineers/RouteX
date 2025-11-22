@@ -3,7 +3,12 @@ HPCL Coastal Tanker Optimization - CP-SAT Optimization Engine
 OR-Tools CP-SAT solver for HPCL's Set Partitioning Problem
 """
 
-from ortools.sat.python import cp_model
+try:
+    from ortools.sat.python import cp_model
+except ImportError:
+    # Fallback to mock for Python 3.14 compatibility
+    from .ortools_mock import cp_model
+    
 from typing import List, Dict, Any, Optional, Tuple
 import time
 import logging

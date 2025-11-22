@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from typing import List, Dict, Any
 
 from .api.routes import router as api_router
+from .api.challenge_routes import router as challenge_router
 from .models.database import connect_to_mongo, close_mongo_connection, check_database_health
 from .core.config import get_settings
 
@@ -109,6 +110,7 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(api_router, prefix="/api/v1")
+app.include_router(challenge_router, prefix="/api/v1")  # Challenge 7.1 specific endpoints
 
 
 @app.get("/", tags=["Root"])
