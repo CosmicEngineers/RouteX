@@ -146,9 +146,10 @@ export function ChallengeOutput() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow-lg p-6">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 to-blue-50">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-lg p-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Challenge 7.1: Coastal Vessel Optimization</h2>
@@ -192,7 +193,7 @@ export function ChallengeOutput() {
       {showInputs && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Tankers Input */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-lg p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Tanker Fleet (9 Vessels)</h3>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -235,7 +236,7 @@ export function ChallengeOutput() {
           </div>
 
           {/* Demands Input */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-lg p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Unloading Port Demands</h3>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -268,7 +269,7 @@ export function ChallengeOutput() {
           </div>
 
           {/* Loading Ports Info */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Loading Ports (6 Ports)</h3>
             <div className="space-y-2">
               {loadingPorts.map((port) => (
@@ -282,11 +283,11 @@ export function ChallengeOutput() {
           </div>
 
           {/* Constraints Info */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-lg p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Operational Constraints</h3>
             <div className="space-y-3">
               <div className="flex items-start">
-                <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mt-0.5">
+                <div className="shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mt-0.5">
                   <span className="text-blue-600 text-xs font-bold">1</span>
                 </div>
                 <div className="ml-3">
@@ -295,7 +296,7 @@ export function ChallengeOutput() {
                 </div>
               </div>
               <div className="flex items-start">
-                <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mt-0.5">
+                <div className="shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mt-0.5">
                   <span className="text-blue-600 text-xs font-bold">2</span>
                 </div>
                 <div className="ml-3">
@@ -304,7 +305,7 @@ export function ChallengeOutput() {
                 </div>
               </div>
               <div className="flex items-start">
-                <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mt-0.5">
+                <div className="shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mt-0.5">
                   <span className="text-blue-600 text-xs font-bold">3</span>
                 </div>
                 <div className="ml-3">
@@ -313,7 +314,7 @@ export function ChallengeOutput() {
                 </div>
               </div>
               <div className="flex items-start">
-                <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mt-0.5">
+                <div className="shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mt-0.5">
                   <span className="text-blue-600 text-xs font-bold">4</span>
                 </div>
                 <div className="ml-3">
@@ -327,7 +328,7 @@ export function ChallengeOutput() {
       )}
 
       {/* Results Section */}
-      <div className="bg-white rounded-lg shadow-lg p-6">
+      <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-lg p-6">
 
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -439,6 +440,7 @@ export function ChallengeOutput() {
             <p className="mt-4 text-gray-600">Click "Run Optimization" to generate results</p>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

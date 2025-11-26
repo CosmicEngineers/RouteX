@@ -82,23 +82,23 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-600">Loading Ports</span>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-3">
               <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <span className="font-semibold">{loadingPorts}</span>
+              <span className="font-semibold min-w-8 text-right">{loadingPorts}</span>
             </div>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-600">Unloading Ports</span>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-3">
               <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-              <span className="font-semibold">{unloadingPorts}</span>
+              <span className="font-semibold min-w-8 text-right">{unloadingPorts}</span>
             </div>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-600">Total Network</span>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-3">
               <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-              <span className="font-semibold">{ports.length}</span>
+              <span className="font-semibold min-w-8 text-right">{ports.length}</span>
             </div>
           </div>
         </div>

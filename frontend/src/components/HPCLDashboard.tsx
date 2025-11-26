@@ -391,55 +391,454 @@ export default function HPCLDashboard() {
         )}
 
         {activeTab === 'analytics' && (
+          <div className="space-y-6">
+          {/* Top Metrics Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Analytics placeholders */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-green-100 rounded-md">
-                  <DollarSign className="h-6 w-6 text-green-600" />
+            {/* Analytics with Progress Indicators */}
+            <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center">
+                  <div className="p-2 bg-green-100 rounded-md">
+                    <DollarSign className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Cost Savings</p>
+                    <p className="text-2xl font-semibold text-gray-900">₹15.2L</p>
+                  </div>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Cost Savings</p>
-                  <p className="text-2xl font-semibold text-gray-900">₹15.2L</p>
+              </div>
+              <div className="mt-4">
+                <div className="flex justify-between text-xs text-gray-500 mb-1">
+                  <span>Target: ₹20L</span>
+                  <span>76%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="bg-green-600 h-2 rounded-full transition-all duration-1000" style={{ width: '76%' }}></div>
                 </div>
               </div>
             </div>
             
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-blue-100 rounded-md">
-                  <Fuel className="h-6 w-6 text-blue-600" />
+            <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center">
+                  <div className="p-2 bg-blue-100 rounded-md">
+                    <Fuel className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Fuel Efficiency</p>
+                    <p className="text-2xl font-semibold text-gray-900">23.8MT/day</p>
+                  </div>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Fuel Efficiency</p>
-                  <p className="text-2xl font-semibold text-gray-900">23.8MT/day</p>
+              </div>
+              <div className="mt-4">
+                <div className="flex justify-between text-xs text-gray-500 mb-1">
+                  <span>Industry Avg: 28MT</span>
+                  <span>85%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="bg-blue-600 h-2 rounded-full transition-all duration-1000" style={{ width: '85%' }}></div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-orange-100 rounded-md">
-                  <Activity className="h-6 w-6 text-orange-600" />
+            <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center">
+                  <div className="p-2 bg-orange-100 rounded-md">
+                    <Activity className="h-6 w-6 text-orange-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Fleet Utilization</p>
+                    <p className="text-2xl font-semibold text-gray-900">87.5%</p>
+                  </div>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Fleet Utilization</p>
-                  <p className="text-2xl font-semibold text-gray-900">87.5%</p>
+              </div>
+              <div className="mt-4">
+                <div className="flex justify-between text-xs text-gray-500 mb-1">
+                  <span>Optimal: 90%</span>
+                  <span>87.5%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="bg-orange-600 h-2 rounded-full transition-all duration-1000" style={{ width: '87.5%' }}></div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-purple-100 rounded-md">
-                  <BarChart3 className="h-6 w-6 text-purple-600" />
+            <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center">
+                  <div className="p-2 bg-purple-100 rounded-md">
+                    <BarChart3 className="h-6 w-6 text-purple-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Demand Satisfaction</p>
+                    <p className="text-2xl font-semibold text-gray-900">98.2%</p>
+                  </div>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Demand Satisfaction</p>
-                  <p className="text-2xl font-semibold text-gray-900">98.2%</p>
+              </div>
+              <div className="mt-4">
+                <div className="flex justify-between text-xs text-gray-500 mb-1">
+                  <span>Target: 100%</span>
+                  <span>98.2%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="bg-purple-600 h-2 rounded-full transition-all duration-1000" style={{ width: '98.2%' }}></div>
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Cost Breakdown and Vessel Performance Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Cost Breakdown Chart */}
+            <div className="bg-linear-to-br from-blue-50 via-white to-blue-50 rounded-lg shadow-lg border border-blue-100 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Cost Breakdown Analysis</h3>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600">Fuel Costs</span>
+                    <span className="font-semibold text-gray-900">₹8.5L (56%)</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div className="bg-blue-500 h-3 rounded-full" style={{ width: '56%' }}></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600">Charter Costs</span>
+                    <span className="font-semibold text-gray-900">₹4.2L (28%)</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div className="bg-green-500 h-3 rounded-full" style={{ width: '28%' }}></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600">Port Charges</span>
+                    <span className="font-semibold text-gray-900">₹1.8L (12%)</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div className="bg-orange-500 h-3 rounded-full" style={{ width: '12%' }}></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600">Operational Costs</span>
+                    <span className="font-semibold text-gray-900">₹0.7L (4%)</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div className="bg-purple-500 h-3 rounded-full" style={{ width: '4%' }}></div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium text-gray-900">Total Monthly Cost</span>
+                  <span className="text-lg font-bold text-gray-900">₹15.2L</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Top Performing Vessels */}
+            <div className="bg-linear-to-br from-green-50 via-white to-green-50 rounded-lg shadow-lg border border-green-100 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Performing Vessels</h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <div>
+                    <p className="font-semibold text-gray-900">HPCL-CT-003</p>
+                    <p className="text-xs text-gray-600">Maritime Excel</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-green-600">95.2% Efficiency</p>
+                    <p className="text-xs text-gray-600">4 trips/month</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <div>
+                    <p className="font-semibold text-gray-900">HPCL-CT-001</p>
+                    <p className="text-xs text-gray-600">Coastal Spirit</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-blue-600">92.8% Efficiency</p>
+                    <p className="text-xs text-gray-600">3 trips/month</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
+                  <div>
+                    <p className="font-semibold text-gray-900">HPCL-CT-006</p>
+                    <p className="text-xs text-gray-600">Eastern Star</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-orange-600">89.5% Efficiency</p>
+                    <p className="text-xs text-gray-600">3 trips/month</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Route Performance and Insights */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Most Efficient Routes */}
+            <div className="lg:col-span-2 bg-linear-to-br from-amber-50 via-white to-amber-50 rounded-lg shadow-lg border border-amber-100 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Most Efficient Routes</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left text-xs font-medium text-gray-500 uppercase py-2">Route</th>
+                      <th className="text-right text-xs font-medium text-gray-500 uppercase py-2">Distance</th>
+                      <th className="text-right text-xs font-medium text-gray-500 uppercase py-2">Cost</th>
+                      <th className="text-right text-xs font-medium text-gray-500 uppercase py-2">Efficiency</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    <tr>
+                      <td className="py-3 text-sm">
+                        <div className="font-medium text-gray-900">Mumbai → Kochi</div>
+                        <div className="text-xs text-gray-500">HPCL-CT-003</div>
+                      </td>
+                      <td className="py-3 text-right text-sm text-gray-900">682 NM</td>
+                      <td className="py-3 text-right text-sm text-gray-900">₹2.1L</td>
+                      <td className="py-3 text-right">
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                          Excellent
+                        </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-3 text-sm">
+                        <div className="font-medium text-gray-900">Kandla → Mangalore → Goa</div>
+                        <div className="text-xs text-gray-500">HPCL-CT-001</div>
+                      </td>
+                      <td className="py-3 text-right text-sm text-gray-900">845 NM</td>
+                      <td className="py-3 text-right text-sm text-gray-900">₹2.8L</td>
+                      <td className="py-3 text-right">
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                          Good
+                        </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-3 text-sm">
+                        <div className="font-medium text-gray-900">Visakhapatnam → Chennai</div>
+                        <div className="text-xs text-gray-500">HPCL-CT-006</div>
+                      </td>
+                      <td className="py-3 text-right text-sm text-gray-900">425 NM</td>
+                      <td className="py-3 text-right text-sm text-gray-900">₹1.6L</td>
+                      <td className="py-3 text-right">
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                          Excellent
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Key Insights */}
+            <div className="bg-linear-to-br from-purple-50 via-white to-purple-50 rounded-lg shadow-lg border border-purple-100 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Key Insights</h3>
+              <div className="space-y-4">
+                <div className="p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
+                  <p className="text-xs font-semibold text-green-800 mb-1">Cost Optimization</p>
+                  <p className="text-xs text-gray-700">Achieved 22% cost reduction vs manual planning</p>
+                </div>
+                <div className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                  <p className="text-xs font-semibold text-blue-800 mb-1">Fleet Efficiency</p>
+                  <p className="text-xs text-gray-700">87.5% utilization - above industry avg of 75%</p>
+                </div>
+                <div className="p-3 bg-orange-50 rounded-lg border-l-4 border-orange-500">
+                  <p className="text-xs font-semibold text-orange-800 mb-1">Carbon Footprint</p>
+                  <p className="text-xs text-gray-700">15% reduction in CO2 emissions per MT cargo</p>
+                </div>
+                <div className="p-3 bg-purple-50 rounded-lg border-l-4 border-purple-500">
+                  <p className="text-xs font-semibold text-purple-800 mb-1">Demand Coverage</p>
+                  <p className="text-xs text-gray-700">98.2% demand satisfied with optimal routing</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Port Activity Heatmap - Enhanced Design */}
+          <div className="bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 rounded-lg shadow-lg border border-blue-100 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Port Activity Heatmap</h3>
+                <p className="text-xs text-gray-500 mt-1">Monthly vessel visits across major Indian ports</p>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm">
+                <span className="text-xs font-medium text-gray-600">Avg:</span>
+                <span className="text-sm font-bold text-gray-900">17</span>
+                <span className="text-xs text-gray-500">visits/mo</span>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Mumbai - Highest */}
+              <div className="relative overflow-hidden rounded-xl border-2 border-red-200 bg-linear-to-br from-red-50 to-red-100 p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/10 rounded-full -mr-12 -mt-12"></div>
+                <div className="relative">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-700">Mumbai Port</h4>
+                      <p className="text-xs text-gray-500">West Coast Hub</p>
+                    </div>
+                    <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-md">🔥 #1</span>
+                  </div>
+                  <div className="flex items-end gap-2 mb-3">
+                    <span className="text-4xl font-black text-red-600">28</span>
+                    <span className="text-sm text-gray-600 mb-2">visits/mo</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-600">vs Average</span>
+                      <span className="font-bold text-green-600">+65% ↑</span>
+                    </div>
+                    <div className="h-2 bg-red-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-red-500 rounded-full animate-pulse" style={{ width: '100%' }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Kandla */}
+              <div className="relative overflow-hidden rounded-xl border-2 border-orange-200 bg-linear-to-br from-orange-50 to-orange-100 p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 rounded-full -mr-12 -mt-12"></div>
+                <div className="relative">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-700">Kandla Port</h4>
+                      <p className="text-xs text-gray-500">Gujarat Gateway</p>
+                    </div>
+                    <span className="px-2 py-1 bg-orange-500 text-white text-xs font-bold rounded-md">#2</span>
+                  </div>
+                  <div className="flex items-end gap-2 mb-3">
+                    <span className="text-4xl font-black text-orange-600">22</span>
+                    <span className="text-sm text-gray-600 mb-2">visits/mo</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-600">vs Average</span>
+                      <span className="font-bold text-green-600">+29% ↑</span>
+                    </div>
+                    <div className="h-2 bg-orange-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-orange-500 rounded-full" style={{ width: '79%' }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Vizag */}
+              <div className="relative overflow-hidden rounded-xl border-2 border-amber-200 bg-linear-to-br from-amber-50 to-amber-100 p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full -mr-12 -mt-12"></div>
+                <div className="relative">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-700">Vizag Port</h4>
+                      <p className="text-xs text-gray-500">East Coast Major</p>
+                    </div>
+                    <span className="px-2 py-1 bg-amber-500 text-white text-xs font-bold rounded-md">#3</span>
+                  </div>
+                  <div className="flex items-end gap-2 mb-3">
+                    <span className="text-4xl font-black text-amber-600">18</span>
+                    <span className="text-sm text-gray-600 mb-2">visits/mo</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-600">vs Average</span>
+                      <span className="font-bold text-green-600">+6% ↑</span>
+                    </div>
+                    <div className="h-2 bg-amber-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-amber-500 rounded-full" style={{ width: '64%' }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Kochi */}
+              <div className="relative overflow-hidden rounded-xl border-2 border-blue-200 bg-linear-to-br from-blue-50 to-blue-100 p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full -mr-12 -mt-12"></div>
+                <div className="relative">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-700">Kochi Port</h4>
+                      <p className="text-xs text-gray-500">Kerala Hub</p>
+                    </div>
+                    <span className="px-2 py-1 bg-blue-500 text-white text-xs font-bold rounded-md">#4</span>
+                  </div>
+                  <div className="flex items-end gap-2 mb-3">
+                    <span className="text-4xl font-black text-blue-600">15</span>
+                    <span className="text-sm text-gray-600 mb-2">visits/mo</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-600">vs Average</span>
+                      <span className="font-bold text-red-600">-12% ↓</span>
+                    </div>
+                    <div className="h-2 bg-blue-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500 rounded-full" style={{ width: '54%' }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Chennai */}
+              <div className="relative overflow-hidden rounded-xl border-2 border-indigo-200 bg-linear-to-br from-indigo-50 to-indigo-100 p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full -mr-12 -mt-12"></div>
+                <div className="relative">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-700">Chennai Port</h4>
+                      <p className="text-xs text-gray-500">Tamil Nadu</p>
+                    </div>
+                    <span className="px-2 py-1 bg-indigo-500 text-white text-xs font-bold rounded-md">#5</span>
+                  </div>
+                  <div className="flex items-end gap-2 mb-3">
+                    <span className="text-4xl font-black text-indigo-600">14</span>
+                    <span className="text-sm text-gray-600 mb-2">visits/mo</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-600">vs Average</span>
+                      <span className="font-bold text-red-600">-18% ↓</span>
+                    </div>
+                    <div className="h-2 bg-indigo-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-indigo-500 rounded-full" style={{ width: '50%' }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Haldia */}
+              <div className="relative overflow-hidden rounded-xl border-2 border-purple-200 bg-linear-to-br from-purple-50 to-purple-100 p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full -mr-12 -mt-12"></div>
+                <div className="relative">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-700">Haldia Port</h4>
+                      <p className="text-xs text-gray-500">West Bengal</p>
+                    </div>
+                    <span className="px-2 py-1 bg-purple-500 text-white text-xs font-bold rounded-md">#6</span>
+                  </div>
+                  <div className="flex items-end gap-2 mb-3">
+                    <span className="text-4xl font-black text-purple-600">12</span>
+                    <span className="text-sm text-gray-600 mb-2">visits/mo</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-600">vs Average</span>
+                      <span className="font-bold text-red-600">-29% ↓</span>
+                    </div>
+                    <div className="h-2 bg-purple-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-purple-500 rounded-full" style={{ width: '43%' }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
           </div>
         )}
 

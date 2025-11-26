@@ -68,3 +68,6 @@ logs/
 # Temporary files
 tmp/
 temp/
+
+# Duplicate nested directory (should be removed manually)
+backend/RouteX/
