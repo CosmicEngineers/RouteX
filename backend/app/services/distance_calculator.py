@@ -173,18 +173,21 @@ class HPCLMaritimeDistanceCalculator:
         
         return port_ids.issubset(matrix_ports)
     
-    async def get_distance(self, origin_port_id: str, dest_port_id: str) -> float:
+    async def get_distance(self, origin_port_id: str, dest_port_id: str, round_trip: bool = False) -> float:
         """
         Get distance between two specific HPCL ports
+        If round_trip is True, returns double the distance for return journey
         """
         if origin_port_id in self.distance_matrix:
-            return self.distance_matrix[origin_port_id].get(dest_port_id, 0.0)
+            distance = self.distance_matrix[origin_port_id].get(dest_port_id, 0.0)
+            return distance * 2 if round_trip else distance
         
         # Load from database if not in memory
         matrix_data = await DistanceMatrixDB.get_distance_matrix()
         if matrix_data and 'port_pairs' in matrix_data:
             self.distance_matrix = matrix_data['port_pairs']
-            return self.distance_matrix.get(origin_port_id, {}).get(dest_port_id, 0.0)
+            distance = self.distance_matrix.get(origin_port_id, {}).get(dest_port_id, 0.0)
+            return distance * 2 if round_trip else distance
         
         return 0.0
     
@@ -311,11 +314,12 @@ async def calculate_hpcl_distance_matrix(ports: List[Dict]) -> Dict[str, any]:
     return await hpcl_distance_calculator.calculate_distance_matrix(ports)
 
 
-async def get_hpcl_route_distance(origin_id: str, dest_id: str) -> float:
+async def get_hpcl_route_distance(origin_id: str, dest_id: str, round_trip: bool = False) -> float:
     """
     Get distance between HPCL ports
+    If round_trip is True, returns double the distance
     """
-    return await hpcl_distance_calculator.get_distance(origin_id, dest_id)
+    return await hpcl_distance_calculator.get_distance(origin_id, dest_id, round_trip)
 
 
 async def get_hpcl_route_coordinates(origin_id: str, dest_id: str) -> List[List[float]]:

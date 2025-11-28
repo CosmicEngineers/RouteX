@@ -12,75 +12,24 @@ function calculateCoastalRoute(
   start: { lat: number; lng: number },
   end: { lat: number; lng: number }
 ): { lat: number; lng: number }[] {
-  const waypoints = [start];
-  
-  const latDiff = end.lat - start.lat;
-  const lngDiff = end.lng - start.lng;
-  
-  // Kanyakumari coordinates (southern tip of India)
-  const southernTip = { lat: 8.0883, lng: 77.5385 };
-  
-  // Mumbai coordinates (reference for west coast)
-  const mumbaiLat = 18.9667;
-  const mumbaiLng = 72.8333;
-  
-  // Determine if we need to go around the peninsula
-  const isWestCoast = (port: { lat: number; lng: number }) => port.lng < 77;
-  const isEastCoast = (port: { lat: number; lng: number }) => port.lng > 77;
-  const isSouthernRegion = (port: { lat: number; lng: number }) => port.lat < 10;
-  
-  const startWest = isWestCoast(start);
-  const endWest = isWestCoast(end);
-  const startEast = isEastCoast(start);
-  const endEast = isEastCoast(end);
-  
-  // Case 1: West coast to East coast (or vice versa) - MUST go around southern tip
-  if ((startWest && endEast) || (startEast && endWest)) {
-    // Going from west to east
-    if (startWest && endEast) {
-      // Add waypoint offshore from southern tip (stay in ocean)
-      waypoints.push({ lat: 7.5, lng: 76.5 }); // Southwest of tip
-      waypoints.push({ lat: 7.5, lng: 77.8 }); // Southeast of tip
-    } else {
-      // Going from east to west
-      waypoints.push({ lat: 7.5, lng: 77.8 }); // Southeast of tip
-      waypoints.push({ lat: 7.5, lng: 76.5 }); // Southwest of tip
+  try {
+    // Use JPS maritime pathfinding algorithm with land avoidance
+    const jpsRoute = calculateMaritimeRoute(start, end);
+    
+    // Verify the route doesn't cross land by checking if we got a valid path
+    if (jpsRoute && jpsRoute.length > 2) {
+      console.log(`JPS route from (${start.lat}, ${start.lng}) to (${end.lat}, ${end.lng}):`, jpsRoute.length, 'waypoints');
+      return jpsRoute;
     }
+    
+    // Fallback if JPS fails - shouldn't happen but good safety measure
+    console.warn('JPS returned invalid route, using fallback');
+    return [start, end];
+  } catch (error) {
+    console.error('JPS pathfinding error:', error);
+    // Return direct route as fallback
+    return [start, end];
   }
-  // Case 2: Both on same coast but crossing southern region
-  else if (startWest && endWest && (isSouthernRegion(start) || isSouthernRegion(end))) {
-    // Stay offshore along west coast
-    const offshoreOffset = -1.5; // Go 1.5 degrees into Arabian Sea
-    const midLat = (start.lat + end.lat) / 2;
-    waypoints.push({ lat: midLat, lng: Math.min(start.lng, end.lng) + offshoreOffset });
-  }
-  else if (startEast && endEast && (isSouthernRegion(start) || isSouthernRegion(end))) {
-    // Stay offshore along east coast
-    const offshoreOffset = 1.5; // Go 1.5 degrees into Bay of Bengal
-    const midLat = (start.lat + end.lat) / 2;
-    waypoints.push({ lat: midLat, lng: Math.max(start.lng, end.lng) + offshoreOffset });
-  }
-  // Case 3: Long distance on same coast
-  else if (Math.abs(latDiff) > 8) {
-    if (startWest && endWest) {
-      // West coast - stay offshore in Arabian Sea
-      waypoints.push({ lat: (start.lat + end.lat) / 2, lng: Math.min(start.lng, end.lng) - 1 });
-    } else if (startEast && endEast) {
-      // East coast - stay offshore in Bay of Bengal
-      waypoints.push({ lat: (start.lat + end.lat) / 2, lng: Math.max(start.lng, end.lng) + 1 });
-    }
-  }
-  // Case 4: Shorter routes - add simple offshore waypoint
-  else if (Math.abs(latDiff) > 2 || Math.abs(lngDiff) > 2) {
-    const midLat = (start.lat + end.lat) / 2;
-    const midLng = (start.lng + end.lng) / 2;
-    // Offset into ocean (away from land)
-    const offsetLng = startWest ? midLng - 0.8 : midLng + 0.8;
-    waypoints.push({ lat: midLat, lng: offsetLng });
-  }
-  
-  waypoints.push(end);
-  return waypoints;
 }
 
 interface MaritimeMapProps {

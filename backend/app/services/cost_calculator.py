@@ -45,11 +45,18 @@ class HPCLCostCalculator:
         total_distance_nm: float,
         total_time_hours: float,
         cargo_quantity: float,
-        fuel_price_per_mt: float = 45000.0
+        fuel_price_per_mt: float = 45000.0,
+        round_trip: bool = False
     ) -> Dict[str, float]:
         """
         Calculate comprehensive voyage cost breakdown for HPCL operations
+        If round_trip is True, doubles distance and time for return journey
         """
+        # Apply round trip multiplier if needed
+        if round_trip:
+            total_distance_nm = total_distance_nm * 2
+            total_time_hours = total_time_hours * 2
+        
         cost_breakdown = {}
         
         # 1. Bunker Fuel Costs
@@ -87,6 +94,7 @@ class HPCLCostCalculator:
         # 7. Calculate totals
         total_cost = sum(cost_breakdown.values())
         cost_breakdown['total_cost'] = total_cost
+        cost_breakdown['is_round_trip'] = round_trip
         
         return cost_breakdown
     

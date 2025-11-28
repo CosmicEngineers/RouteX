@@ -34,6 +34,7 @@ class DemandInput(BaseModel):
 class OptimizationInput(BaseModel):
     vessels: Optional[List[VesselInput]] = None
     demands: Optional[List[DemandInput]] = None
+    round_trip: Optional[bool] = False
 
 
 @router.get("/data")
@@ -142,18 +143,32 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
                     # Add loading/unloading time (assume 0.5 days total)
                     total_trip_time += 0.5
                     
-                    trip_cost = charter_rate * total_trip_time
+                    # Calculate base trip cost for one-way
+                    base_trip_cost = charter_rate * total_trip_time
+                    
+                    # If round trip, add return journey cost
+                    if input_data and input_data.round_trip:
+                        # Return trip from last discharge port back to loading port
+                        last_discharge_port = selected_ports[-1]["port_id"]
+                        return_time = trip_times_lu.get(load_id, {}).get(last_discharge_port, 0.5)
+                        return_cost = charter_rate * return_time
+                        total_trip_cost = base_trip_cost + return_cost
+                        total_trip_time_with_return = total_trip_time + return_time
+                    else:
+                        total_trip_cost = base_trip_cost
+                        total_trip_time_with_return = total_trip_time
                     
                     # Create route entries for each discharge port
-                    for port_info in selected_ports:
+                    for idx, port_info in enumerate(selected_ports):
                         routes.append({
                             "route_id": route_id,
                             "source": load_id,
                             "destination": port_info["port_id"],
                             "tanker": vessel_id,
                             "volume_mt": port_info["volume"],
-                            "trip_cost_cr": round(trip_cost / len(selected_ports), 4),
-                            "trip_time_days": round(total_trip_time, 2)
+                            "trip_cost_cr": round(total_trip_cost / len(selected_ports), 4),
+                            "full_trip_cost_cr": round(total_trip_cost, 4) if idx == 0 else 0,  # Only count full cost once
+                            "trip_time_days": round(total_trip_time_with_return, 2)
                         })
                         
                         # Update remaining demand
@@ -169,7 +184,7 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
                 break
         
         # Calculate summary statistics
-        total_cost = sum(r["trip_cost_cr"] for r in routes)
+        total_cost = sum(r.get("full_trip_cost_cr", r["trip_cost_cr"]) for r in routes)
         total_volume = sum(r["volume_mt"] for r in routes)
         satisfied_demand = sum(demand_dict[uid] - max(0, remaining_demand.get(uid, 0)) for uid in demand_dict)
         
@@ -194,7 +209,8 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
                 "total_demand_mt": sum(demand_dict.values()),
                 "satisfied_demand_mt": satisfied_demand,
                 "demand_satisfaction_percentage": round((satisfied_demand / sum(demand_dict.values())) * 100, 2),
-                "unsatisfied_ports": [uid for uid, demand in remaining_demand.items() if demand > 0]
+                "unsatisfied_ports": [uid for uid, demand in remaining_demand.items() if demand > 0],
+                "round_trip": input_data.round_trip if input_data else False
             },
             "timestamp": datetime.now().isoformat()
         }

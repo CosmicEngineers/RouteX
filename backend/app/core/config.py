@@ -22,11 +22,12 @@ class HPCLSettings(BaseSettings):
     # API Settings
     api_prefix: str = "/api/v1"
     cors_origins: List[str] = [
-        "http://localhost:3000",  # Next.js frontend
+        "http://localhost:3000",  # Next.js frontend local
         "http://localhost:3001",  # Development frontend
         "http://127.0.0.1:3000",
-        "https://hpcl-optimizer.vercel.app"  # Production frontend
+        "*"  # Allow all origins for deployment (can be restricted later)
     ]
+    frontend_url: Optional[str] = None  # Set via environment variable in production
     
     # Database Settings
     mongodb_url: str = "mongodb://localhost:27017"

@@ -97,74 +97,54 @@ export class JPSPathfinder {
    * These are coarse but adequate to prevent routes crossing land.
    */
   private landPolygons: Point[][] = [
-    // India mainland (coarse outline following coastline)
+    // India mainland (accurate outline following coastline)
     [
-      { lat: 8.3, lng: 76.9 }, // South-west near Thiruvananthapuram
-      { lat: 9.5, lng: 76.2 },
+      { lat: 8.08, lng: 77.54 }, // Kanyakumari (southern tip)
+      { lat: 8.5, lng: 76.9 },   // Southwest coast Kerala
+      { lat: 9.5, lng: 76.3 },
       { lat: 10.5, lng: 76.0 },
       { lat: 11.5, lng: 75.7 },
       { lat: 12.5, lng: 74.9 },
       { lat: 13.2, lng: 74.7 },
-      { lat: 14.5, lng: 74.0 },
-      { lat: 15.4, lng: 73.7 },
-      { lat: 16.2, lng: 73.3 },
-      { lat: 17.3, lng: 72.9 },
-      { lat: 18.2, lng: 72.8 },
+      { lat: 14.5, lng: 74.1 },
+      { lat: 15.4, lng: 73.8 },
+      { lat: 16.2, lng: 73.4 },
+      { lat: 17.3, lng: 73.0 },
+      { lat: 18.2, lng: 72.9 },  // Mumbai area
       { lat: 19.0, lng: 72.8 },
-      { lat: 20.0, lng: 72.6 },
-      { lat: 20.8, lng: 72.3 },
-      { lat: 21.6, lng: 72.7 },
-      { lat: 22.2, lng: 72.9 },
-      { lat: 22.8, lng: 73.4 },
-      { lat: 23.4, lng: 74.2 },
-      { lat: 24.0, lng: 75.1 },
-      { lat: 24.4, lng: 76.2 },
-      { lat: 24.6, lng: 77.5 },
-      { lat: 24.8, lng: 79.0 },
-      { lat: 24.7, lng: 80.5 },
-      { lat: 24.5, lng: 82.0 },
-      { lat: 24.2, lng: 83.5 },
-      { lat: 23.8, lng: 85.0 },
-      { lat: 23.0, lng: 86.5 },
-      { lat: 22.4, lng: 87.2 },
-      { lat: 21.6, lng: 87.5 },
-      { lat: 20.6, lng: 87.6 },
-      { lat: 19.5, lng: 87.5 },
-      { lat: 18.4, lng: 87.4 },
-      { lat: 17.2, lng: 86.8 },
-      { lat: 16.3, lng: 86.2 },
-      { lat: 15.2, lng: 85.5 },
-      { lat: 14.2, lng: 84.7 },
-      { lat: 13.3, lng: 83.9 },
-      { lat: 12.6, lng: 82.8 },
-      { lat: 12.0, lng: 81.6 },
-      { lat: 11.4, lng: 80.3 },
-      { lat: 10.6, lng: 79.8 },
-      { lat: 9.6, lng: 79.6 },
-      { lat: 8.8, lng: 79.8 },
-      { lat: 8.3, lng: 80.5 },
-      { lat: 8.1, lng: 81.2 },
-      { lat: 8.2, lng: 82.0 },
-      { lat: 8.1, lng: 83.0 },
-      { lat: 8.0, lng: 84.0 },
-      { lat: 8.0, lng: 85.0 },
-      { lat: 8.2, lng: 86.0 },
-      { lat: 8.2, lng: 87.0 },
-      { lat: 8.3, lng: 88.0 },
-      { lat: 8.2, lng: 88.5 },
-      { lat: 8.0, lng: 89.0 },
-      { lat: 7.8, lng: 88.5 },
-      { lat: 7.6, lng: 87.5 },
-      { lat: 7.5, lng: 86.0 },
-      { lat: 7.5, lng: 84.5 },
-      { lat: 7.6, lng: 83.0 },
-      { lat: 7.6, lng: 81.5 },
-      { lat: 7.5, lng: 80.0 },
-      { lat: 7.4, lng: 78.5 },
-      { lat: 7.4, lng: 77.5 },
-      { lat: 7.6, lng: 76.8 },
-      { lat: 7.9, lng: 76.5 },
-      { lat: 8.3, lng: 76.9 } // close
+      { lat: 20.0, lng: 72.7 },
+      { lat: 20.8, lng: 72.6 },
+      { lat: 21.6, lng: 69.6 },  // Gujarat coast
+      { lat: 22.5, lng: 68.8 },
+      { lat: 23.0, lng: 68.5 },
+      { lat: 24.0, lng: 68.2 },  // Pakistan border area
+      { lat: 24.5, lng: 70.0 },  // Turn inland
+      { lat: 25.0, lng: 73.0 },
+      { lat: 26.0, lng: 75.0 },
+      { lat: 27.0, lng: 77.0 },
+      { lat: 28.0, lng: 79.0 },
+      { lat: 29.0, lng: 80.0 },
+      { lat: 28.5, lng: 82.0 },
+      { lat: 27.0, lng: 85.0 },
+      { lat: 26.0, lng: 87.0 },
+      { lat: 25.0, lng: 88.5 },  // West Bengal
+      { lat: 23.5, lng: 89.0 },  // Bangladesh border
+      { lat: 22.5, lng: 88.3 },  // Kolkata area - now go down east coast
+      { lat: 21.5, lng: 87.5 },
+      { lat: 20.5, lng: 86.8 },
+      { lat: 19.5, lng: 85.8 },
+      { lat: 18.5, lng: 84.8 },
+      { lat: 17.5, lng: 83.3 },  // Visakhapatnam
+      { lat: 16.5, lng: 82.2 },
+      { lat: 15.5, lng: 80.3 },  // Andhra coast
+      { lat: 14.5, lng: 80.3 },
+      { lat: 13.5, lng: 80.3 },  // Chennai area
+      { lat: 12.5, lng: 79.8 },
+      { lat: 11.5, lng: 79.8 },
+      { lat: 10.5, lng: 79.3 },
+      { lat: 9.5, lng: 79.1 },
+      { lat: 8.7, lng: 78.2 },   // Near Tuticorin
+      { lat: 8.08, lng: 77.54 }  // Back to Kanyakumari (close polygon)
     ],
     // Sri Lanka (coarse outline)
     [

@@ -16,6 +16,7 @@ export function OptimizationPanel({ vessels, ports, onStartOptimization, isOptim
   const [optimizationObjective, setOptimizationObjective] = useState('cost');
   const [maxSolveTime, setMaxSolveTime] = useState(300); // 5 minutes
   const [selectedVessels, setSelectedVessels] = useState<string[]>([]);
+  const [isRoundTrip, setIsRoundTrip] = useState(false);
   const [demands] = useState([
     { port_id: 'INCHE', port_name: 'Chennai', demand_mt: 45000, priority: 'high' },
     { port_id: 'INJAW', port_name: 'Jawaharlal Nehru Port', demand_mt: 55000, priority: 'critical' },
@@ -48,7 +49,8 @@ export function OptimizationPanel({ vessels, ports, onStartOptimization, isOptim
       optimize_for: optimizationObjective,
       max_solve_time_seconds: maxSolveTime,
       available_vessels: selectedVessels.length > 0 ? selectedVessels : availableVessels.map(v => v.id),
-      month: "2025-11"
+      month: "2025-11",
+      round_trip: isRoundTrip
     };
     
     onStartOptimization(params);
@@ -116,6 +118,24 @@ export function OptimizationPanel({ vessels, ports, onStartOptimization, isOptim
               <option value={300}>5 minutes (Thorough)</option>
               <option value={600}>10 minutes (Comprehensive)</option>
             </select>
+          </div>
+
+          {/* Round Trip */}
+          <div>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isRoundTrip}
+                onChange={(e) => setIsRoundTrip(e.target.checked)}
+                className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Round Trip (Return to loading port)
+              </span>
+            </label>
+            <p className="text-xs text-gray-500 mt-1 ml-6">
+              {isRoundTrip ? 'Vessels will return to loading port after delivery (costs doubled)' : 'One-way trip only'}
+            </p>
           </div>
         </div>
       </div>
