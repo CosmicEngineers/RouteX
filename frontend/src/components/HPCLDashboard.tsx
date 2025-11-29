@@ -32,7 +32,6 @@ export interface OptimizationResult {
   fleet_utilization: number;
   demand_satisfaction_rate: number;
   selected_routes: any[];
-  summary?: any;
 }
 
 export default function HPCLDashboard() {
@@ -201,46 +200,18 @@ export default function HPCLDashboard() {
   // Start optimization
   const startOptimization = async (optimizationParams: any) => {
     setIsOptimizing(true);
-    
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${apiUrl}/api/v1/challenge/optimize`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(optimizationParams),
+    // Demo mode - use mock result after delay
+    setTimeout(() => {
+      setOptimizationResult({
+        request_id: 'demo_' + Date.now(),
+        total_cost: 8750000,
+        fleet_utilization: 87.5,
+        demand_satisfaction_rate: 98.2,
+        selected_routes: []
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (data.status === 'success') {
-        // Calculate total cost from the routes
-        const totalCost = data.summary?.total_cost_cr ? data.summary.total_cost_cr * 10000000 : 0;
-        
-        setOptimizationResult({
-          request_id: 'opt_' + Date.now(),
-          total_cost: totalCost,
-          fleet_utilization: 87.5, // Can be calculated from routes
-          demand_satisfaction_rate: data.summary?.demand_satisfaction_percentage || 0,
-          selected_routes: data.optimization_results || [],
-          summary: data.summary
-        });
-        setActiveTab('results');
-      } else {
-        console.error('Optimization failed:', data);
-        alert('Optimization failed. Please check console for details.');
-      }
-    } catch (error) {
-      console.error('Error calling optimization API:', error);
-      alert('Failed to connect to optimization service. Make sure the backend is running.');
-    } finally {
       setIsOptimizing(false);
-    }
+      setActiveTab('results');
+    }, 3000);
   };
 
   // Poll optimization status (demo mode - not used)
