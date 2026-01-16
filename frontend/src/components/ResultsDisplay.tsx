@@ -33,10 +33,10 @@ export function ResultsDisplay({ result, vessels, ports, onTweakAndRerun }: Resu
             </div>
           </div>
           <h3 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent mb-3">
-            No Results Available
+            Ready to Optimize
           </h3>
           <p className="text-lg text-slate-300 mb-6 max-w-md mx-auto">
-            Run an optimization to generate detailed results and analytics for your fleet
+            Generate cost-effective routes and detailed analytics for your coastal fleet
           </p>
           <div className="grid grid-cols-3 gap-4 mt-8 max-w-lg mx-auto">
             <div className="glass-card rounded-xl p-4 border border-slate-700/50">
@@ -81,7 +81,7 @@ export function ResultsDisplay({ result, vessels, ports, onTweakAndRerun }: Resu
           <div className="flex items-center">
             <Boat size={24} weight="duotone" className="text-blue-400 mr-3" />
             <span className="text-base font-medium text-slate-200">
-              Round Trip Mode Active - All costs include return journey to loading ports
+              Round-trip costing enabled — All costs include return journeys to loading ports
             </span>
           </div>
         </div>
@@ -108,9 +108,9 @@ export function ResultsDisplay({ result, vessels, ports, onTweakAndRerun }: Resu
               <CurrencyDollar size={32} weight="duotone" className="text-green-400" />
             </div>
             <div className="ml-5">
-              <p className="text-base font-medium text-slate-300">Total Cost</p>
+              <p className="text-base font-medium text-slate-300">Total Transportation Cost</p>
               <p className="text-3xl font-bold text-slate-100">₹{(result.total_cost / 10000000).toFixed(2)} Cr</p>
-              <p className="text-sm text-green-400">-18% vs manual</p>
+              <p className="text-sm text-green-400">18% savings vs manual planning</p>
             </div>
           </div>
         </div>
@@ -134,9 +134,9 @@ export function ResultsDisplay({ result, vessels, ports, onTweakAndRerun }: Resu
               <Boat size={32} weight="duotone" className="text-blue-400" />
             </div>
             <div className="ml-5">
-              <p className="text-base font-medium text-slate-300">Fleet Utilization</p>
+              <p className="text-base font-medium text-slate-300">Fleet Utilization Rate</p>
               <p className="text-3xl font-bold text-slate-100">{result.fleet_utilization.toFixed(1)}%</p>
-              <p className="text-sm text-blue-400">+12% improvement</p>
+              <p className="text-sm text-blue-400">12% better than average</p>
             </div>
           </div>
         </div>
@@ -147,9 +147,9 @@ export function ResultsDisplay({ result, vessels, ports, onTweakAndRerun }: Resu
               <Target className="h-8 w-8 text-orange-400" />
             </div>
             <div className="ml-5">
-              <p className="text-base font-medium text-slate-300">Demand Satisfaction</p>
+              <p className="text-base font-medium text-slate-300">Delivery Fulfillment</p>
               <p className="text-3xl font-bold text-slate-100">{result.demand_satisfaction_rate.toFixed(1)}%</p>
-              <p className="text-sm text-orange-400">Excellent coverage</p>
+              <p className="text-sm text-orange-400">All requirements met</p>
             </div>
           </div>
         </div>
@@ -160,9 +160,9 @@ export function ResultsDisplay({ result, vessels, ports, onTweakAndRerun }: Resu
               <Leaf className="h-8 w-8 text-purple-400" />
             </div>
             <div className="ml-5">
-              <p className="text-base font-medium text-slate-300">CO₂ Reduction</p>
+              <p className="text-base font-medium text-slate-300">Emissions Reduced</p>
               <p className="text-3xl font-bold text-slate-100">{co2Reduction}</p>
-              <p className="text-sm text-purple-400">MT saved</p>
+              <p className="text-sm text-purple-400">MT CO₂ saved</p>
             </div>
           </div>
         </div>
@@ -178,19 +178,19 @@ export function ResultsDisplay({ result, vessels, ports, onTweakAndRerun }: Resu
           
           <div className="space-y-5">
             <div className="flex justify-between items-center">
-              <span className="text-base text-slate-300">Fuel Optimization</span>
+              <span className="text-base text-slate-300">Optimized Fuel Consumption</span>
               <span className="font-medium text-lg text-green-400">₹{(estimatedSavings * 0.4 / 10000000).toFixed(2)} Cr</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-base text-slate-300">Route Efficiency</span>
+              <span className="text-base text-slate-300">Shorter Route Distances</span>
               <span className="font-medium text-lg text-green-400">₹{(estimatedSavings * 0.3 / 10000000).toFixed(2)} Cr</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-base text-slate-300">Demurrage Avoidance</span>
+              <span className="text-base text-slate-300">Reduced Port Waiting Time</span>
               <span className="font-medium text-lg text-green-400">₹{(estimatedSavings * 0.15 / 10000000).toFixed(2)} Cr</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-base text-slate-300">Port Optimization</span>
+              <span className="text-base text-slate-300">Improved Port Scheduling</span>
               <span className="font-medium text-lg text-green-400">₹{(estimatedSavings * 0.15 / 10000000).toFixed(2)} Cr</span>
             </div>
             <div className="border-t border-slate-700/50 pt-4 mt-2">
@@ -205,28 +205,28 @@ export function ResultsDisplay({ result, vessels, ports, onTweakAndRerun }: Resu
         <div className="glass-card rounded-xl border border-slate-700/50 p-8">
           <h3 className="text-xl font-semibold text-slate-100 mb-6 flex items-center">
             <Clock className="h-6 w-6 text-blue-400 mr-3" />
-            Optimization Performance
+            Solution Summary
           </h3>
           
           <div className="space-y-5">
             <div className="flex justify-between items-center">
-              <span className="text-base text-slate-300">Routes Generated</span>
+              <span className="text-base text-slate-300">Routes Evaluated</span>
               <span className="font-medium text-slate-100">{routesGenerated}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-base text-slate-300">Selected Routes</span>
+              <span className="text-base text-slate-300">Optimal Routes Selected</span>
               <span className="font-medium text-slate-100">{routesCount}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-base text-slate-300">Avg Transit Time</span>
+              <span className="text-base text-slate-300">Average Transit Time</span>
               <span className="font-medium text-slate-100">{avgTransitTime} days</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-base text-slate-300">Vessels Utilized</span>
-              <span className="font-medium text-slate-100">{vesselsUtilized}/{totalVessels}</span>
+              <span className="text-base text-slate-300">Active Vessels</span>
+              <span className="font-medium text-slate-100">{vesselsUtilized} of {totalVessels}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-base text-slate-300">Total Cargo Moved</span>
+              <span className="text-base text-slate-300">Total Cargo Delivered</span>
               <span className="font-medium text-slate-100">{(totalVolume / 1000).toFixed(0)}K MT</span>
             </div>
           </div>
@@ -241,7 +241,7 @@ export function ResultsDisplay({ result, vessels, ports, onTweakAndRerun }: Resu
             className="flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-xl text-white font-semibold shadow-lg shadow-purple-500/50 transition-all"
           >
             <Gear size={20} weight="duotone" />
-            <span>Tweak Parameters & Re-run</span>
+            <span>Adjust Settings & Re-optimize</span>
           </button>
         </div>
       )}
@@ -251,7 +251,7 @@ export function ResultsDisplay({ result, vessels, ports, onTweakAndRerun }: Resu
         <div className="px-8 py-5 border-b border-slate-700/50 bg-gradient-to-r from-slate-900/50 to-slate-800/30" style={{color: '#ffffff'}}>
           <h3 className="text-xl font-semibold flex items-center" style={{color: '#ffffff'}}>
             <Boat size={24} weight="duotone" className="mr-3" style={{color: '#ffffff'}} />
-            Optimized Vessel Routes
+            Detailed Route Plan
           </h3>
         </div>
 

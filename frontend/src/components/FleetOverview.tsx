@@ -52,7 +52,7 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
         <div className="relative">
           <h3 className="text-2xl font-bold text-slate-100 mb-6 flex items-center">
             <Boat size={28} weight="duotone" className="text-cyan-400 mr-3" />
-            Fleet Command Center
+            Fleet Overview
           </h3>
           
           <div className="grid grid-cols-2 gap-4">
@@ -89,7 +89,7 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
                 <div className="text-4xl font-bold text-white mb-1">
                   {((availableVessels / vessels.length) * 100).toFixed(0)}%
                 </div>
-                <div className="text-sm text-purple-200 font-medium">Operational Rate</div>
+                <div className="text-sm text-purple-200 font-medium">Fleet Availability</div>
                 <Gear size={32} weight="thin" className="absolute top-4 right-4 text-purple-400/20" />
               </div>
             </div>
@@ -134,7 +134,7 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
         <div className="px-6 py-4 border-b border-slate-700/50 bg-gradient-to-r from-slate-900/50 to-slate-800/30">
           <h3 className="text-lg font-semibold text-slate-100 flex items-center">
             <Anchor size={20} weight="duotone" className="text-cyan-400 mr-2" />
-            Fleet Status
+            Vessel Status
           </h3>
         </div>
         
@@ -176,23 +176,23 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
 
       {/* Key Constraints */}
       <div className="glass-card rounded-xl border border-slate-700/50 p-6">
-        <h3 className="text-lg font-semibold text-slate-100 mb-4">HPCL Constraints</h3>
+        <h3 className="text-lg font-semibold text-slate-100 mb-4">Operational Constraints</h3>
         <div className="space-y-3 text-sm">
           <div className="flex justify-between">
-            <span className="text-slate-300">Single Loading Rule</span>
-            <span className="font-medium text-green-400">✓ Active</span>
+            <span className="text-slate-300">Single Loading Port Per Trip</span>
+            <span className="font-medium text-green-400">✓ Enforced</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-300">Max Discharge Ports</span>
-            <span className="font-medium text-slate-100">2</span>
+            <span className="text-slate-300">Maximum Delivery Ports</span>
+            <span className="font-medium text-slate-100">2 per voyage</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-300">Optimization Algorithm</span>
+            <span className="text-slate-300">Optimization Method</span>
             <span className="font-medium text-slate-100">Set Partitioning</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-300">Solver</span>
-            <span className="font-medium text-slate-100">OR-Tools CP-SAT</span>
+            <span className="text-slate-300">Solver Engine</span>
+            <span className="font-medium text-slate-100">Google OR-Tools CP-SAT</span>
           </div>
         </div>
       </div>

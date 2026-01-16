@@ -347,11 +347,11 @@ export default function HPCLDashboard() {
         <div className="glass-card rounded-full px-3 py-3 border border-slate-700/50 shadow-2xl shadow-blue-500/20">
           <div className="flex items-center gap-2">
             {[
-              { id: 'challenge', name: 'Challenge', icon: ChartBar, tooltip: 'Challenge Output' },
-              { id: 'overview', name: 'Fleet', icon: Boat, tooltip: 'Fleet Overview' },
-              { id: 'optimize', name: 'Optimize', icon: Compass, tooltip: 'Optimization' },
-              { id: 'results', name: 'Results', icon: CheckCircle, tooltip: 'Results' },
-              { id: 'analytics', name: 'Analytics', icon: Activity, tooltip: 'Analytics' }
+              { id: 'challenge', name: 'Optimizer', icon: ChartBar, tooltip: 'Route Optimization & Cost Calculator' },
+              { id: 'overview', name: 'Fleet', icon: Boat, tooltip: 'View Available Coastal Tankers' },
+              { id: 'optimize', name: 'Configure', icon: Compass, tooltip: 'Advanced Optimization Settings' },
+              { id: 'results', name: 'Results', icon: CheckCircle, tooltip: 'View Optimized Routes & Costs' },
+              { id: 'analytics', name: 'Analytics', icon: Activity, tooltip: 'Performance Metrics & Insights' }
             ].map(({ id, name, icon: Icon, tooltip }) => (
               <button
                 key={id}

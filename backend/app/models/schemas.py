@@ -166,18 +166,25 @@ class MonthlyDemand(BaseModel):
 
 
 class HPCLRoute(BaseModel):
-    """HPCL Feasible Route (Set Partitioning Column)"""
+    """HPCL Feasible Route - One trip from loading to discharge port(s)"""
     route_id: str = Field(..., description="Unique route identifier")
+    trip_id: str = Field(default="", description="Trip identifier (groups routes as per HPCL definition)")
     vessel_id: str = Field(..., description="Assigned vessel")
     
-    # Route Pattern
+    # Route Pattern (HPCL Challenge 7.1 exact structure)
     loading_port: str = Field(..., description="Single loading port (HPCL constraint)")
     discharge_ports: List[str] = Field(..., description="Discharge ports (max 2)")
     
     # Route Metrics
     total_distance_nm: float = Field(..., description="Total nautical miles")
     total_time_hours: float = Field(..., description="Total voyage time")
-    total_cost: float = Field(..., description="Total voyage cost (₹)")
+    
+    # HPCL Cost (charter-based per problem statement)
+    hpcl_charter_cost: float = Field(default=0.0, description="Charter hire × duration (HPCL definition)")
+    
+    # Extended costs (optional for real-world analysis)
+    total_cost: float = Field(..., description="Total voyage cost (₹) - extended model")
+    
     cargo_quantity: float = Field(..., description="Total cargo quantity (MT)")
     
     # Execution Count (from optimizer solution)

@@ -26,14 +26,14 @@ export function EnhancedErrorDisplay({ error, solverLogs = [] }: EnhancedErrorDi
     if (errorStr.toLowerCase().includes('infeasible') || errorStr.toLowerCase().includes('no solution')) {
       return {
         type: 'error',
-        title: 'Optimization Infeasible',
-        message: 'No valid solution found. The constraints cannot be satisfied with the current fleet and parameters.',
+        title: 'No Feasible Solution Found',
+        message: 'The optimization could not find a valid solution with the current fleet and delivery requirements.',
         suggestions: [
-          '🚢 Add more vessels to the fleet',
-          '📦 Reduce demand requirements at high-demand ports',
-          '⏰ Increase the Max Solve Time to 300s or more',
-          '🔧 Reduce minimum vessel utilization constraints',
-          '📍 Allow more flexible port visit sequences'
+          '🚢 Increase fleet capacity by adding more vessels',
+          '📦 Adjust delivery volumes at high-demand ports',
+          '⏰ Allow more time by increasing Max Solve Time to 300s+',
+          '🔧 Review and relax operational constraints',
+          '📍 Consider flexible port scheduling'
         ]
       };
     }
@@ -42,13 +42,13 @@ export function EnhancedErrorDisplay({ error, solverLogs = [] }: EnhancedErrorDi
     if (errorStr.toLowerCase().includes('time') && errorStr.toLowerCase().includes('limit')) {
       return {
         type: 'warning',
-        title: 'Solver Hit Time Limit',
-        message: 'Optimization stopped because it exceeded the maximum solve time.',
+        title: 'Time Limit Reached',
+        message: 'Optimization stopped after reaching the maximum solve time. A partial solution may be available.',
         suggestions: [
-          '⏱️ Increase Max Solve Time to 300s or 600s',
-          '⚡ Switch to "Quick" preset for faster results',
-          '📉 Reduce the number of vessels or routes',
-          '🔧 Enable route pruning to reduce problem size'
+          '⏱️ Increase solver time to 300s or 600s for better results',
+          '⚡ Use "Fast" mode for quicker approximate solutions',
+          '📉 Reduce problem complexity by limiting vessels or routes',
+          '🔧 Enable route filtering to speed up solving'
         ]
       };
     }
@@ -72,13 +72,13 @@ export function EnhancedErrorDisplay({ error, solverLogs = [] }: EnhancedErrorDi
     if (errorStr.toLowerCase().includes('fetch') || errorStr.toLowerCase().includes('network')) {
       return {
         type: 'error',
-        title: 'Connection Error',
-        message: 'Unable to reach the optimization server.',
+        title: 'Server Connection Failed',
+        message: 'Unable to connect to the optimization server. Please check your connection and try again.',
         suggestions: [
-          '🌐 Check your internet connection',
-          '🔄 Refresh the page and try again',
-          '🖥️ Verify the backend server is running',
-          '🔌 Check if the API endpoint is accessible'
+          '🌐 Verify your internet connection is active',
+          '🔄 Refresh the page and retry',
+          '🖥️ Ensure the backend server is running',
+          '🔌 Check API endpoint configuration'
         ]
       };
     }
@@ -86,13 +86,13 @@ export function EnhancedErrorDisplay({ error, solverLogs = [] }: EnhancedErrorDi
     // Generic error
     return {
       type: 'error',
-      title: 'Optimization Failed',
+      title: 'Optimization Error',
       message: errorStr,
       suggestions: [
-        '🔄 Try running the optimization again',
-        '⚙️ Check your input parameters',
-        '📋 Review solver logs for details',
-        '💬 Contact support if the issue persists'
+        '🔄 Retry the optimization',
+        '⚙️ Verify all input parameters',
+        '📋 Review solver logs below for details',
+        '💬 Contact support if this persists'
       ]
     };
   };

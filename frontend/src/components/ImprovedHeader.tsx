@@ -34,7 +34,7 @@ export function ImprovedHeader() {
               </h1>
               <p className="text-blue-300 font-semibold text-sm flex items-center gap-2 mt-1">
                 <Lightning size={16} weight="bold" className="text-yellow-400" />
-                Next-Generation Fleet Optimization Platform
+                AI-Powered Coastal Fleet Route Optimization
               </p>
             </div>
           </div>
@@ -60,8 +60,8 @@ export function ImprovedHeader() {
             <div className="glass-effect rounded-xl px-5 py-3 backdrop-blur-xl border border-white/20">
               <div className="flex items-center gap-3">
                 <div className="flex flex-col items-end">
-                  <span className="text-xs text-blue-200 font-medium">Optimization</span>
-                  <span className="text-sm font-bold text-blue-300">CP-SAT Engine</span>
+                  <span className="text-xs text-blue-200 font-medium">Solver Engine</span>
+                  <span className="text-sm font-bold text-blue-300">Google OR-Tools</span>
                 </div>
                 <Target className="h-8 w-8 text-blue-400" />
               </div>
