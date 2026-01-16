@@ -288,6 +288,129 @@ async def get_optimization_status(task_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to retrieve task status: {str(e)}")
 
 
+@router.get("/results/{result_id}", tags=["Optimization"])
+async def poll_optimization_result(result_id: str):
+    """
+    **Poll Optimization Result by ID**
+    
+    Get the status and results of an optimization task by result_id.
+    Use this endpoint to poll for completion of async optimization tasks.
+    
+    **Response statuses:**
+    - `pending`: Task is queued
+    - `processing`: Optimization in progress (check progress field)
+    - `completed`: Optimization complete (result available)
+    - `failed`: Optimization failed (check error field)
+    
+    **Polling recommendation:** Poll every 2-3 seconds until status is 'completed' or 'failed'
+    """
+    try:
+        # Check task status first
+        task_status = await TaskDB.get_task_status(result_id)
+        
+        if not task_status:
+            raise HTTPException(status_code=404, detail=f"Result {result_id} not found")
+        
+        # Build response based on task status
+        response = {
+            "result_id": result_id,
+            "status": task_status.get("status", "unknown"),
+            "progress": task_status.get("progress", 0),
+            "message": task_status.get("message", ""),
+            "metadata": task_status.get("metadata", {})
+        }
+        
+        # If completed, fetch the full result
+        if task_status.get("status") == "completed":
+            result_data = await OptimizationResultDB.get_result(result_id)
+            if result_data:
+                response["result"] = result_data
+                response["timestamp"] = result_data.get("timestamp", datetime.now().isoformat())
+            else:
+                # Task marked complete but no result - inconsistent state
+                response["status"] = "error"
+                response["message"] = "Result marked complete but data not found"
+        
+        # If failed, include error details
+        elif task_status.get("status") == "failed":
+            response["error"] = task_status.get("error", "Unknown error")
+            response["error_details"] = task_status.get("error_details", {})
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve result: {str(e)}")
+
+
+@router.get("/results", tags=["Optimization"])
+async def list_optimization_results(
+    limit: int = 10,
+    offset: int = 0,
+    status: Optional[str] = None
+):
+    """
+    **List Optimization Results**
+    
+    Get a paginated list of optimization results.
+    Useful for viewing optimization history and comparing runs.
+    
+    **Parameters:**
+    - limit: Maximum number of results to return (default: 10)
+    - offset: Number of results to skip for pagination (default: 0)
+    - status: Filter by status (pending/processing/completed/failed)
+    """
+    try:
+        results = await OptimizationResultDB.list_results(
+            limit=limit,
+            offset=offset,
+            status_filter=status
+        )
+        
+        total_count = await OptimizationResultDB.count_results(status_filter=status)
+        
+        return {
+            "results": results,
+            "total_count": total_count,
+            "limit": limit,
+            "offset": offset,
+            "has_more": (offset + limit) < total_count
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list results: {str(e)}")
+
+
+@router.delete("/results/{result_id}", tags=["Optimization"])
+async def delete_optimization_result(result_id: str):
+    """
+    **Delete Optimization Result**
+    
+    Delete a specific optimization result by ID.
+    Useful for cleaning up old or unwanted optimization runs.
+    """
+    try:
+        deleted = await OptimizationResultDB.delete_result(result_id)
+        
+        if not deleted:
+            raise HTTPException(status_code=404, detail=f"Result {result_id} not found")
+        
+        # Also delete associated task
+        await TaskDB.delete_task(result_id)
+        
+        return {
+            "message": "Result deleted successfully",
+            "result_id": result_id,
+            "deleted_at": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete result: {str(e)}")
+
+
 @router.get("/optimize/results/{request_id}", response_model=OptimizationResult, tags=["Optimization"])
 async def get_optimization_result(request_id: str):
     """
