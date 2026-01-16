@@ -49,6 +49,39 @@ export function ChallengeOutput() {
   const [error, setError] = useState<string | null>(null);
   const [showInputs, setShowInputs] = useState(true);
   
+  // Load saved results from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedResults = localStorage.getItem('challenge_optimization_results');
+      const savedVessels = localStorage.getItem('challenge_vessels');
+      const savedDemands = localStorage.getItem('challenge_demands');
+      
+      if (savedResults) {
+        try {
+          setResults(JSON.parse(savedResults));
+        } catch (e) {
+          console.error('Failed to load saved results:', e);
+        }
+      }
+      
+      if (savedVessels) {
+        try {
+          setVessels(JSON.parse(savedVessels));
+        } catch (e) {
+          console.error('Failed to load saved vessels:', e);
+        }
+      }
+      
+      if (savedDemands) {
+        try {
+          setDemands(JSON.parse(savedDemands));
+        } catch (e) {
+          console.error('Failed to load saved demands:', e);
+        }
+      }
+    }
+  }, []);
+  
   // Editable input data
   const [vessels, setVessels] = useState<Vessel[]>([
     { id: 'T1', capacity_mt: 50000, charter_rate_cr_per_day: 0.63 },
@@ -89,12 +122,20 @@ export function ChallengeOutput() {
     const updated = [...vessels];
     updated[index] = { ...updated[index], [field]: value };
     setVessels(updated);
+    // Save to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('challenge_vessels', JSON.stringify(updated));
+    }
   };
 
   const updateDemand = (index: number, value: number) => {
     const updated = [...demands];
     updated[index] = { ...updated[index], demand_mt: value };
     setDemands(updated);
+    // Save to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('challenge_demands', JSON.stringify(updated));
+    }
   };
 
   const runOptimization = async () => {
@@ -120,8 +161,15 @@ export function ChallengeOutput() {
       
       const data = await response.json();
       setResults(data);
+      
+      // Save results to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('challenge_optimization_results', JSON.stringify(data));
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      console.error('Optimization error:', errorMessage);
+      setError(`Backend API unavailable. Please ensure the backend server is running at ${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}`);
     } finally {
       setLoading(false);
     }
@@ -147,6 +195,13 @@ export function ChallengeOutput() {
     window.URL.revokeObjectURL(url);
   };
 
+  const clearResults = () => {
+    setResults(null);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('challenge_optimization_results');
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Section Header with Action Button */}
@@ -157,20 +212,30 @@ export function ChallengeOutput() {
           </h2>
           <p className="text-slate-400">Configure fleet parameters and generate optimal routing solutions</p>
         </div>
-        <button
-          onClick={runOptimization}
-          disabled={loading}
-          className="px-8 py-3 rounded-xl font-semibold text-sm transition-all duration-300 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/50 hover:shadow-cyan-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              Optimizing...
-            </span>
-          ) : (
-            'Run Optimization'
+        <div className="flex gap-3">
+          {results && (
+            <button
+              onClick={clearResults}
+              className="px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300 bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30 hover:border-red-500/50"
+            >
+              Clear Results
+            </button>
           )}
-        </button>
+          <button
+            onClick={runOptimization}
+            disabled={loading}
+            className="px-8 py-3 rounded-xl font-semibold text-sm transition-all duration-300 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/50 hover:shadow-cyan-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Optimizing...
+              </span>
+            ) : (
+              'Run Optimization'
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Input Toggle */}
@@ -346,7 +411,7 @@ export function ChallengeOutput() {
           </div>
         )}
 
-        {results && (
+        {results && results.summary && (
         <>
           {/* Summary Section */}
           <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
