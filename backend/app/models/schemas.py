@@ -75,21 +75,23 @@ class HPCLVessel(BaseModel):
     imo_number: str = Field(..., description="IMO vessel number")
     
     # Technical Specifications
-    capacity_mt: float = Field(..., description="Cargo capacity (Metric Tonnes)")
-    grt: float = Field(..., description="Gross Registered Tonnage")
-    length_m: float = Field(..., description="Vessel length (meters)")
-    beam_m: float = Field(..., description="Vessel beam (meters)")
-    draft_m: float = Field(..., description="Maximum draft (meters)")
+    capacity_mt: float = Field(..., gt=0, description="Cargo capacity (Metric Tonnes)")
+    grt: float = Field(..., gt=0, description="Gross Registered Tonnage")
+    length_m: float = Field(..., gt=0, description="Vessel length (meters)")
+    beam_m: float = Field(..., gt=0, description="Vessel beam (meters)")
+    draft_m: float = Field(..., gt=0, description="Maximum draft (meters)")
     
     # Performance Parameters
-    speed_knots: float = Field(..., description="Service speed (knots)")
-    fuel_consumption_mt_per_day: float = Field(..., description="Daily fuel consumption (MT)")
+    speed_knots: float = Field(..., gt=0, description="Service speed (knots)")
+    fuel_consumption_mt_per_day: float = Field(..., ge=0, description="Daily fuel consumption (MT)")
     
     # Operational Parameters
-    daily_charter_rate: float = Field(..., description="Daily charter rate (₹)")
-    crew_size: int = Field(..., description="Crew complement")
+    daily_charter_rate: float = Field(..., gt=0, description="Daily charter rate (₹)")
+    crew_size: int = Field(..., gt=0, description="Crew complement")
     monthly_available_hours: float = Field(
         default=720.0, 
+        gt=0,
+        le=744.0,  # Max hours in a 31-day month
         description="Available operating hours per month"
     )
     
@@ -98,6 +100,34 @@ class HPCLVessel(BaseModel):
     current_port: Optional[str] = Field(None, description="Current port location")
     
     @validator('capacity_mt')
+    def validate_capacity(cls, v):
+        if v <= 0:
+            raise ValueError('Vessel capacity must be positive')
+        if v > 500000:  # Sanity check: no vessel > 500k MT
+            raise ValueError('Vessel capacity unrealistically high (> 500,000 MT)')
+        return v
+    
+    @validator('daily_charter_rate')
+    def validate_charter_rate(cls, v):
+        if v <= 0:
+            raise ValueError('Charter rate must be positive')
+        if v > 100000000:  # ₹10 Crore/day seems unrealistic
+            raise ValueError('Charter rate unrealistically high (> ₹10 Cr/day)')
+        return v
+    
+    @validator('speed_knots')
+    def validate_speed(cls, v):
+        if v < 5 or v > 30:
+            raise ValueError('Vessel speed must be between 5 and 30 knots')
+        return v
+    
+    @validator('monthly_available_hours')
+    def validate_monthly_hours(cls, v):
+        if v > 720:  # Standard month = 30 days * 24 hours
+            raise ValueError('Monthly hours cannot exceed 720 (operational constraint)')
+        if v < 100:
+            raise ValueError('Monthly available hours too low (< 100 hours)')
+        return v
     def validate_capacity(cls, v):
         if v <= 0:
             raise ValueError('Vessel capacity must be positive')
@@ -117,13 +147,21 @@ class MonthlyDemand(BaseModel):
         default="medium", 
         description="Demand priority level"
     )
-    delivery_window_start: datetime = Field(..., description="Earliest delivery date")
-    delivery_window_end: datetime = Field(..., description="Latest delivery date")
+    delivery_window_start: Optional[datetime] = Field(None, description="Earliest delivery date")
+    delivery_window_end: Optional[datetime] = Field(None, description="Latest delivery date")
     
     @validator('demand_mt')
     def validate_demand(cls, v):
         if v < 0:
             raise ValueError('Demand cannot be negative')
+        if v > 1000000:  # Sanity check: 1M MT per port per month seems excessive
+            raise ValueError('Demand unrealistically high (> 1,000,000 MT per port)')
+        return v
+    
+    @validator('port_id')
+    def validate_port_id(cls, v):
+        if not v or len(v) < 1:
+            raise ValueError('Port ID cannot be empty')
         return v
 
 
