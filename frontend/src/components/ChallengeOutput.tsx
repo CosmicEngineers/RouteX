@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { formatNumber } from '../utils/formatters';
 
 interface Vessel {
   id: string;
@@ -147,190 +148,198 @@ export function ChallengeOutput() {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-gray-50 to-blue-50">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-lg p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Challenge 7.1: Coastal Vessel Optimization</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              Minimizing Bulk Cargo Transportation Cost
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowInputs(!showInputs)}
-              className="px-4 py-2 rounded-lg font-medium border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-all"
-            >
-              {showInputs ? 'Hide Inputs' : 'Show Inputs'}
-            </button>
-            <button
-              onClick={runOptimization}
-              disabled={loading}
-              className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-                loading
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg'
-              }`}
-            >
-              {loading ? (
-                <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Running Optimization...
-                </span>
-              ) : (
-                'Run Optimization'
-              )}
-            </button>
+    <div className="space-y-8">
+      {/* Section Header with Action Button */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent mb-2">
+            Challenge 7.1 Optimization
+          </h2>
+          <p className="text-slate-400">Configure fleet parameters and generate optimal routing solutions</p>
+        </div>
+        <button
+          onClick={runOptimization}
+          disabled={loading}
+          className="px-8 py-3 rounded-xl font-semibold text-sm transition-all duration-300 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/50 hover:shadow-cyan-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? (
+            <span className="flex items-center gap-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              Optimizing...
+            </span>
+          ) : (
+            'Run Optimization'
+          )}
+        </button>
+      </div>
+
+      {/* Input Toggle */}
+      <div className="flex justify-center">
+        <button
+          onClick={() => setShowInputs(!showInputs)}
+          className="glass-card border border-slate-700 px-6 py-3 rounded-xl text-sm font-medium text-slate-300 hover:text-cyan-400 hover:border-cyan-500/50 transition-all"
+        >
+          {showInputs ? '▼ Hide Input Configuration' : '▶ Show Input Configuration'}
+        </button>
+      </div>
+
+      {/* Input Configuration Section */}
+      {showInputs && (
+        <div className="glass-card rounded-2xl border border-slate-700/50 p-8">
+          <h3 className="text-xl font-semibold text-slate-200 mb-6">Input Configuration</h3>
+          <div className="space-y-6">
           </div>
         </div>
-      </div>
+      )}
 
       {/* Input Tables */}
       {showInputs && (
+        <div>
+          <div style={{ fontSize: '11px', letterSpacing: '0.08em', fontWeight: '700', color: '#0B5ED7', marginBottom: '20px', textTransform: 'uppercase' }}>
+            STEP 1 — INPUT CONFIGURATION
+          </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Tankers Input */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Tanker Fleet (9 Vessels)</h3>
-            <div className="overflow-x-auto">
+          <div style={{ backgroundColor: '#F8FBFF', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid #E6F2FF' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#0B3C5D', marginBottom: '16px' }}>Tanker Fleet (9 Vessels)</h3>
+            <div className="overflow-x-auto table-container rounded-lg">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+                <thead className="table-header">
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tanker</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Capacity (MT)</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Charter Rate (₹Cr/day)</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase">Tanker</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium uppercase">Capacity (MT)</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium uppercase">Charter Rate (₹Cr/day)</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-200">
                   {vessels.map((vessel, index) => (
-                    <tr key={vessel.id}>
-                      <td className="px-3 py-2 text-sm font-medium text-gray-900">{vessel.id}</td>
+                    <tr key={vessel.id} className="table-row">
+                      <td className="px-3 py-2 text-sm font-medium text-slate-300">{vessel.id}</td>
                       <td className="px-3 py-2 text-right">
                         <input
                           type="number"
                           value={vessel.capacity_mt}
                           onChange={(e) => updateVessel(index, 'capacity_mt', parseInt(e.target.value) || 0)}
-                          className="w-24 px-2 py-1 text-sm text-right border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-24 px-2 py-1 text-sm text-right custom-input rounded"
                         />
                       </td>
-                      <td className="px-3 py-2 text-right">
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={vessel.charter_rate_cr_per_day}
-                          onChange={(e) => updateVessel(index, 'charter_rate_cr_per_day', parseFloat(e.target.value) || 0)}
-                          className="w-20 px-2 py-1 text-sm text-right border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                      </td>
+              <td className="px-3 py-2 text-right">
+                <input
+                  type="number"
+                  step="0.01"
+                  value={vessel.charter_rate_cr_per_day}
+                  onChange={(e) => updateVessel(index, 'charter_rate_cr_per_day', parseFloat(e.target.value) || 0)}
+                  className="w-20 px-2 py-1 text-sm text-right custom-input rounded"
+                />
+              </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="mt-3 text-xs text-gray-500">
-              <p>Total Fleet Capacity: <span className="font-semibold">{vessels.reduce((sum, v) => sum + v.capacity_mt, 0).toLocaleString()} MT</span></p>
+            <div className="mt-3 text-xs text-slate-400">
+              <p>Total Fleet Capacity: <span className="font-semibold text-cyan-400">{formatNumber(vessels.reduce((sum, v) => sum + v.capacity_mt, 0))} MT</span></p>
             </div>
           </div>
 
           {/* Demands Input */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Unloading Port Demands</h3>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+          <div style={{ backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.3)', border: '1px solid rgba(148, 163, 184, 0.1)' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#22d3ee', marginBottom: '16px' }}>Unloading Port Demands</h3>
+            <div className="overflow-x-auto table-container rounded-lg">
+              <table className="min-w-full divide-y divide-cyan-200">
+                <thead className="table-header">
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Port</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Demand (MT/month)</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase">Port</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium uppercase">Demand (MT/month)</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {demands.map((demand, index) => (
-                    <tr key={demand.port_id}>
-                      <td className="px-3 py-2 text-sm font-medium text-gray-900">{demand.port_id}</td>
-                      <td className="px-3 py-2 text-right">
-                        <input
-                          type="number"
-                          value={demand.demand_mt}
-                          onChange={(e) => updateDemand(index, parseInt(e.target.value) || 0)}
-                          className="w-28 px-2 py-1 text-sm text-right border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+              <tbody className="divide-y divide-gray-200">
+                {demands.map((demand, index) => (
+                  <tr key={demand.port_id} className="table-row">
+                    <td className="px-3 py-2 text-sm font-medium text-slate-300">{demand.port_id}</td>
+                    <td className="px-3 py-2 text-right">
+                      <input
+                        type="number"
+                        value={demand.demand_mt}
+                        onChange={(e) => updateDemand(index, parseInt(e.target.value) || 0)}
+                        className="w-28 px-2 py-1 text-sm text-right custom-input rounded"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
               </table>
             </div>
-            <div className="mt-3 text-xs text-gray-500">
-              <p>Total Monthly Demand: <span className="font-semibold">{demands.reduce((sum, d) => sum + d.demand_mt, 0).toLocaleString()} MT</span></p>
+            <div className="mt-3 text-xs text-slate-400">
+              <p>Total Monthly Demand: <span className="font-semibold text-cyan-400">{formatNumber(demands.reduce((sum, d) => sum + d.demand_mt, 0))} MT</span></p>
             </div>
           </div>
 
           {/* Loading Ports Info */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Loading Ports (6 Ports)</h3>
+          <div style={{ backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.3)', border: '1px solid rgba(148, 163, 184, 0.1)' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#22d3ee', marginBottom: '16px' }}>Loading Ports (6 Ports)</h3>
             <div className="space-y-2">
               {loadingPorts.map((port) => (
-                <div key={port.id} className="flex items-center justify-between py-2 px-3 bg-green-50 rounded">
-                  <span className="text-sm font-medium text-gray-900">{port.id}</span>
-                  <span className="text-xs text-gray-600">{port.name}</span>
-                  <span className="text-xs font-semibold text-green-600">Unlimited Supply</span>
+                <div key={port.id} className="flex items-center justify-between py-2 px-3 rounded" style={{ backgroundColor: 'rgba(34, 211, 238, 0.1)' }}>
+                  <span className="text-sm font-medium text-slate-300">{port.id}</span>
+                  <span className="text-xs text-slate-400">{port.name}</span>
+                  <span className="text-xs font-semibold text-green-400">Unlimited Supply</span>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Constraints Info */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Operational Constraints</h3>
-            <div className="space-y-3">
+          <div style={{ backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.3)', border: '1px solid rgba(148, 163, 184, 0.1)' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#22d3ee', marginBottom: '20px' }}>Operational Constraints</h3>
+            <div className="space-y-4">
               <div className="flex items-start">
-                <div className="shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mt-0.5">
-                  <span className="text-blue-600 text-xs font-bold">1</span>
+                <div className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center mt-0.5" style={{ backgroundColor: 'rgba(34, 211, 238, 0.2)', border: '1px solid rgba(34, 211, 238, 0.3)' }}>
+                  <span className="text-sm font-bold text-cyan-400">1</span>
                 </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-900">Single-port Full Loading</p>
-                  <p className="text-xs text-gray-600">Each tanker loads full capacity from only one port</p>
+                <div className="ml-4">
+                  <p className="text-base font-semibold text-slate-100 mb-1">Single-port Full Loading</p>
+                  <p className="text-sm text-slate-300 leading-relaxed">Each tanker loads full capacity from only one port</p>
                 </div>
               </div>
               <div className="flex items-start">
-                <div className="shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mt-0.5">
-                  <span className="text-blue-600 text-xs font-bold">2</span>
+                <div className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center mt-0.5" style={{ backgroundColor: 'rgba(34, 211, 238, 0.2)', border: '1px solid rgba(34, 211, 238, 0.3)' }}>
+                  <span className="text-sm font-bold text-cyan-400">2</span>
                 </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-900">Maximum Two-port Discharge</p>
-                  <p className="text-xs text-gray-600">Tanker may unload at maximum of 2 ports per trip</p>
-                </div>
-              </div>
-              <div className="flex items-start">
-                <div className="shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mt-0.5">
-                  <span className="text-blue-600 text-xs font-bold">3</span>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-900">Unlimited Supply at Loading Ports</p>
-                  <p className="text-xs text-gray-600">No supply constraints at any loading port</p>
+                <div className="ml-4">
+                  <p className="text-base font-semibold text-slate-100 mb-1">Maximum Two-port Discharge</p>
+                  <p className="text-sm text-slate-300 leading-relaxed">Tanker may unload at maximum of 2 ports per trip</p>
                 </div>
               </div>
+        <div className="flex items-start">
+          <div className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center mt-0.5" style={{ backgroundColor: 'rgba(34, 211, 238, 0.2)', border: '1px solid rgba(34, 211, 238, 0.3)' }}>
+            <span className="text-sm font-bold text-cyan-400">3</span>
+          </div>
+          <div className="ml-4">
+            <p className="text-base font-semibold text-slate-100 mb-1">Unlimited Supply at Loading Ports</p>
+            <p className="text-sm text-slate-300 leading-relaxed">No supply constraints at any loading port</p>
+          </div>
+              </div>
               <div className="flex items-start">
-                <div className="shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mt-0.5">
-                  <span className="text-blue-600 text-xs font-bold">4</span>
+                <div className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center mt-0.5" style={{ backgroundColor: 'rgba(34, 211, 238, 0.2)', border: '1px solid rgba(34, 211, 238, 0.3)' }}>
+                  <span className="text-sm font-bold text-cyan-400">4</span>
                 </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-900">Full Demand Satisfaction</p>
-                  <p className="text-xs text-gray-600">All unloading port demands must be fully met</p>
+                <div className="ml-4">
+                  <p className="text-base font-semibold text-slate-100 mb-1">Full Demand Satisfaction</p>
+                  <p className="text-sm text-slate-300 leading-relaxed">All unloading port demands must be fully met</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
+        </div>
       )}
 
-      {/* Results Section */}
-      <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-lg p-6">
-
+      {/* Results Section Wrapper */}
+      <div style={{ backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(16px)', border: '1px solid rgba(148, 163, 184, 0.1)', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.3)', padding: '32px', marginTop: '32px' }}>
+        <div style={{ fontSize: '11px', letterSpacing: '0.08em', fontWeight: '700', color: '#22d3ee', marginBottom: '20px', textTransform: 'uppercase' }}>
+          STEP 2 — OPTIMIZATION RESULTS
+        </div>
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-800 font-medium">Error: {error}</p>
@@ -341,21 +350,21 @@ export function ChallengeOutput() {
         <>
           {/* Summary Section */}
           <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-              <p className="text-sm text-blue-600 font-medium">Total Cost</p>
-              <p className="text-2xl font-bold text-blue-900">₹{results.summary.total_cost_cr} Cr</p>
+            <div className="terminal-style p-4 rounded-lg border border-cyan-500/30">
+              <p className="text-sm font-medium text-cyan-400">Total Cost</p>
+              <p className="text-2xl font-bold text-cyan-300">₹{results.summary.total_cost_cr} Cr</p>
             </div>
-            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-              <p className="text-sm text-green-600 font-medium">Total Routes</p>
-              <p className="text-2xl font-bold text-green-900">{results.summary.total_routes}</p>
+            <div className="terminal-style p-4 rounded-lg border border-green-500/30">
+              <p className="text-sm font-medium text-green-400">Total Routes</p>
+              <p className="text-2xl font-bold text-green-300">{results.summary.total_routes}</p>
             </div>
-            <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-              <p className="text-sm text-purple-600 font-medium">Volume Delivered</p>
-              <p className="text-2xl font-bold text-purple-900">{results.summary.total_volume_mt.toLocaleString()} MT</p>
+            <div className="terminal-style p-4 rounded-lg border border-purple-500/30">
+              <p className="text-sm font-medium text-purple-400">Volume Delivered</p>
+              <p className="text-2xl font-bold text-purple-300">{formatNumber(results.summary.total_volume_mt)} MT</p>
             </div>
-            <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-              <p className="text-sm text-orange-600 font-medium">Demand Satisfied</p>
-              <p className="text-2xl font-bold text-orange-900">{results.summary.demand_satisfaction_percentage}%</p>
+            <div className="terminal-style p-4 rounded-lg border border-blue-500/30">
+              <p className="text-sm font-medium text-blue-400">Demand Satisfied</p>
+              <p className="text-2xl font-bold text-blue-300">{results.summary.demand_satisfaction_percentage}%</p>
             </div>
           </div>
 
@@ -363,7 +372,7 @@ export function ChallengeOutput() {
           <div className="mb-4 flex justify-end">
             <button
               onClick={downloadCSV}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all flex items-center gap-2"
+              className="px-4 py-2 btn-primary-gradient rounded-lg font-medium transition-all flex items-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -373,57 +382,57 @@ export function ChallengeOutput() {
           </div>
 
           {/* Results Table */}
-          <div className="overflow-x-auto border border-gray-200 rounded-lg">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+          <div className="overflow-x-auto table-container rounded-lg">
+            <table className="min-w-full divide-y divide-cyan-200">
+              <thead className="table-header">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{color: '#ffffff'}}>
                     Source
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{color: '#ffffff'}}>
                     Destination
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{color: '#ffffff'}}>
                     Tanker
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider" style={{color: '#ffffff'}}>
                     Volume (MT)
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider" style={{color: '#ffffff'}}>
                     Trip Cost (Rs Cr)
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-cyan-500/30">
                 {results.optimization_results.map((row, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <tr key={index} className="table-row" style={{backgroundColor: index % 2 === 0 ? '#1e3a5f' : '#2d4a6f'}}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" style={{color: '#67e8f9'}}>
                       {row.Source}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm" style={{color: '#67e8f9'}}>
                       {row.Destination}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm" style={{color: '#67e8f9'}}>
                       {row.Tanker}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                      {row['Volume (MT)'].toLocaleString()}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right" style={{color: '#67e8f9'}}>
+                      {formatNumber(row['Volume (MT)'])}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium" style={{color: '#6ee7b7'}}>
                       ₹{row['Trip Cost (Rs Cr)'].toFixed(4)}
                     </td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="bg-gray-50 font-bold">
+              <tfoot className="table-header font-bold" style={{backgroundColor: '#1e40af'}}>
                 <tr>
-                  <td colSpan={3} className="px-6 py-4 text-sm text-gray-900">
+                  <td colSpan={3} className="px-6 py-4 text-sm" style={{color: '#ffffff'}}>
                     TOTAL
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                    {results.summary.total_volume_mt.toLocaleString()} MT
+                  <td className="px-6 py-4 text-sm text-right" style={{color: '#ffffff'}}>
+                    {formatNumber(results.summary.total_volume_mt)} MT
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 text-right">
+                  <td className="px-6 py-4 text-sm text-right" style={{color: '#6ee7b7'}}>
                     ₹{results.summary.total_cost_cr.toFixed(2)} Cr
                   </td>
                 </tr>
@@ -434,14 +443,108 @@ export function ChallengeOutput() {
         )}
 
         {!results && !loading && (
-          <div className="text-center py-12">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <p className="mt-4 text-gray-600">Click "Run Optimization" to generate results</p>
+          <div className="glass-card rounded-2xl border border-slate-700/50 overflow-hidden">
+            {/* Header Section */}
+            <div className="border-b border-slate-700/50 px-8 py-6 bg-gradient-to-r from-slate-900/50 to-slate-800/30">
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-cyan-500/20 blur-xl"></div>
+                  <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-cyan-500/30 bg-white/5">
+                    <img 
+                      src="/business-optimization-growth_1050938-28362.avif" 
+                      alt="Business Optimization"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-slate-100 mb-1">
+                    Optimization Engine Ready
+                  </h3>
+                  <p className="text-sm text-slate-400">
+                    System initialized and awaiting input configuration
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500/10 border border-green-500/30">
+                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+                  <span className="text-xs font-semibold text-green-400">ONLINE</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Content Section */}
+            <div className="px-8 py-8">
+              <div className="mb-8 text-center max-w-2xl mx-auto">
+                <p className="text-slate-300 text-base leading-relaxed">
+                  Configure vessel fleet parameters and port demand requirements above, then execute the optimization algorithm to generate cost-optimal routing solutions for coastal tanker operations.
+                </p>
+              </div>
+
+              {/* Capabilities Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Card 1 */}
+                <div className="group relative overflow-hidden rounded-xl border border-slate-700/50 bg-gradient-to-br from-slate-800/40 to-slate-900/40 p-6 hover:border-cyan-500/50 transition-all duration-300">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-2xl group-hover:bg-cyan-500/10 transition-all"></div>
+                  <div className="relative">
+                    <div className="w-20 h-20 rounded-lg overflow-hidden mb-4 group-hover:scale-110 transition-transform bg-white/5 border border-cyan-500/20">
+                      <img 
+                        src="/highperformance-computing-hpc-supercomputers-computer-260nw-2234873365.webp" 
+                        alt="High Performance Computing"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <h4 className="text-base font-semibold text-slate-200 mb-2">High-Performance Computing</h4>
+                    <p className="text-sm text-slate-400 leading-relaxed">OR-Tools CP-SAT constraint programming solver for rapid optimization</p>
+                  </div>
+                </div>
+
+                {/* Card 2 */}
+                <div className="group relative overflow-hidden rounded-xl border border-slate-700/50 bg-gradient-to-br from-slate-800/40 to-slate-900/40 p-6 hover:border-green-500/50 transition-all duration-300">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 rounded-full blur-2xl group-hover:bg-green-500/10 transition-all"></div>
+                  <div className="relative">
+                    <div className="w-20 h-20 rounded-lg overflow-hidden mb-4 group-hover:scale-110 transition-transform bg-white/5 border border-green-500/20">
+                      <img 
+                        src="/cost-optimization-financial-design-vector-42140697.webp" 
+                        alt="Cost Optimization"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <h4 className="text-base font-semibold text-slate-200 mb-2">Cost Optimization</h4>
+                    <p className="text-sm text-slate-400 leading-relaxed">Multi-objective optimization minimizing charter costs and voyage expenses</p>
+                  </div>
+                </div>
+
+                {/* Card 3 */}
+                <div className="group relative overflow-hidden rounded-xl border border-slate-700/50 bg-gradient-to-br from-slate-800/40 to-slate-900/40 p-6 hover:border-blue-500/50 transition-all duration-300">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl group-hover:bg-blue-500/10 transition-all"></div>
+                  <div className="relative">
+                    <div className="w-20 h-20 rounded-lg overflow-hidden mb-4 group-hover:scale-110 transition-transform bg-white/5 border border-blue-500/20">
+                      <img 
+                        src="/stockfresh_6186205_fulfillment-cardboard-boxes-shipping-orders-warehouse-shipments_sizeXS-min.jpg" 
+                        alt="Demand Fulfillment"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <h4 className="text-base font-semibold text-slate-200 mb-2">Demand Fulfillment</h4>
+                    <p className="text-sm text-slate-400 leading-relaxed">Guaranteed 100% satisfaction of all unloading port requirements</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Hint */}
+              <div className="mt-8 text-center">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500/5 border border-blue-500/20">
+                  <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm text-slate-400">
+                    Click <span className="text-blue-400 font-semibold">Run Optimization</span> button above to begin
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         )}
-      </div>
       </div>
     </div>
   );

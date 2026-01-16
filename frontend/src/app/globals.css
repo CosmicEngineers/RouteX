@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Maritime Deep Blue Theme */
+  --background: transparent;
+  --foreground: #f1f5f9;
+  --maritime-navy: #001529;
+  --maritime-blue: #1890ff;
+  --maritime-cyan: #22d3ee;
+  --maritime-teal: #14b8a6;
+  --glass-bg: rgba(15, 23, 42, 0.5);
+  --glass-border: rgba(148, 163, 184, 0.1);
 }
 
 @theme inline {
@@ -10,17 +17,144 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-maritime-navy: var(--maritime-navy);
+  --color-maritime-blue: var(--maritime-blue);
+  --color-maritime-cyan: var(--maritime-cyan);
+  --color-maritime-teal: var(--maritime-teal);
 }
 
 body {
-  background: var(--background);
+  background: transparent;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+  min-height: 100vh;
+}
+
+/* Custom Input Styles - Maritime Dark Theme */
+.custom-input {
+  background-color: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  color: #e2e8f0;
+  backdrop-filter: blur(8px);
+}
+
+.custom-input:focus {
+  outline: none;
+  border-color: #22d3ee;
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.25);
+}
+
+/* Glassmorphism Card Effect - Maritime Style */
+.glass-card {
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Primary Button Gradient - Blue Theme */
+.btn-primary-gradient {
+  background: linear-gradient(135deg, #2563eb, #22d3ee);
+  color: white;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.btn-primary-gradient:hover {
+  background: linear-gradient(135deg, #22d3ee, #14b8a6);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(34, 211, 238, 0.5);
+}
+
+/* Table Styles - Maritime Dark Theme */
+.table-container {
+  background-color: rgba(15, 23, 42, 0.6);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.table-header {
+  background: linear-gradient(135deg, rgba(24, 144, 255, 0.2), rgba(34, 211, 238, 0.2));
+  color: #e2e8f0;
+  font-size: 13px;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+}
+
+.table-row {
+  background-color: rgba(15, 23, 42, 0.4);
+  font-size: 13px;
+  color: #cbd5e1;
+}
+
+.table-row:hover {
+  background-color: rgba(24, 144, 255, 0.1);
+  backdrop-filter: blur(8px);
+}
+
+/* Section Label - Maritime Style */
+.section-label {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: #22d3ee;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.3);
+}
+
+/* Input Card - Dark Glass */
+.input-card {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  backdrop-filter: blur(16px);
+}
+
+/* Card Hover Effect */
+.card-hover {
+  transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(24, 144, 255, 0.2);
+}
+
+/* Terminal Style - For Challenge Output */
+.terminal-style {
+  font-family: 'Courier New', Courier, monospace;
+  background: rgba(0, 21, 41, 0.9);
+  color: #22d3ee;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.1);
+}
+
+/* Glow Effect for Key Elements */
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.6), 0 0 40px rgba(34, 211, 238, 0.3);
+}
+
+.glow-blue {
+  box-shadow: 0 0 20px rgba(37, 99, 235, 0.6), 0 0 40px rgba(37, 99, 235, 0.3);
+}
+
+/* Electric Blue Pulse Animation */
+@keyframes pulse-blue {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(37, 99, 235, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(34, 211, 238, 0.6);
+  }
+}
+
+/* Maritime Gradient Background */
+.maritime-gradient {
+  background: radial-gradient(circle at center, rgba(24, 144, 255, 0.1) 0%, rgba(2, 6, 23, 0) 70%);
 }

@@ -13,14 +13,53 @@ from typing import List, Dict, Any
 
 from .api.routes import router as api_router
 from .api.challenge_routes import router as challenge_router
-from .models.database import connect_to_mongo, close_mongo_connection, check_database_health
+from .models.database import (
+    connect_to_mongo, close_mongo_connection, check_database_health,
+    HPCLVesselDB, HPCLPortDB, _in_memory_data
+)
 from .core.config import get_settings
+from .data.sample_data import generate_hpcl_sample_data
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
+
+
+async def seed_initial_data():
+    """
+    Seed database/in-memory storage with initial HPCL data
+    """
+    logger.info("Seeding initial HPCL data...")
+    
+    try:
+        # Get sample data
+        sample_data = generate_hpcl_sample_data()
+        
+        # Check if we already have data
+        existing_vessels = await HPCLVesselDB.get_all_vessels()
+        existing_ports = await HPCLPortDB.get_all_ports()
+        
+        if existing_vessels and len(existing_vessels) > 0:
+            logger.info(f"Data already exists: {len(existing_vessels)} vessels, {len(existing_ports)} ports")
+            return
+        
+        # Seed vessels
+        logger.info(f"Seeding {len(sample_data['vessels'])} vessels...")
+        for vessel in sample_data['vessels']:
+            await HPCLVesselDB.create_vessel(vessel)
+        
+        # Seed ports
+        logger.info(f"Seeding {len(sample_data['ports'])} ports...")
+        for port in sample_data['ports']:
+            await HPCLPortDB.create_port(port)
+        
+        logger.info("✅ Initial data seeding completed successfully")
+        
+    except Exception as e:
+        logger.error(f"Failed to seed initial data: {e}")
+        # Continue anyway - app can still work with in-memory data
 
 
 @asynccontextmanager
@@ -33,6 +72,9 @@ async def lifespan(app: FastAPI):
     
     # Initialize database connection
     await connect_to_mongo()
+    
+    # Seed initial data
+    await seed_initial_data()
     
     # Initialize distance matrix cache
     logger.info("Initializing maritime distance calculations...")

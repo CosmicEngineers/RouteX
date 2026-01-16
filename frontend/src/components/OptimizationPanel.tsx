@@ -59,41 +59,41 @@ export function OptimizationPanel({ vessels, ports, onStartOptimization, isOptim
   return (
     <div className="space-y-6">
       {/* Optimization Parameters */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Settings className="h-5 w-5 text-orange-600 mr-2" />
+      <div className="glass-card rounded-xl border border-slate-700/50 p-8">
+        <h3 className="text-xl font-semibold text-slate-100 mb-6 flex items-center">
+          <Settings className="h-6 w-6 text-cyan-400 mr-2" />
           Optimization Parameters
         </h3>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           {/* Fuel Price */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <DollarSign className="inline h-4 w-4 mr-1" />
+            <label className="block text-base font-medium text-slate-200 mb-3">
+              <DollarSign className="inline h-5 w-5 mr-1" />
               Fuel Price (₹ per MT)
             </label>
             <input
               type="number"
               value={fuelPrice}
               onChange={(e) => setFuelPrice(Number(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600/50 rounded-lg text-slate-100 text-base focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               min="20000"
               max="80000"
               step="1000"
             />
-            <p className="text-xs text-gray-500 mt-1">Current market rate: ₹42,000 - ₹48,000 per MT</p>
+            <p className="text-sm text-slate-400 mt-2">Current market rate: ₹42,000 - ₹48,000 per MT</p>
           </div>
 
           {/* Optimization Objective */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <Target className="inline h-4 w-4 mr-1" />
+            <label className="block text-base font-medium text-slate-200 mb-3">
+              <Target className="inline h-5 w-5 mr-1" />
               Optimization Objective
             </label>
             <select
               value={optimizationObjective}
               onChange={(e) => setOptimizationObjective(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600/50 rounded-lg text-slate-100 text-base focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
             >
               <option value="cost">Minimize Total Cost</option>
               <option value="time">Minimize Transit Time</option>
@@ -104,14 +104,14 @@ export function OptimizationPanel({ vessels, ports, onStartOptimization, isOptim
 
           {/* Max Solve Time */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <Calendar className="inline h-4 w-4 mr-1" />
+            <label className="block text-base font-medium text-slate-200 mb-3">
+              <Calendar className="inline h-5 w-5 mr-1" />
               Max Solve Time (seconds)
             </label>
             <select
               value={maxSolveTime}
               onChange={(e) => setMaxSolveTime(Number(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600/50 rounded-lg text-slate-100 text-base focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
             >
               <option value={60}>1 minute (Quick)</option>
               <option value={180}>3 minutes (Balanced)</option>
@@ -122,18 +122,18 @@ export function OptimizationPanel({ vessels, ports, onStartOptimization, isOptim
 
           {/* Round Trip */}
           <div>
-            <label className="flex items-center space-x-2 cursor-pointer">
+            <label className="flex items-center space-x-3 cursor-pointer">
               <input
                 type="checkbox"
                 checked={isRoundTrip}
                 onChange={(e) => setIsRoundTrip(e.target.checked)}
-                className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                className="h-5 w-5 text-cyan-500 focus:ring-cyan-500 border-slate-600 rounded bg-slate-800"
               />
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-base font-medium text-slate-200">
                 Round Trip (Return to loading port)
               </span>
             </label>
-            <p className="text-xs text-gray-500 mt-1 ml-6">
+            <p className="text-sm text-slate-400 mt-2 ml-8">
               {isRoundTrip ? 'Vessels will return to loading port after delivery (costs doubled)' : 'One-way trip only'}
             </p>
           </div>
@@ -141,23 +141,23 @@ export function OptimizationPanel({ vessels, ports, onStartOptimization, isOptim
       </div>
 
       {/* Vessel Selection */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+      <div className="glass-card rounded-xl border border-slate-700/50 p-8">
+        <h3 className="text-xl font-semibold text-slate-100 mb-6">
           Select Vessels ({selectedVessels.length || availableVessels.length}/{vessels.length})
         </h3>
 
-        <div className="space-y-2 max-h-48 overflow-y-auto">
+        <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
           {availableVessels.map((vessel) => (
-            <label key={vessel.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
+            <label key={vessel.id} className="flex items-center space-x-3 p-4 hover:bg-slate-800/30 rounded-lg transition-colors">
               <input
                 type="checkbox"
                 checked={selectedVessels.length === 0 || selectedVessels.includes(vessel.id)}
                 onChange={(e) => handleVesselSelection(vessel.id, e.target.checked)}
-                className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                className="h-5 w-5 text-cyan-500 focus:ring-cyan-500 border-slate-600 rounded bg-slate-800"
               />
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-gray-900">{vessel.name}</div>
-                <div className="text-xs text-gray-500">
+                <div className="text-base font-medium text-slate-100">{vessel.name}</div>
+                <div className="text-sm text-slate-400">
                   {(vessel.capacity_mt / 1000).toFixed(0)}K MT • {vessel.current_port}
                 </div>
               </div>
@@ -166,53 +166,53 @@ export function OptimizationPanel({ vessels, ports, onStartOptimization, isOptim
         </div>
 
         {availableVessels.length === 0 && (
-          <div className="text-center py-4 text-gray-500">
+          <div className="text-center py-6 text-slate-400 text-base">
             No available vessels for optimization
           </div>
         )}
       </div>
 
       {/* Demand Summary */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+      <div className="glass-card rounded-xl border border-slate-700/50 p-8">
+        <h3 className="text-xl font-semibold text-slate-100 mb-6">
           November 2025 Demand Profile
         </h3>
 
-        <div className="space-y-2 max-h-32 overflow-y-auto">
+        <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
           {demands.map((demand) => (
-            <div key={demand.port_id} className="flex justify-between items-center py-1">
+            <div key={demand.port_id} className="flex justify-between items-center py-3">
               <div className="flex-1">
-                <span className="text-sm font-medium">{demand.port_name}</span>
-                <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
-                  demand.priority === 'critical' ? 'bg-red-100 text-red-700' :
-                  demand.priority === 'high' ? 'bg-orange-100 text-orange-700' :
-                  'bg-blue-100 text-blue-700'
+                <span className="text-base font-medium text-slate-200">{demand.port_name}</span>
+                <span className={`ml-2 px-3 py-1 text-sm rounded-full ${
+                  demand.priority === 'critical' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                  demand.priority === 'high' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                  'bg-blue-500/20 text-blue-400 border border-blue-500/30'
                 }`}>
                   {demand.priority}
                 </span>
               </div>
-              <span className="text-sm text-gray-600">
+              <span className="text-base text-slate-300 font-medium">
                 {(demand.demand_mt / 1000).toFixed(0)}K MT
               </span>
             </div>
           ))}
         </div>
 
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Total Demand</span>
-            <span className="font-medium">{(totalDemand / 1000).toFixed(0)}K MT</span>
+        <div className="mt-6 pt-6 border-t border-slate-700/50">
+          <div className="flex justify-between text-base py-2">
+            <span className="text-slate-300">Total Demand</span>
+            <span className="font-semibold text-slate-100">{(totalDemand / 1000).toFixed(0)}K MT</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Available Capacity</span>
-            <span className="font-medium">{(totalCapacity / 1000).toFixed(0)}K MT</span>
+          <div className="flex justify-between text-base py-2">
+            <span className="text-slate-300">Available Capacity</span>
+            <span className="font-semibold text-slate-100">{(totalCapacity / 1000).toFixed(0)}K MT</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Capacity Utilization</span>
-            <span className={`font-medium ${
-              totalCapacity > 0 && (totalDemand / totalCapacity) > 0.9 ? 'text-red-600' : 
-              totalCapacity > 0 && (totalDemand / totalCapacity) > 0.8 ? 'text-orange-600' : 
-              'text-green-600'
+          <div className="flex justify-between text-base py-2">
+            <span className="text-slate-300">Capacity Utilization</span>
+            <span className={`font-semibold ${
+              totalCapacity > 0 && (totalDemand / totalCapacity) > 0.9 ? 'text-red-400' : 
+              totalCapacity > 0 && (totalDemand / totalCapacity) > 0.8 ? 'text-orange-400' : 
+              'text-green-400'
             }`}>
               {totalCapacity > 0 ? ((totalDemand / totalCapacity) * 100).toFixed(1) : 0}%
             </span>
@@ -224,20 +224,20 @@ export function OptimizationPanel({ vessels, ports, onStartOptimization, isOptim
       <button
         onClick={handleOptimization}
         disabled={isOptimizing || availableVessels.length === 0}
-        className={`w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-lg font-medium transition-colors ${
+        className={`w-full flex items-center justify-center space-x-2 py-4 px-4 rounded-lg font-semibold text-base transition-all ${
           isOptimizing || availableVessels.length === 0
-            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            : 'bg-orange-600 text-white hover:bg-orange-700'
+            ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+            : 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:shadow-lg hover:shadow-cyan-500/50'
         }`}
       >
-        <Play className="h-5 w-5" />
+        <Play className="h-6 w-6" />
         <span>
           {isOptimizing ? 'Optimizing...' : 'Start HPCL Fleet Optimization'}
         </span>
       </button>
 
       {availableVessels.length === 0 && (
-        <div className="text-center text-sm text-gray-500">
+        <div className="text-center text-base text-slate-400">
           No available vessels. Check fleet status.
         </div>
       )}

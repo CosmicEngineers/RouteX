@@ -3,6 +3,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { HPCLVessel, HPCLPort } from './HPCLDashboard';
 import { calculateMaritimeRoute } from '../utils/jps-pathfinding';
+import { formatNumber } from '../utils/formatters';
 
 // Google Maps API Key
 const GOOGLE_MAPS_API_KEY = 'AIzaSyCPRoWBNwsGeC6TTl0149U1xKPBwq3QsLs';
@@ -255,43 +256,68 @@ export function MaritimeMap({
     const map = new google.maps.Map(mapRef.current, {
       center: { lat: 15.8, lng: 76.5 },
       zoom: 6,
-      mapTypeId: 'hybrid', // Hybrid view shows water bodies clearly
+      mapTypeId: 'terrain', // Terrain with dark styling
       styles: [
+        // Dark water - Deep maritime blue
         {
           featureType: 'water',
           elementType: 'geometry',
-          stylers: [{ color: '#0D47A1' }] // Deep ocean blue
+          stylers: [{ color: '#001529' }] // Maritime navy
         },
         {
           featureType: 'water',
           elementType: 'labels.text.fill',
-          stylers: [{ color: '#BBDEFB' }]
+          stylers: [{ color: '#22d3ee' }] // Cyan text
         },
+        {
+          featureType: 'water',
+          elementType: 'labels.text.stroke',
+          stylers: [{ color: '#001529' }]
+        },
+        // Dark land for maritime focus
         {
           featureType: 'landscape',
           elementType: 'geometry',
-          stylers: [{ color: '#2E3B3B' }] // Dark land for maritime focus
+          stylers: [{ color: '#1a2332' }]
         },
         {
           featureType: 'landscape',
-          stylers: [{ lightness: -20 }]
+          stylers: [{ lightness: -30 }]
         },
+        // Hide roads - not relevant for maritime
         {
           featureType: 'road',
-          stylers: [{ visibility: 'off' }] // Hide roads - not relevant for maritime
+          stylers: [{ visibility: 'off' }]
         },
+        // Hide transit
         {
           featureType: 'transit',
-          stylers: [{ visibility: 'off' }] // Hide transit
+          stylers: [{ visibility: 'off' }]
         },
+        // Hide POI
         {
           featureType: 'poi',
-          stylers: [{ visibility: 'off' }] // Hide points of interest
+          stylers: [{ visibility: 'off' }]
         },
+        // Subtle borders
         {
           featureType: 'administrative',
           elementType: 'geometry.stroke',
-          stylers: [{ color: '#4A5568' }, { weight: 0.5 }] // Subtle borders
+          stylers: [{ color: '#1890ff' }, { weight: 0.8 }]
+        },
+        {
+          featureType: 'administrative',
+          elementType: 'labels.text.fill',
+          stylers: [{ color: '#94a3b8' }]
+        },
+        // Dark everything else
+        {
+          elementType: 'labels.text.fill',
+          stylers: [{ color: '#94a3b8' }]
+        },
+        {
+          elementType: 'labels.text.stroke',
+          stylers: [{ color: '#0f172a' }]
         }
       ]
     });
@@ -338,7 +364,7 @@ export function MaritimeMap({
             </h3>
             <p style="margin: 4px 0; font-size: 13px;"><strong>Type:</strong> ${port.type === 'loading' ? 'Loading Port' : 'Unloading Port'}</p>
             <p style="margin: 4px 0; font-size: 13px;"><strong>State:</strong> ${port.state}</p>
-            <p style="margin: 4px 0; font-size: 13px;"><strong>Capacity:</strong> ${port.capacity.toLocaleString()} MT</p>
+            <p style="margin: 4px 0; font-size: 13px;"><strong>Capacity:</strong> ${formatNumber(port.capacity)} MT</p>
             <p style="margin: 4px 0; font-size: 13px;"><strong>Status:</strong> <span style="color: #059669;">${port.status}</span></p>
           </div>
         `
@@ -386,7 +412,7 @@ export function MaritimeMap({
               ${vessel.name}
             </h3>
             <p style="margin: 4px 0; font-size: 13px;"><strong>Status:</strong> <span style="color: ${statusColor}; text-transform: capitalize;">${vessel.status}</span></p>
-            <p style="margin: 4px 0; font-size: 13px;"><strong>Capacity:</strong> ${vessel.capacity_mt.toLocaleString()} MT</p>
+            <p style="margin: 4px 0; font-size: 13px;"><strong>Capacity:</strong> ${formatNumber(vessel.capacity_mt)} MT</p>
             ${vessel.charter_rate ? `<p style="margin: 4px 0; font-size: 13px;"><strong>Charter Rate:</strong> ${vessel.charter_rate}</p>` : ''}
             <p style="margin: 4px 0; font-size: 13px;"><strong>Speed:</strong> ${vessel.speed} knots</p>
             <p style="margin: 4px 0; font-size: 13px;"><strong>Fuel:</strong> ${vessel.fuel}%</p>
@@ -479,7 +505,7 @@ export function MaritimeMap({
                 <span className="mx-2">|</span>
                 <span>Duration: {currentRoute.duration} days</span>
                 <span className="mx-2">|</span>
-                <span>Cargo: {currentRoute.cargo.toLocaleString()} MT</span>
+                <span>Cargo: {formatNumber(currentRoute.cargo)} MT</span>
               </div>
             )}
             <div className="flex items-center space-x-1">
@@ -495,7 +521,7 @@ export function MaritimeMap({
       </div>
 
       {/* Google Maps View */}
-      <div className="relative h-[600px] bg-gray-100">
+      <div className="relative h-[calc(100vh-200px)] min-h-[600px] bg-gray-100">
         {!isMapLoaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-blue-50">
             <div className="text-center">
@@ -516,19 +542,19 @@ export function MaritimeMap({
               disabled={currentRouteIndex <= 0}
               className={`px-4 py-2 rounded-lg font-medium transition-all ${
                 currentRouteIndex <= 0 
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
-                  : 'bg-blue-500 text-white hover:bg-blue-600'
+                  ? 'bg-slate-700 text-slate-400 cursor-not-allowed' 
+                  : 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:shadow-lg hover:shadow-cyan-500/50'
               }`}
             >
               ← Previous
             </button>
             
             <div className="text-center">
-              <div className="text-sm font-semibold">
+              <div className="text-sm font-semibold text-slate-100">
                 Route {(currentRouteIndex + 1)} of {totalRoutes}
               </div>
               {currentRoute && (
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-xs text-slate-400 mt-1">
                   {currentRoute.description}
                 </div>
               )}
@@ -539,8 +565,8 @@ export function MaritimeMap({
               disabled={currentRouteIndex >= totalRoutes - 1}
               className={`px-4 py-2 rounded-lg font-medium transition-all ${
                 currentRouteIndex >= totalRoutes - 1
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
-                  : 'bg-blue-500 text-white hover:bg-blue-600'
+                  ? 'bg-slate-700 text-slate-400 cursor-not-allowed' 
+                  : 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:shadow-lg hover:shadow-cyan-500/50'
               }`}
             >
               Next →
@@ -550,31 +576,31 @@ export function MaritimeMap({
       )}
 
       {/* Fleet Statistics */}
-      <div className="px-6 py-4 bg-gray-50 border-t">
+      <div className="px-6 py-4 glass-card border-t border-slate-700/50">
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm">
           <div className="text-center">
-            <div className="font-bold text-green-600 text-lg">{enhancedPorts.filter(p => p.type === 'loading').length}</div>
-            <div className="text-gray-600">Loading Terminals</div>
+            <div className="font-bold text-green-400 text-lg">{enhancedPorts.filter(p => p.type === 'loading').length}</div>
+            <div className="text-slate-300">Loading Terminals</div>
           </div>
           <div className="text-center">
-            <div className="font-bold text-blue-600 text-lg">{enhancedPorts.filter(p => p.type === 'unloading').length}</div>
-            <div className="text-gray-600">Distribution Ports</div>
+            <div className="font-bold text-blue-400 text-lg">{enhancedPorts.filter(p => p.type === 'unloading').length}</div>
+            <div className="text-slate-300">Distribution Ports</div>
           </div>
           <div className="text-center">
-            <div className="font-bold text-emerald-600 text-lg">{enhancedVessels.filter(v => v.status === 'available').length}</div>
-            <div className="text-gray-600">Available Vessels</div>
+            <div className="font-bold text-emerald-400 text-lg">{enhancedVessels.filter(v => v.status === 'available').length}</div>
+            <div className="text-slate-300">Available Vessels</div>
           </div>
           <div className="text-center">
-            <div className="font-bold text-blue-500 text-lg">{enhancedVessels.filter(v => v.status === 'sailing').length}</div>
-            <div className="text-gray-600">At Sea</div>
+            <div className="font-bold text-cyan-400 text-lg">{enhancedVessels.filter(v => v.status === 'sailing').length}</div>
+            <div className="text-slate-300">At Sea</div>
           </div>
           <div className="text-center">
-            <div className="font-bold text-yellow-600 text-lg">{enhancedVessels.filter(v => v.status === 'loading').length}</div>
-            <div className="text-gray-600">Loading</div>
+            <div className="font-bold text-yellow-400 text-lg">{enhancedVessels.filter(v => v.status === 'loading').length}</div>
+            <div className="text-slate-300">Loading</div>
           </div>
           <div className="text-center">
-            <div className="font-bold text-purple-600 text-lg">{enhancedVessels.filter(v => v.status === 'unloading').length}</div>
-            <div className="text-gray-600">Unloading</div>
+            <div className="font-bold text-purple-400 text-lg">{enhancedVessels.filter(v => v.status === 'unloading').length}</div>
+            <div className="text-slate-300">Unloading</div>
           </div>
         </div>
       </div>
