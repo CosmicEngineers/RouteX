@@ -16,6 +16,8 @@ from ..data.challenge_data import (
     get_challenge_trip_times_load_to_unload,
     get_challenge_trip_times_unload_to_unload
 )
+from ..models.schemas import HPCLVessel, HPCLPort, MonthlyDemand
+from ..services.cp_sat_optimizer import HPCLCPSATOptimizer
 
 router = APIRouter(prefix="/challenge", tags=["Challenge 7.1"])
 
@@ -35,6 +37,7 @@ class OptimizationInput(BaseModel):
     vessels: Optional[List[VesselInput]] = None
     demands: Optional[List[DemandInput]] = None
     round_trip: Optional[bool] = False
+    optimization_objective: Optional[str] = "cost"  # cost, emissions, time, balanced
 
 
 @router.get("/data")
@@ -55,7 +58,7 @@ async def get_challenge_data():
 @router.post("/optimize")
 async def run_challenge_optimization(input_data: OptimizationInput = Body(default=None)):
     """
-    Run optimization and return results in Challenge 7.1 format:
+    Run optimization using CP-SAT solver and return results in Challenge 7.1 format:
     
     Output format:
     Source | Destination | Tanker | Volume (MT) | Trip Cost (Rs Cr)
@@ -65,157 +68,143 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
     try:
         # Use custom input if provided, otherwise use default challenge data
         if input_data and input_data.vessels:
-            vessels = [v.dict() for v in input_data.vessels]
+            vessels_data = [v.dict() for v in input_data.vessels]
         else:
-            vessels = get_challenge_vessels()
+            vessels_data = get_challenge_vessels()
         
         if input_data and input_data.demands:
-            demands = [d.dict() for d in input_data.demands]
+            demands_data = [d.dict() for d in input_data.demands]
         else:
-            demands = get_monthly_demands()
+            demands_data = get_monthly_demands()
         
-        # Get other data from challenge
-        loading_ports = get_challenge_loading_ports()
-        unloading_ports = get_challenge_unloading_ports()
-        trip_times_lu = get_challenge_trip_times_load_to_unload()
-        trip_times_uu = get_challenge_trip_times_unload_to_unload()
+        # Get loading and unloading ports
+        loading_ports_data = get_challenge_loading_ports()
+        unloading_ports_data = get_challenge_unloading_ports()
         
-        # Create demand dictionary
-        demand_dict = {d["port_id"]: d["demand_mt"] for d in demands}
+        # Convert to Pydantic models for optimizer
+        vessels = [HPCLVessel(**v) for v in vessels_data]
+        loading_ports = [HPCLPort(**p, type="loading") for p in loading_ports_data]
+        unloading_ports = [HPCLPort(**p, type="unloading") for p in unloading_ports_data]
+        monthly_demands = [MonthlyDemand(**d) for d in demands_data]
         
-        # Generate optimized routes (simple greedy algorithm for now)
-        routes = []
-        remaining_demand = demand_dict.copy()
+        # Pre-flight validation
+        total_demand = sum(d.demand_mt for d in monthly_demands)
+        total_capacity = sum(v.capacity_mt for v in vessels) * 10  # Assume max 10 trips/vessel/month
         
-        # Sort vessels by cost efficiency (charter rate / capacity)
-        vessels_sorted = sorted(vessels, key=lambda v: v["charter_rate_cr_per_day"] / v["capacity_mt"])
+        if total_demand > total_capacity:
+            return {
+                "status": "infeasible",
+                "error": f"Total demand ({total_demand:,.0f} MT) exceeds fleet capacity ({total_capacity:,.0f} MT)",
+                "suggestions": [
+                    f"Charter additional capacity: {total_demand - total_capacity:,.0f} MT needed",
+                    "Reduce demand or increase trips per vessel"
+                ],
+                "timestamp": datetime.now().isoformat()
+            }
         
-        route_id = 1
-        for vessel in vessels_sorted:
-            vessel_capacity = vessel["capacity_mt"]
-            vessel_id = vessel["id"]
-            charter_rate = vessel["charter_rate_cr_per_day"]
-            
-            # Find best loading port and up to 2 unloading ports
-            for load_port in loading_ports:
-                load_id = load_port["id"]
-                
-                # Find unloading ports with remaining demand
-                available_unload_ports = [
-                    (uid, demand) for uid, demand in remaining_demand.items() if demand > 0
-                ]
-                
-                if not available_unload_ports:
-                    break
-                
-                # Sort by trip time from loading port
-                available_unload_ports.sort(
-                    key=lambda x: trip_times_lu.get(load_id, {}).get(x[0], 999)
-                )
-                
-                # Select up to 2 discharge ports
-                selected_ports = []
-                remaining_capacity = vessel_capacity
-                
-                for unload_id, demand in available_unload_ports[:2]:
-                    if remaining_capacity <= 0:
-                        break
-                    
-                    # Allocate cargo
-                    allocated = min(remaining_capacity, demand)
-                    if allocated > 0:
-                        selected_ports.append({
-                            "port_id": unload_id,
-                            "volume": allocated
-                        })
-                        remaining_capacity -= allocated
-                
-                if selected_ports:
-                    # Calculate trip time and cost
-                    total_trip_time = trip_times_lu.get(load_id, {}).get(selected_ports[0]["port_id"], 0.5)
-                    
-                    if len(selected_ports) > 1:
-                        # Add inter-port sailing time
-                        total_trip_time += trip_times_uu.get(
-                            selected_ports[0]["port_id"], {}
-                        ).get(selected_ports[1]["port_id"], 0.2)
-                    
-                    # Add loading/unloading time (assume 0.5 days total)
-                    total_trip_time += 0.5
-                    
-                    # Calculate base trip cost for one-way
-                    base_trip_cost = charter_rate * total_trip_time
-                    
-                    # If round trip, add return journey cost
-                    if input_data and input_data.round_trip:
-                        # Return trip from last discharge port back to loading port
-                        last_discharge_port = selected_ports[-1]["port_id"]
-                        return_time = trip_times_lu.get(load_id, {}).get(last_discharge_port, 0.5)
-                        return_cost = charter_rate * return_time
-                        total_trip_cost = base_trip_cost + return_cost
-                        total_trip_time_with_return = total_trip_time + return_time
-                    else:
-                        total_trip_cost = base_trip_cost
-                        total_trip_time_with_return = total_trip_time
-                    
-                    # Create route entries for each discharge port
-                    for idx, port_info in enumerate(selected_ports):
-                        routes.append({
-                            "route_id": route_id,
-                            "source": load_id,
-                            "destination": port_info["port_id"],
-                            "tanker": vessel_id,
-                            "volume_mt": port_info["volume"],
-                            "trip_cost_cr": round(total_trip_cost / len(selected_ports), 4),
-                            "full_trip_cost_cr": round(total_trip_cost, 4) if idx == 0 else 0,  # Only count full cost once
-                            "trip_time_days": round(total_trip_time_with_return, 2)
-                        })
-                        
-                        # Update remaining demand
-                        remaining_demand[port_info["port_id"]] -= port_info["volume"]
-                    
-                    route_id += 1
-                    
-                    # Check if all demand is satisfied
-                    if all(d <= 0 for d in remaining_demand.values()):
-                        break
-            
-            if all(d <= 0 for d in remaining_demand.values()):
-                break
+        # Initialize CP-SAT optimizer
+        optimizer = HPCLCPSATOptimizer()
         
-        # Calculate summary statistics
-        total_cost = sum(r.get("full_trip_cost_cr", r["trip_cost_cr"]) for r in routes)
-        total_volume = sum(r["volume_mt"] for r in routes)
-        satisfied_demand = sum(demand_dict[uid] - max(0, remaining_demand.get(uid, 0)) for uid in demand_dict)
+        # Get optimization objective
+        optimization_objective = "cost"
+        if input_data and input_data.optimization_objective:
+            optimization_objective = input_data.optimization_objective
         
-        # Format output in challenge format
+        # Run CP-SAT optimization
+        optimization_result = await optimizer.optimize_hpcl_fleet(
+            vessels=vessels,
+            loading_ports=loading_ports,
+            unloading_ports=unloading_ports,
+            monthly_demands=monthly_demands,
+            fuel_price_per_mt=45000.0,
+            optimization_objective=optimization_objective,
+            max_solve_time_seconds=300
+        )
+        
+        # Check if optimization was successful
+        if optimization_result.optimization_status == "infeasible":
+            return {
+                "status": "infeasible",
+                "error": "No feasible solution found - demands cannot be satisfied with available fleet",
+                "recommendations": optimization_result.recommendations,
+                "unmet_demand": optimization_result.unmet_demand,
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        if optimization_result.optimization_status == "error":
+            return {
+                "status": "error",
+                "error": "Optimization failed",
+                "recommendations": optimization_result.recommendations,
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        # Convert CP-SAT results to Challenge 7.1 output format
         output_table = []
-        for route in routes:
-            output_table.append({
-                "Source": route["source"],
-                "Destination": route["destination"],
-                "Tanker": route["tanker"],
-                "Volume (MT)": route["volume_mt"],
-                "Trip Cost (Rs Cr)": route["trip_cost_cr"]
-            })
+        total_cost_cr = 0.0
+        
+        for route in optimization_result.selected_routes:
+            execution_count = route.get('execution_count', 1)
+            
+            for _ in range(execution_count):
+                # Get route details
+                loading_port = route.get('loading_port', 'Unknown')
+                discharge_ports = route.get('discharge_ports', [])
+                vessel_id = route.get('vessel_id', 'Unknown')
+                cargo_quantity = route.get('cargo_quantity', 0)
+                total_cost = route.get('total_cost', 0)
+                cargo_split = route.get('cargo_split', {})
+                
+                # Create entry for each discharge port
+                for discharge_port in discharge_ports:
+                    volume = cargo_split.get(discharge_port, cargo_quantity / len(discharge_ports))
+                    # Proportional cost allocation
+                    proportional_cost = (volume / cargo_quantity * total_cost) if cargo_quantity > 0 else 0
+                    cost_in_cr = proportional_cost / 10000000  # Convert to Crores
+                    
+                    output_table.append({
+                        "Source": loading_port,
+                        "Destination": discharge_port,
+                        "Tanker": vessel_id,
+                        "Volume (MT)": int(volume),
+                        "Trip Cost (Rs Cr)": round(cost_in_cr, 4)
+                    })
+                    
+                    total_cost_cr += cost_in_cr
+        
+        # Calculate summary
+        total_volume = sum(row["Volume (MT)"] for row in output_table)
         
         return {
             "status": "success",
+            "solution_id": optimization_result.request_id,
+            "optimization_status": optimization_result.optimization_status,
+            "solve_time_seconds": round(optimization_result.solve_time_seconds, 2),
             "optimization_results": output_table,
             "summary": {
-                "total_routes": len(routes),
-                "total_cost_cr": round(total_cost, 2),
+                "total_routes": len(output_table),
+                "total_cost_cr": round(total_cost_cr, 2),
                 "total_volume_mt": total_volume,
-                "total_demand_mt": sum(demand_dict.values()),
-                "satisfied_demand_mt": satisfied_demand,
-                "demand_satisfaction_percentage": round((satisfied_demand / sum(demand_dict.values())) * 100, 2),
-                "unsatisfied_ports": [uid for uid, demand in remaining_demand.items() if demand > 0],
+                "total_demand_mt": total_demand,
+                "satisfied_demand_mt": total_volume,
+                "demand_satisfaction_percentage": round((total_volume / total_demand) * 100, 2) if total_demand > 0 else 0,
+                "fleet_utilization": round(optimization_result.fleet_utilization, 2),
                 "round_trip": input_data.round_trip if input_data else False
             },
+            "kpis": {
+                "total_cost": optimization_result.total_cost,
+                "total_distance_nm": optimization_result.total_distance_nm,
+                "total_cargo_mt": optimization_result.total_cargo_mt,
+                "fleet_utilization": optimization_result.fleet_utilization,
+                "demand_satisfaction_rate": optimization_result.demand_satisfaction_rate
+            },
+            "recommendations": optimization_result.recommendations,
             "timestamp": datetime.now().isoformat()
         }
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Optimization failed: {str(e)}")
 
 
