@@ -4,11 +4,13 @@ Generates ~726 feasible voyage patterns for HPCL's optimization constraints
 """
 
 import asyncio
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 import itertools
 import uuid
 from datetime import datetime, timedelta
 import logging
+import json
+from functools import lru_cache
 
 from .distance_calculator import get_hpcl_route_distance, get_hpcl_route_coordinates
 from .cost_calculator import HPCLCostCalculator
@@ -91,31 +93,58 @@ class HPCLRouteGenerator:
     """
     HPCL Set Partitioning Route Generator
     Pre-generates ALL feasible voyage patterns for optimization
+    With smart pruning and caching for performance
     """
     
-    def __init__(self):
+    def __init__(self, enable_pruning: bool = True, enable_caching: bool = True):
         self.cost_calculator = HPCLCostCalculator()
         self.generated_routes: List[Dict[str, Any]] = []
+        self.enable_pruning = enable_pruning
+        self.enable_caching = enable_caching
+        self.route_cache: Dict[str, List[Dict[str, Any]]] = {}
+        self.pruning_stats = {
+            "total_generated": 0,
+            "pruned_time_exceeded": 0,
+            "pruned_dominated": 0,
+            "pruned_cost_threshold": 0,
+            "final_count": 0
+        }
         
     async def generate_all_feasible_routes(
         self, 
         vessels: List[HPCLVessel], 
         loading_ports: List[HPCLPort],
         unloading_ports: List[HPCLPort],
-        fuel_price_per_mt: float = 45000.0
+        fuel_price_per_mt: float = 45000.0,
+        vessel_available_hours: float = 720.0,
+        max_cost_per_mt: Optional[float] = None,
+        max_time_per_mt: Optional[float] = None
     ) -> List[Dict[str, Any]]:
         """
         Generate ALL feasible routes for HPCL Set Partitioning Problem
+        With smart pruning for performance optimization
         
         Pattern A: Direct routes (Load → Unload) = 6 × 11 = 66 per vessel
         Pattern B: Split routes (Load → Unload1 → Unload2) = 6 × 11 × 10 = 660 per vessel
-        Total: ~726 routes per vessel type
+        Total: ~726 routes per vessel type (before pruning)
         """
-        logger.info("Starting HPCL feasible route generation...")
+        logger.info(f"Starting HPCL feasible route generation (pruning={'ON' if self.enable_pruning else 'OFF'})...")
         start_time = datetime.now()
         
+        # Check cache first
+        cache_key = f"{len(vessels)}_{len(loading_ports)}_{len(unloading_ports)}_{fuel_price_per_mt}"
+        if self.enable_caching and cache_key in self.route_cache:
+            logger.info(f"Using cached routes ({len(self.route_cache[cache_key])} routes)")
+            return self.route_cache[cache_key]
+        
         all_routes = []
-        route_counter = 0
+        self.pruning_stats = {
+            "total_generated": 0,
+            "pruned_time_exceeded": 0,
+            "pruned_dominated": 0,
+            "pruned_cost_threshold": 0,
+            "final_count": 0
+        }
         
         for vessel in vessels:
             logger.info(f"Generating routes for vessel: {vessel.name}")
@@ -125,22 +154,141 @@ class HPCLRouteGenerator:
                 vessel, loading_ports, unloading_ports, fuel_price_per_mt
             )
             all_routes.extend(direct_routes)
-            route_counter += len(direct_routes)
+            self.pruning_stats["total_generated"] += len(direct_routes)
             
             # Pattern B: Split Routes (Two discharge ports)
             split_routes = await self._generate_split_routes(
                 vessel, loading_ports, unloading_ports, fuel_price_per_mt
             )
             all_routes.extend(split_routes)
-            route_counter += len(split_routes)
+            self.pruning_stats["total_generated"] += len(split_routes)
             
             logger.info(f"Generated {len(direct_routes)} direct + {len(split_routes)} split routes for {vessel.name}")
         
+        # Apply pruning heuristics
+        if self.enable_pruning:
+            all_routes = self._prune_routes(
+                all_routes, 
+                vessel_available_hours,
+                max_cost_per_mt or 2500.0,
+                max_time_per_mt or 0.015
+            )
+        
+        self.pruning_stats["final_count"] = len(all_routes)
         generation_time = (datetime.now() - start_time).total_seconds()
-        logger.info(f"Route generation completed: {route_counter} total routes in {generation_time:.2f} seconds")
+        
+        # Log structured JSON for profiling
+        logger.info(json.dumps({
+            "event": "route_generation_complete",
+            "total_routes_generated": self.pruning_stats["total_generated"],
+            "routes_after_pruning": self.pruning_stats["final_count"],
+            "pruned_time_exceeded": self.pruning_stats["pruned_time_exceeded"],
+            "pruned_dominated": self.pruning_stats["pruned_dominated"],
+            "pruned_cost_threshold": self.pruning_stats["pruned_cost_threshold"],
+            "generation_time_seconds": round(generation_time, 2),
+            "vessels_count": len(vessels),
+            "pruning_enabled": self.enable_pruning
+        }))
+        
+        # Cache results
+        if self.enable_caching:
+            self.route_cache[cache_key] = all_routes
         
         self.generated_routes = all_routes
         return all_routes
+    
+    def _prune_routes(
+        self,
+        routes: List[Dict[str, Any]],
+        vessel_available_hours: float,
+        max_cost_per_mt: float,
+        max_time_per_mt: float
+    ) -> List[Dict[str, Any]]:
+        """
+        Prune infeasible and dominated routes for better performance
+        
+        Pruning heuristics:
+        1. Drop routes with trip_time > vessel available time
+        2. Drop routes with cost-per-MT > threshold
+        3. Drop routes with time-per-MT > threshold
+        4. Drop dominated routes (same ports, worse on all metrics)
+        """
+        logger.info(f"Applying pruning heuristics to {len(routes)} routes...")
+        
+        pruned_routes = []
+        
+        # Heuristic 1: Prune routes exceeding vessel available time
+        for route in routes:
+            trip_time_hours = route.get('total_time_hours', 0)
+            if trip_time_hours > vessel_available_hours:
+                self.pruning_stats['pruned_time_exceeded'] += 1
+                continue
+            
+            # Heuristic 2: Prune routes with high cost-per-MT
+            cost_per_mt = route.get('cost_per_mt', 0)
+            if cost_per_mt > max_cost_per_mt:
+                self.pruning_stats['pruned_cost_threshold'] += 1
+                continue
+            
+            # Heuristic 3: Prune routes with high time-per-MT
+            total_cargo = sum(route.get('cargo_split', {}).values())
+            if total_cargo > 0:
+                time_per_mt = (trip_time_hours / 24.0) / total_cargo
+                if time_per_mt > max_time_per_mt:
+                    self.pruning_stats['pruned_cost_threshold'] += 1
+                    continue
+            
+            pruned_routes.append(route)
+        
+        # Heuristic 4: Remove dominated routes
+        final_routes = self._remove_dominated_routes(pruned_routes)
+        
+        logger.info(f"Pruning complete: {len(routes)} → {len(final_routes)} routes")
+        return final_routes
+    
+    def _remove_dominated_routes(self, routes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Remove routes that are dominated by others
+        Route A dominates Route B if:
+        - Same vessel and same port combination
+        - A has lower cost AND lower time
+        """
+        # Group routes by vessel and port combination
+        route_groups: Dict[str, List[Dict[str, Any]]] = {}
+        
+        for route in routes:
+            key = f"{route['vessel_id']}_{route['loading_port']}_{'_'.join(sorted(route['discharge_ports']))}"
+            if key not in route_groups:
+                route_groups[key] = []
+            route_groups[key].append(route)
+        
+        non_dominated = []
+        
+        for group in route_groups.values():
+            if len(group) == 1:
+                non_dominated.extend(group)
+                continue
+            
+            # Find Pareto-optimal routes (non-dominated)
+            for route_a in group:
+                is_dominated = False
+                for route_b in group:
+                    if route_a == route_b:
+                        continue
+                    
+                    # Check if route_b dominates route_a
+                    if (route_b.get('total_cost', float('inf')) <= route_a.get('total_cost', float('inf')) and
+                        route_b.get('total_time_hours', float('inf')) <= route_a.get('total_time_hours', float('inf')) and
+                        (route_b.get('total_cost') < route_a.get('total_cost') or 
+                         route_b.get('total_time_hours') < route_a.get('total_time_hours'))):
+                        is_dominated = True
+                        self.pruning_stats['pruned_dominated'] += 1
+                        break
+                
+                if not is_dominated:
+                    non_dominated.append(route_a)
+        
+        return non_dominated
     
     async def _generate_direct_routes(
         self,
