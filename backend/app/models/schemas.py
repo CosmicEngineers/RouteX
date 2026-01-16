@@ -180,6 +180,12 @@ class HPCLRoute(BaseModel):
     total_cost: float = Field(..., description="Total voyage cost (₹)")
     cargo_quantity: float = Field(..., description="Total cargo quantity (MT)")
     
+    # Execution Count (from optimizer solution)
+    execution_count: Optional[int] = Field(
+        default=1,
+        description="Number of times this route is executed in the solution"
+    )
+    
     # Cargo Split (for multi-discharge routes)
     cargo_split: Dict[str, float] = Field(
         default_factory=dict,
