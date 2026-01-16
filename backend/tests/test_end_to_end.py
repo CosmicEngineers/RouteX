@@ -137,7 +137,7 @@ async def test_small_2x2_optimization():
     # Check that at least some routes were selected
     assert len(result.selected_routes) > 0, "Should select at least one route"
     
-    print(f"\n✓ Test passed!")
+    print(f" ✓ Test passed!")
     print(f"  Status: {result.optimization_status}")
     print(f"  Total cost: ₹{result.total_cost:,.0f}")
     print(f"  Demand satisfaction: {result.demand_satisfaction_rate:.1f}%")
@@ -200,7 +200,7 @@ async def test_infeasible_case():
     assert len(result.recommendations) > 0, "Should provide recommendations for infeasible case"
     assert result.demand_satisfaction_rate == 0, "No demand should be satisfied if infeasible"
     
-    print(f"\n✓ Infeasibility test passed!")
+    print(f" ✓ Infeasibility test passed!")
     print(f"  Status: {result.optimization_status}")
     print(f"  Recommendations: {result.recommendations[0]}")
 
@@ -209,4 +209,4 @@ if __name__ == "__main__":
     # Run tests
     asyncio.run(test_small_2x2_optimization())
     asyncio.run(test_infeasible_case())
-    print("\n✓ All end-to-end tests passed!")
+    print(" ✓ All end-to-end tests passed!")
