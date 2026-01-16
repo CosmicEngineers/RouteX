@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Ship, Anchor, Settings, AlertTriangle, CheckCircle, MapPin, Fuel } from 'lucide-react';
+import { Boat, Anchor, Gear, Warning, CheckCircle, MapPin, GasPump } from 'phosphor-react';
 import { HPCLVessel, HPCLPort } from './HPCLDashboard';
 import { formatNumber, formatCompactNumber } from '../utils/formatters';
 
@@ -16,11 +16,11 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
       case 'available':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'sailing':
-        return <Ship className="h-4 w-4 text-blue-500" />;
+        return <Boat size={16} weight="bold" className="text-blue-500" />;
       case 'maintenance':
-        return <Settings className="h-4 w-4 text-yellow-500" />;
+        return <Gear size={16} weight="bold" className="text-yellow-500" />;
       default:
-        return <AlertTriangle className="h-4 w-4 text-red-500" />;
+        return <Warning size={16} weight="bold" className="text-red-500" />;
     }
   };
 
@@ -51,7 +51,7 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
         
         <div className="relative">
           <h3 className="text-2xl font-bold text-slate-100 mb-6 flex items-center">
-            <Ship className="h-7 w-7 text-cyan-400 mr-3" />
+            <Boat size={28} weight="duotone" className="text-cyan-400 mr-3" />
             Fleet Command Center
           </h3>
           
@@ -61,7 +61,7 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
               <div className="relative bg-slate-800/50 backdrop-blur-lg border border-cyan-500/30 rounded-xl p-5 hover:border-cyan-500/50 transition-all">
                 <div className="text-4xl font-bold text-white mb-1">{vessels.length}</div>
                 <div className="text-sm text-cyan-200 font-medium">Total Vessels</div>
-                <Ship className="absolute top-4 right-4 h-8 w-8 text-cyan-400/20" />
+                <Boat size={32} weight="thin" className="absolute top-4 right-4 text-cyan-400/20" />
               </div>
             </div>
             
@@ -79,7 +79,7 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
               <div className="relative bg-slate-800/50 backdrop-blur-lg border border-blue-500/30 rounded-xl p-5 hover:border-blue-500/50 transition-all">
                 <div className="text-4xl font-bold text-white mb-1">{formatCompactNumber(totalCapacity)}</div>
                 <div className="text-sm text-blue-200 font-medium">MT Capacity</div>
-                <Anchor className="absolute top-4 right-4 h-8 w-8 text-blue-400/20" />
+                <Anchor size={32} weight="thin" className="absolute top-4 right-4 text-blue-400/20" />
               </div>
             </div>
             
@@ -90,7 +90,7 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
                   {((availableVessels / vessels.length) * 100).toFixed(0)}%
                 </div>
                 <div className="text-sm text-purple-200 font-medium">Operational Rate</div>
-                <Settings className="absolute top-4 right-4 h-8 w-8 text-purple-400/20" />
+                <Gear size={32} weight="thin" className="absolute top-4 right-4 text-purple-400/20" />
               </div>
             </div>
           </div>
@@ -133,7 +133,7 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
       <div className="glass-card rounded-xl border border-slate-700/50 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-700/50 bg-gradient-to-r from-slate-900/50 to-slate-800/30">
           <h3 className="text-lg font-semibold text-slate-100 flex items-center">
-            <Anchor className="h-5 w-5 text-cyan-400 mr-2" />
+            <Anchor size={20} weight="duotone" className="text-cyan-400 mr-2" />
             Fleet Status
           </h3>
         </div>
