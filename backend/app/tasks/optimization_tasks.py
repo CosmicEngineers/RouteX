@@ -1,18 +1,23 @@
 """
 HPCL Optimization Tasks
 Celery tasks for fleet optimization and route planning
+With result persistence and progress tracking
 """
 
 from celery import current_task
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import asyncio
+import json
 from datetime import datetime
+import logging
 
 from ..core.celery_app import app, HPCLTaskPriority
 from ..models.schemas import OptimizationRequest, HPCLVessel, HPCLPort, MonthlyDemand
 from ..models.database import HPCLVesselDB, HPCLPortDB, OptimizationResultDB, TaskDB
-from ..services.cp_sat_optimizer import hpcl_cp_sat_optimizer
+from ..services.cp_sat_optimizer import HPCLCPSATOptimizer
 from ..services.distance_calculator import calculate_hpcl_distance_matrix
+
+logger = logging.getLogger(__name__)
 
 
 @app.task(
@@ -23,26 +28,54 @@ from ..services.distance_calculator import calculate_hpcl_distance_matrix
     soft_time_limit=600,
     time_limit=900
 )
-def optimize_hpcl_fleet_task(self, task_id: str, request_data: Dict[str, Any]):
+def optimize_hpcl_fleet_task(self, task_id: str, request_data: Dict[str, Any], solver_profile: str = "balanced"):
     """
-    Main HPCL fleet optimization task
+    Main HPCL fleet optimization task with result persistence
     
     Process:
     1. Load HPCL fleet and port data
     2. Generate feasible routes using Set Partitioning
-    3. Solve using OR-Tools CP-SAT
-    4. Save results to database
+    3. Solve using OR-Tools CP-SAT with configurable profile
+    4. Save results to database for polling
+    5. Return result_id for status checking
     
     Args:
-        task_id: Unique task identifier
+        task_id: Unique task identifier (used as result_id)
         request_data: Optimization request parameters
+        solver_profile: Solver configuration profile (quick/balanced/thorough/production)
+    
+    Returns:
+        result_id for polling via /api/v1/results/{id}
     """
     
     async def _run_optimization():
+        result_id = task_id
+        start_time = datetime.utcnow()
+        
         try:
-            # Update task status
-            await TaskDB.update_task_status(task_id, "processing", 5, "Loading HPCL fleet data...")
-            self.update_state(state='PROGRESS', meta={'progress': 5, 'message': 'Loading fleet data'})
+            # Log task start
+            logger.info(json.dumps({
+                "event": "task_start",
+                "task_id": task_id,
+                "result_id": result_id,
+                "solver_profile": solver_profile,
+                "timestamp": start_time.isoformat()
+            }))
+            
+            # Update task status in DB
+            await TaskDB.update_task_status(
+                task_id, 
+                "processing", 
+                5, 
+                "Loading HPCL fleet data...",
+                metadata={"result_id": result_id, "start_time": start_time.isoformat()}
+            )
+            self.update_state(state='PROGRESS', meta={
+                'progress': 5, 
+                'message': 'Loading fleet data',
+                'result_id': result_id,
+                'status': 'processing'
+            })
             
             # Parse request
             request = OptimizationRequest(**request_data)
@@ -67,7 +100,7 @@ def optimize_hpcl_fleet_task(self, task_id: str, request_data: Dict[str, Any]):
             unloading_ports = [HPCLPort(**port) for port in unloading_ports_data]
             
             await TaskDB.update_task_status(task_id, "processing", 15, "Validating HPCL constraints...")
-            self.update_state(state='PROGRESS', meta={'progress': 15, 'message': 'Validating constraints'})
+            self.update_state(state='PROGRESS', meta={'progress': 15, 'message': 'Validating constraints', 'result_id': result_id})
             
             # Validate available vessels
             available_vessel_ids = set(request.available_vessels) if request.available_vessels else {v.id for v in vessels}
@@ -77,27 +110,61 @@ def optimize_hpcl_fleet_task(self, task_id: str, request_data: Dict[str, Any]):
             # Filter vessels
             available_vessels = [v for v in vessels if v.id in available_vessel_ids]
             
-            await TaskDB.update_task_status(task_id, "processing", 25, "Generating feasible routes...")
-            self.update_state(state='PROGRESS', meta={'progress': 25, 'message': 'Generating routes'})
+            await TaskDB.update_task_status(task_id, "processing", 25, "Initializing CP-SAT optimizer...")
+            self.update_state(state='PROGRESS', meta={'progress': 25, 'message': 'Initializing optimizer', 'result_id': result_id})
+            
+            # Initialize optimizer with profile
+            optimizer = HPCLCPSATOptimizer(solver_profile=solver_profile)
             
             # Run optimization
-            result = await hpcl_cp_sat_optimizer.optimize_hpcl_fleet(
+            result = await optimizer.optimize_hpcl_fleet(
                 vessels=available_vessels,
                 loading_ports=loading_ports,
                 unloading_ports=unloading_ports,
                 monthly_demands=request.demands,
                 fuel_price_per_mt=request.fuel_price_per_mt,
                 optimization_objective=request.optimize_for,
-                max_solve_time_seconds=request.max_solve_time_seconds,
-                progress_callback=lambda p, msg: _update_progress(task_id, 30 + int(p * 0.6), msg)
+                max_solve_time_seconds=request.max_solve_time_seconds
             )
             
             await TaskDB.update_task_status(task_id, "processing", 95, "Saving optimization results...")
-            self.update_state(state='PROGRESS', meta={'progress': 95, 'message': 'Saving results'})
+            self.update_state(state='PROGRESS', meta={'progress': 95, 'message': 'Saving results', 'result_id': result_id})
             
-            # Save results
-            result.request_id = task_id
+            # Add metadata to result
+            result.request_id = result_id
             result_dict = result.dict()
+            result_dict["metadata"] = {
+                "solver_profile": solver_profile,
+                "task_id": task_id,
+                "start_time": start_time.isoformat(),
+                "end_time": datetime.utcnow().isoformat(),
+                "routes_generated": optimizer.metrics.get("num_routes", 0),
+                "num_variables": optimizer.metrics.get("num_variables", 0),
+                "num_constraints": optimizer.metrics.get("num_constraints", 0),
+                "solve_time_seconds": optimizer.metrics.get("solve_time", 0),
+                "total_time_seconds": optimizer.metrics.get("total_time", 0)
+            }
+            
+            # Save to database for polling
+            await OptimizationResultDB.save_result(result_id, result_dict)
+            
+            await TaskDB.update_task_status(task_id, "completed", 100, "Optimization completed successfully")
+            
+            logger.info(json.dumps({
+                "event": "task_complete",
+                "task_id": task_id,
+                "result_id": result_id,
+                "status": "success",
+                "total_cost": result.total_cost,
+                "selected_routes": len(result.selected_routes),
+                "solve_time": optimizer.metrics.get("solve_time", 0)
+            }))
+            
+            return {
+                "result_id": result_id,
+                "status": "completed",
+                "result": result_dict
+            }
             await OptimizationResultDB.save_result(result_dict)
             
             await TaskDB.update_task_status(task_id, "completed", 100, "HPCL fleet optimization completed successfully")
