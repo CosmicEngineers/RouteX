@@ -13,6 +13,10 @@ import logging
 from .distance_calculator import get_hpcl_route_distance, get_hpcl_route_coordinates
 from .cost_calculator import HPCLCostCalculator
 from ..models.schemas import HPCLVessel, HPCLPort, HPCLRoute
+from ..data.challenge_data import (
+    get_challenge_trip_times_load_to_unload,
+    get_challenge_trip_times_unload_to_unload
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -21,6 +25,66 @@ logger = logging.getLogger(__name__)
 # HPCL Constraints
 MAX_DISCHARGE_PORTS = 2
 SINGLE_LOADING_CONSTRAINT = True
+
+# Load trip time tables
+TRIP_TIMES_LOAD_TO_UNLOAD = get_challenge_trip_times_load_to_unload()
+TRIP_TIMES_UNLOAD_TO_UNLOAD = get_challenge_trip_times_unload_to_unload()
+
+# Service time constants (hours)
+LOADING_TIME_HOURS = 6.0  # 6 hours for loading
+UNLOADING_TIME_HOURS_PER_PORT = 4.0  # 4 hours per unloading port
+
+
+def calculate_trip_time_from_tables(
+    loading_port_id: str,
+    discharge_port_ids: List[str],
+    include_service_time: bool = True,
+    include_return_trip: bool = False
+) -> float:
+    """
+    Calculate trip time using exact trip time tables from challenge data.
+    
+    Args:
+        loading_port_id: Loading port ID (L1-L6)
+        discharge_port_ids: List of discharge port IDs (U1-U11), max 2 ports
+        include_service_time: Include loading/unloading time
+        include_return_trip: Include return journey from last discharge back to loading port
+    
+    Returns:
+        Total trip time in days
+    """
+    if not discharge_port_ids:
+        return 0.0
+    
+    total_trip_time_days = 0.0
+    
+    # Step 1: Loading port to first discharge port
+    first_discharge = discharge_port_ids[0]
+    load_to_first_unload = TRIP_TIMES_LOAD_TO_UNLOAD.get(loading_port_id, {}).get(first_discharge, 0.5)
+    total_trip_time_days += load_to_first_unload
+    
+    # Step 2: If there's a second discharge port, add inter-port sailing time
+    if len(discharge_port_ids) > 1:
+        for i in range(len(discharge_port_ids) - 1):
+            from_port = discharge_port_ids[i]
+            to_port = discharge_port_ids[i + 1]
+            unload_to_unload = TRIP_TIMES_UNLOAD_TO_UNLOAD.get(from_port, {}).get(to_port, 0.2)
+            total_trip_time_days += unload_to_unload
+    
+    # Step 3: Add service time (loading + unloading)
+    if include_service_time:
+        loading_time_days = LOADING_TIME_HOURS / 24.0
+        unloading_time_days = (UNLOADING_TIME_HOURS_PER_PORT * len(discharge_port_ids)) / 24.0
+        total_trip_time_days += loading_time_days + unloading_time_days
+    
+    # Step 4: Add return trip if needed (from last discharge port back to loading port)
+    if include_return_trip:
+        last_discharge = discharge_port_ids[-1]
+        # Return time is approximately same as load to unload (reverse route)
+        return_time = TRIP_TIMES_LOAD_TO_UNLOAD.get(loading_port_id, {}).get(last_discharge, 0.5)
+        total_trip_time_days += return_time
+    
+    return total_trip_time_days
 
 
 class HPCLRouteGenerator:
@@ -148,35 +212,62 @@ class HPCLRouteGenerator:
         route_type: str
     ) -> Dict[str, Any]:
         """
-        Calculate complete metrics for a single route
+        Calculate complete metrics for a single route using EXACT trip time tables
         """
         try:
             # Generate unique route ID
             route_id = f"HPCL_{vessel.id}_{loading_port.id}_{'_'.join([p.id for p in discharge_ports])}_{uuid.uuid4().hex[:8]}"
             
-            # Calculate route segments and total distance
+            # Calculate EXACT trip time from challenge data tables
+            discharge_port_ids = [p.id for p in discharge_ports]
+            total_time_days = calculate_trip_time_from_tables(
+                loading_port_id=loading_port.id,
+                discharge_port_ids=discharge_port_ids,
+                include_service_time=True,  # Include loading/unloading time
+                include_return_trip=False   # Don't include return by default
+            )
+            total_time_hours = total_time_days * 24.0
+            
+            # Calculate route segments and total distance (for visualization)
             route_segments = await self._calculate_route_segments(loading_port, discharge_ports)
             total_distance_nm = sum(segment['distance_nm'] for segment in route_segments)
-            
-            # Calculate voyage time
-            sailing_time_hours = total_distance_nm / vessel.speed_knots
-            port_time_hours = self._calculate_port_time(loading_port, discharge_ports, vessel)
-            total_time_hours = sailing_time_hours + port_time_hours
             
             # Determine cargo split for discharge ports
             cargo_split = self._calculate_cargo_split(vessel.capacity_mt, discharge_ports, route_type)
             total_cargo_mt = sum(cargo_split.values())
             
-            # Calculate comprehensive costs
-            cost_breakdown = await self.cost_calculator.calculate_voyage_cost(
-                vessel=vessel,
-                loading_port=loading_port,
-                discharge_ports=discharge_ports,
-                total_distance_nm=total_distance_nm,
-                total_time_hours=total_time_hours,
-                cargo_quantity=total_cargo_mt,
-                fuel_price_per_mt=fuel_price_per_mt
+            # Calculate cost using EXACT trip time
+            # Cost = (trip_days × charter_rate) + port_charges + fuel
+            charter_cost = total_time_days * vessel.daily_charter_rate
+            
+            # Calculate port charges (simplified)
+            port_charges = loading_port.port_charges_per_visit or 100000
+            for discharge_port in discharge_ports:
+                port_charges += (discharge_port.port_charges_per_visit or 80000)
+            
+            # Calculate fuel cost (based on actual sailing time, not including service time)
+            sailing_time_days = calculate_trip_time_from_tables(
+                loading_port_id=loading_port.id,
+                discharge_port_ids=discharge_port_ids,
+                include_service_time=False,  # Only sailing time for fuel
+                include_return_trip=False
             )
+            fuel_consumption_mt = vessel.fuel_consumption_mt_per_day * sailing_time_days
+            fuel_cost = fuel_consumption_mt * fuel_price_per_mt
+            
+            # Total cost composition
+            total_cost = charter_cost + port_charges + fuel_cost
+            
+            cost_breakdown = {
+                'charter_cost': charter_cost,
+                'port_charges': port_charges,
+                'fuel_cost': fuel_cost,
+                'total_cost': total_cost,
+                'fuel_consumption_mt': fuel_consumption_mt,
+                'trip_time_days': total_time_days,
+                'sailing_time_days': sailing_time_days,
+                'service_time_days': total_time_days - sailing_time_days
+            }
             
             # Get route coordinates for visualization
             route_coordinates = await self._get_route_coordinates_chain(loading_port, discharge_ports)
@@ -196,10 +287,11 @@ class HPCLRouteGenerator:
                 'discharge_ports': [port.id for port in discharge_ports],
                 'route_segments': route_segments,
                 
-                # Metrics
-                'total_distance_nm': round(total_distance_nm, 2),
+                # EXACT metrics from trip time tables
                 'total_time_hours': round(total_time_hours, 2),
-                'total_cost': round(cost_breakdown['total_cost'], 2),
+                'total_time_days': round(total_time_days, 3),
+                'total_distance_nm': round(total_distance_nm, 2),
+                'total_cost': round(total_cost, 2),
                 'cargo_quantity': total_cargo_mt,
                 'cargo_split': cargo_split,
                 
@@ -210,14 +302,14 @@ class HPCLRouteGenerator:
                 'route_coordinates': route_coordinates,
                 
                 # Operational data
-                'sailing_time_hours': round(sailing_time_hours, 2),
-                'port_time_hours': round(port_time_hours, 2),
-                'fuel_consumption_mt': round(cost_breakdown.get('fuel_consumption_mt', 0), 2),
+                'sailing_time_hours': round(sailing_time_days * 24, 2),
+                'port_time_hours': round((total_time_days - sailing_time_days) * 24, 2),
+                'fuel_consumption_mt': round(fuel_consumption_mt, 2),
                 
                 # Performance indicators
-                'cost_per_nm': round(cost_breakdown['total_cost'] / total_distance_nm, 2) if total_distance_nm > 0 else 0,
-                'cost_per_mt': round(cost_breakdown['total_cost'] / total_cargo_mt, 2) if total_cargo_mt > 0 else 0,
-                'speed_efficiency': round(total_distance_nm / total_time_hours, 2) if total_time_hours > 0 else 0,
+                'cost_per_nm': round(total_cost / total_distance_nm, 2) if total_distance_nm > 0 else 0,
+                'cost_per_mt': round(total_cost / total_cargo_mt, 2) if total_cargo_mt > 0 else 0,
+                'cost_per_day': round(total_cost / total_time_days, 2) if total_time_days > 0 else 0,
                 
                 # Metadata
                 'generated_at': datetime.now().isoformat(),
@@ -226,6 +318,8 @@ class HPCLRouteGenerator:
             
         except Exception as e:
             logger.error(f"Error calculating route metrics: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     async def _calculate_route_segments(
@@ -328,26 +422,39 @@ class HPCLRouteGenerator:
         discharge_ports: List[HPCLPort]
     ) -> bool:
         """
-        Validate route against HPCL-specific constraints
+        Validate route against HPCL-specific operational constraints
+        
+        HARD CONSTRAINTS from Challenge 7.1:
+        1. Single loading port per voyage (enforced by route structure)
+        2. Maximum 2 discharge ports per voyage
+        3. At least 1 discharge port
+        4. No duplicate discharge ports
+        5. Loading port ≠ discharge port
         """
         # HPCL Constraint 1: Single loading port (automatically satisfied by generation logic)
+        # Each route is generated with exactly one loading port
         
-        # HPCL Constraint 2: Max 2 discharge ports
+        # HPCL Constraint 2: Max 2 discharge ports (HARD CONSTRAINT)
         if len(discharge_ports) > MAX_DISCHARGE_PORTS:
+            logger.warning(f"Route violates max discharge ports constraint: {len(discharge_ports)} > {MAX_DISCHARGE_PORTS}")
             return False
         
         # HPCL Constraint 3: At least one discharge port
         if len(discharge_ports) == 0:
+            logger.warning("Route has no discharge ports")
             return False
         
         # HPCL Constraint 4: No duplicate discharge ports
         if len(set(port.id for port in discharge_ports)) != len(discharge_ports):
+            logger.warning(f"Route has duplicate discharge ports: {[p.id for p in discharge_ports]}")
             return False
         
         # HPCL Constraint 5: Loading port cannot be same as discharge port
         if loading_port.id in [port.id for port in discharge_ports]:
+            logger.warning(f"Loading port {loading_port.id} appears in discharge ports")
             return False
         
+        # All constraints satisfied
         return True
     
     def get_route_statistics(self) -> Dict[str, Any]:
