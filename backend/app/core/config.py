@@ -4,7 +4,7 @@ Environment configuration for HPCL-specific settings
 """
 
 from pydantic_settings import BaseSettings
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import os
 
 
@@ -52,6 +52,41 @@ class HPCLSettings(BaseSettings):
     default_fuel_price_per_mt: float = 45000.0  # ₹45,000 per MT
     max_solve_time_seconds: int = 300  # 5 minutes
     default_optimization_objective: str = "cost"  # cost, emissions, time, balanced
+    
+    # Solver Configuration
+    solver_num_workers: int = 4  # Number of parallel search workers
+    solver_log_progress: bool = True  # Log search progress
+    
+    # Solver Profiles (Quick, Balanced, Thorough)
+    solver_profiles: Dict[str, Dict[str, Any]] = {
+        "quick": {
+            "max_time_seconds": 15,
+            "num_workers": 2,
+            "description": "Fast optimization for demos"
+        },
+        "balanced": {
+            "max_time_seconds": 30,
+            "num_workers": 4,
+            "description": "Balanced speed and quality"
+        },
+        "thorough": {
+            "max_time_seconds": 120,
+            "num_workers": 8,
+            "description": "Maximum optimization quality"
+        },
+        "production": {
+            "max_time_seconds": 600,
+            "num_workers": 8,
+            "description": "Production-grade optimization"
+        }
+    }
+    
+    # Route Generation Optimization
+    enable_route_pruning: bool = True  # Enable smart route pruning
+    max_cost_per_mt_threshold: float = 2500.0  # ₹ per MT
+    max_time_per_mt_threshold: float = 0.015  # Days per MT
+    enable_route_caching: bool = True  # Cache generated routes
+    route_cache_ttl_hours: int = 24  # Cache TTL
     
     # External API Settings (optional)
     weather_api_key: Optional[str] = None
