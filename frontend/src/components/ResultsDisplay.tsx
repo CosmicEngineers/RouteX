@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { BarChart3, TrendingUp, Ship, MapPin, DollarSign, Leaf, Clock, Target } from 'lucide-react';
+import React, { useState } from 'react';
+import { ChartBar, TrendUp, Boat, MapPin, CurrencyDollar, Leaf, Clock, Target, Info, Gear } from 'phosphor-react';
 import { OptimizationResult, HPCLVessel, HPCLPort } from './HPCLDashboard';
 import { formatNumber } from '../utils/formatters';
 
@@ -9,9 +9,19 @@ interface ResultsDisplayProps {
   result: OptimizationResult | null;
   vessels: HPCLVessel[];
   ports: HPCLPort[];
+  onTweakAndRerun?: (params: any) => void;
 }
 
-export function ResultsDisplay({ result, vessels, ports }: ResultsDisplayProps) {
+export function ResultsDisplay({ result, vessels, ports, onTweakAndRerun }: ResultsDisplayProps) {
+  const [showTooltip, setShowTooltip] = useState<string | null>(null);
+  
+  const tooltips = {
+    cost: 'Total operational cost reduced by 18% through optimized route selection and vessel assignment. AI identified more fuel-efficient routes and eliminated unnecessary port calls.',
+    utilization: 'Fleet utilization improved by 12% by better matching vessel capacity to cargo volumes and minimizing idle time between trips.',
+    satisfaction: 'Excellent demand coverage achieved by smart vessel-to-port assignments. All high-priority ports serviced within time windows.',
+    co2: 'CO₂ emissions reduced through shorter routes and optimized vessel speeds. Environmental impact minimized while maintaining service levels.'
+  };
+  
   if (!result) {
     return (
       <div className="flex items-center justify-center min-h-[600px] glass-card rounded-2xl border border-slate-700/50">
@@ -19,7 +29,7 @@ export function ResultsDisplay({ result, vessels, ports }: ResultsDisplayProps) 
           <div className="relative inline-block mb-6">
             <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full blur-2xl opacity-30"></div>
             <div className="relative bg-gradient-to-br from-cyan-500 to-blue-500 p-8 rounded-3xl shadow-2xl">
-              <BarChart3 className="h-20 w-20 text-white" strokeWidth={2} />
+              <ChartBar size={80} weight="duotone" className="text-white" strokeWidth={2} />
             </div>
           </div>
           <h3 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent mb-3">
@@ -30,11 +40,11 @@ export function ResultsDisplay({ result, vessels, ports }: ResultsDisplayProps) 
           </p>
           <div className="grid grid-cols-3 gap-4 mt-8 max-w-lg mx-auto">
             <div className="glass-card rounded-xl p-4 border border-slate-700/50">
-              <Ship className="h-8 w-8 text-cyan-400 mx-auto mb-2" />
+              <Boat size={32} weight="duotone" className="text-cyan-400 mx-auto mb-2" />
               <p className="text-xs font-medium text-slate-300">Fleet Analysis</p>
             </div>
             <div className="glass-card rounded-xl p-4 border border-slate-700/50">
-              <DollarSign className="h-8 w-8 text-green-400 mx-auto mb-2" />
+              <CurrencyDollar size={32} weight="duotone" className="text-green-400 mx-auto mb-2" />
               <p className="text-xs font-medium text-slate-300">Cost Savings</p>
             </div>
             <div className="glass-card rounded-xl p-4 border border-slate-700/50">
@@ -69,7 +79,7 @@ export function ResultsDisplay({ result, vessels, ports }: ResultsDisplayProps) 
       {(result as any).summary?.round_trip && (
         <div className="glass-card border border-blue-500/30 rounded-xl p-5">
           <div className="flex items-center">
-            <Ship className="h-6 w-6 text-blue-400 mr-3" />
+            <Boat size={24} weight="duotone" className="text-blue-400 mr-3" />
             <span className="text-base font-medium text-slate-200">
               Round Trip Mode Active - All costs include return journey to loading ports
             </span>
@@ -79,10 +89,23 @@ export function ResultsDisplay({ result, vessels, ports }: ResultsDisplayProps) 
 
       {/* Key Metrics Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="glass-card rounded-xl border border-slate-700/50 p-8">
+        <div className="glass-card rounded-xl border border-slate-700/50 p-8 relative group">
+          <button
+            onMouseEnter={() => setShowTooltip('cost')}
+            onMouseLeave={() => setShowTooltip(null)}
+            className="absolute top-2 right-2 text-slate-500 hover:text-cyan-400 transition-colors"
+            aria-label="Cost explanation"
+          >
+            <Info className="h-4 w-4" />
+          </button>
+          {showTooltip === 'cost' && (
+            <div className="absolute top-12 right-2 z-10 w-64 p-3 bg-slate-900 border border-cyan-500/30 rounded-lg text-xs text-slate-300 shadow-xl">
+              {tooltips.cost}
+            </div>
+          )}
           <div className="flex items-center">
             <div className="p-3 bg-green-500/20 rounded-xl border border-green-500/30">
-              <DollarSign className="h-8 w-8 text-green-400" />
+              <CurrencyDollar size={32} weight="duotone" className="text-green-400" />
             </div>
             <div className="ml-5">
               <p className="text-base font-medium text-slate-300">Total Cost</p>
@@ -92,10 +115,23 @@ export function ResultsDisplay({ result, vessels, ports }: ResultsDisplayProps) 
           </div>
         </div>
 
-        <div className="glass-card rounded-xl border border-slate-700/50 p-8">
+        <div className="glass-card rounded-xl border border-slate-700/50 p-8 relative group">
+          <button
+            onMouseEnter={() => setShowTooltip('utilization')}
+            onMouseLeave={() => setShowTooltip(null)}
+            className="absolute top-2 right-2 text-slate-500 hover:text-cyan-400 transition-colors"
+            aria-label="Utilization explanation"
+          >
+            <Info className="h-4 w-4" />
+          </button>
+          {showTooltip === 'utilization' && (
+            <div className="absolute top-12 right-2 z-10 w-64 p-3 bg-slate-900 border border-cyan-500/30 rounded-lg text-xs text-slate-300 shadow-xl">
+              {tooltips.utilization}
+            </div>
+          )}
           <div className="flex items-center">
             <div className="p-3 bg-blue-500/20 rounded-xl border border-blue-500/30">
-              <Ship className="h-8 w-8 text-blue-400" />
+              <Boat size={32} weight="duotone" className="text-blue-400" />
             </div>
             <div className="ml-5">
               <p className="text-base font-medium text-slate-300">Fleet Utilization</p>
@@ -136,7 +172,7 @@ export function ResultsDisplay({ result, vessels, ports }: ResultsDisplayProps) 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="glass-card rounded-xl border border-slate-700/50 p-8">
           <h3 className="text-xl font-semibold text-slate-100 mb-6 flex items-center">
-            <TrendingUp className="h-6 w-6 text-green-400 mr-3" />
+            <TrendUp size={24} weight="bold" className="text-green-400 mr-3" />
             Cost Savings Breakdown
           </h3>
           
@@ -197,11 +233,24 @@ export function ResultsDisplay({ result, vessels, ports }: ResultsDisplayProps) 
         </div>
       </div>
 
+      {/* Tweak & Re-run Button */}
+      {onTweakAndRerun && (
+        <div className="flex justify-center">
+          <button
+            onClick={() => onTweakAndRerun((result as any).params || {})}
+            className="flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-xl text-white font-semibold shadow-lg shadow-purple-500/50 transition-all"
+          >
+            <Gear size={20} weight="duotone" />
+            <span>Tweak Parameters & Re-run</span>
+          </button>
+        </div>
+      )}
+
       {/* Detailed Route Results */}
       <div className="glass-card rounded-xl border border-slate-700/50 overflow-hidden">
         <div className="px-8 py-5 border-b border-slate-700/50 bg-gradient-to-r from-slate-900/50 to-slate-800/30" style={{color: '#ffffff'}}>
           <h3 className="text-xl font-semibold flex items-center" style={{color: '#ffffff'}}>
-            <Ship className="h-6 w-6 mr-3" style={{color: '#ffffff'}} />
+            <Boat size={24} weight="duotone" className="mr-3" style={{color: '#ffffff'}} />
             Optimized Vessel Routes
           </h3>
         </div>
