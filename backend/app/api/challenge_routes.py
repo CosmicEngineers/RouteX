@@ -81,10 +81,29 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
         loading_ports_data = get_challenge_loading_ports()
         unloading_ports_data = get_challenge_unloading_ports()
         
-        # Convert to Pydantic models for optimizer
-        vessels = [HPCLVessel(**v) for v in vessels_data]
-        loading_ports = [HPCLPort(**p, type="loading") for p in loading_ports_data]
-        unloading_ports = [HPCLPort(**p, type="unloading") for p in unloading_ports_data]
+        # Convert simplified vessel data to full HPCLVessel model with defaults
+        vessels = []
+        for v in vessels_data:
+            vessel_dict = {
+                "id": v.get("id", f"T{len(vessels)+1}"),
+                "name": v.get("id", f"Tanker {len(vessels)+1}"),
+                "imo_number": f"IMO{9000000 + len(vessels)}",
+                "capacity_mt": v.get("capacity_mt", 50000),
+                "grt": int(v.get("capacity_mt", 50000) * 0.6),  # Approx GRT
+                "length_m": 180.0,
+                "beam_m": 32.0,
+                "draft_m": 12.0,
+                "speed_knots": 14.0,
+                "fuel_consumption_mt_per_day": 35.0,
+                "daily_charter_rate": v.get("charter_rate_cr_per_day", 0.5) * 10000000,  # Convert Cr to Rs
+                "crew_size": 25,
+                "status": "available",
+                "current_port": None
+            }
+            vessels.append(HPCLVessel(**vessel_dict))
+        
+        loading_ports = [HPCLPort(**p) for p in loading_ports_data]
+        unloading_ports = [HPCLPort(**p) for p in unloading_ports_data]
         monthly_demands = [MonthlyDemand(**d) for d in demands_data]
         
         # Pre-flight validation
@@ -102,15 +121,15 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
                 "timestamp": datetime.now().isoformat()
             }
         
-        # Initialize CP-SAT optimizer
-        optimizer = HPCLCPSATOptimizer()
+        # Initialize CP-SAT optimizer with quick profile for web UI
+        optimizer = HPCLCPSATOptimizer(solver_profile="quick")
         
         # Get optimization objective
         optimization_objective = "cost"
         if input_data and input_data.optimization_objective:
             optimization_objective = input_data.optimization_objective
         
-        # Run CP-SAT optimization
+        # Run CP-SAT optimization with 15 second timeout for quick web response
         optimization_result = await optimizer.optimize_hpcl_fleet(
             vessels=vessels,
             loading_ports=loading_ports,
@@ -118,7 +137,7 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
             monthly_demands=monthly_demands,
             fuel_price_per_mt=45000.0,
             optimization_objective=optimization_objective,
-            max_solve_time_seconds=300
+            max_solve_time_seconds=15  # Quick timeout for web UI
         )
         
         # Check if optimization was successful
@@ -144,16 +163,16 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
         total_cost_cr = 0.0
         
         for route in optimization_result.selected_routes:
-            execution_count = route.get('execution_count', 1)
+            execution_count = route.execution_count
             
             for _ in range(execution_count):
-                # Get route details
-                loading_port = route.get('loading_port', 'Unknown')
-                discharge_ports = route.get('discharge_ports', [])
-                vessel_id = route.get('vessel_id', 'Unknown')
-                cargo_quantity = route.get('cargo_quantity', 0)
-                total_cost = route.get('total_cost', 0)
-                cargo_split = route.get('cargo_split', {})
+                # Get route details (HPCLRoute Pydantic model)
+                loading_port = route.loading_port
+                discharge_ports = route.discharge_ports
+                vessel_id = route.vessel_id
+                cargo_quantity = route.cargo_quantity
+                total_cost = route.total_cost
+                cargo_split = route.cargo_split
                 
                 # Create entry for each discharge port
                 for discharge_port in discharge_ports:
