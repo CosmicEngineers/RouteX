@@ -160,39 +160,71 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
         
         # Convert CP-SAT results to Challenge 7.1 output format
         output_table = []
-        total_cost_cr = 0.0
+        trips = []  # Group routes into trips for HPCL format
+        total_hpcl_cost_cr = 0.0
+        trip_counter = 1
         
         for route in optimization_result.selected_routes:
             execution_count = route.execution_count
             
-            for _ in range(execution_count):
+            for trip_num in range(execution_count):
                 # Get route details (HPCLRoute Pydantic model)
                 loading_port = route.loading_port
                 discharge_ports = route.discharge_ports
                 vessel_id = route.vessel_id
                 cargo_quantity = route.cargo_quantity
-                total_cost = route.total_cost
+                total_time_hours = route.total_time_hours
                 cargo_split = route.cargo_split
+                
+                # HPCL cost calculation: Charter rate × trip duration (days)
+                trip_duration_days = total_time_hours / 24.0
+                
+                # Get vessel charter rate (in Cr/day)
+                vessel_charter_rate_cr_per_day = 0.5  # Default
+                matching_vessel = [v for v in vessels if v.id == vessel_id]
+                if matching_vessel:
+                    vessel_charter_rate_cr_per_day = matching_vessel[0].daily_charter_rate / 10000000
+                
+                hpcl_trip_cost_cr = trip_duration_days * vessel_charter_rate_cr_per_day
+                total_hpcl_cost_cr += hpcl_trip_cost_cr
+                
+                # Create trip object for grouped display
+                trip_obj = {
+                    "trip_id": f"Trip {trip_counter}",
+                    "vessel_id": vessel_id,
+                    "loading_port": loading_port,
+                    "discharge_ports": discharge_ports,
+                    "trip_duration_days": round(trip_duration_days, 2),
+                    "hpcl_charter_cost_cr": round(hpcl_trip_cost_cr, 4),
+                    "cargo_deliveries": []
+                }
                 
                 # Create entry for each discharge port
                 for discharge_port in discharge_ports:
                     volume = cargo_split.get(discharge_port, cargo_quantity / len(discharge_ports))
-                    # Proportional cost allocation
-                    proportional_cost = (volume / cargo_quantity * total_cost) if cargo_quantity > 0 else 0
-                    cost_in_cr = proportional_cost / 10000000  # Convert to Crores
+                    # Proportional cost allocation for output table
+                    proportional_cost_cr = (volume / cargo_quantity * hpcl_trip_cost_cr) if cargo_quantity > 0 else 0
                     
                     output_table.append({
                         "Source": loading_port,
                         "Destination": discharge_port,
                         "Tanker": vessel_id,
                         "Volume (MT)": int(volume),
-                        "Trip Cost (Rs Cr)": round(cost_in_cr, 4)
+                        "Trip Cost (Rs Cr)": round(proportional_cost_cr, 4),
+                        "Trip ID": trip_obj["trip_id"]
                     })
                     
-                    total_cost_cr += cost_in_cr
+                    trip_obj["cargo_deliveries"].append({
+                        "port": discharge_port,
+                        "volume_mt": int(volume)
+                    })
+                
+                trips.append(trip_obj)
+                trip_counter += 1
         
-        # Calculate summary
+        # Calculate summary statistics (no post-processing needed - solver satisfies demand exactly)
         total_volume = sum(row["Volume (MT)"] for row in output_table)
+        total_hpcl_cost_cr = total_hpcl_cost_cr  # Already calculated above
         
         return {
             "status": "success",
@@ -200,9 +232,12 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
             "optimization_status": optimization_result.optimization_status,
             "solve_time_seconds": round(optimization_result.solve_time_seconds, 2),
             "optimization_results": output_table,
+            "trips": trips,  # Grouped trip data for HPCL display
             "summary": {
-                "total_routes": len(output_table),
-                "total_cost_cr": round(total_cost_cr, 2),
+                "total_trips": len(trips),
+                "total_routes": len(output_table),  # Total delivery rows
+                "hpcl_transportation_cost_cr": round(total_hpcl_cost_cr, 4),  # Primary HPCL KPI
+                "total_cost_cr": round(total_hpcl_cost_cr, 4),  # Alias for compatibility
                 "total_volume_mt": total_volume,
                 "total_demand_mt": total_demand,
                 "satisfied_demand_mt": total_volume,
