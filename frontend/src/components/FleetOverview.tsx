@@ -43,14 +43,14 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
   const unloadingPorts = ports.filter(p => p.type === 'unloading').length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Fleet Summary Card */}
-      <div className="relative overflow-hidden glass-card rounded-2xl p-6 border border-slate-700/50">
+      <div className="relative overflow-hidden glass-card rounded-2xl p-4 border border-slate-700/50">
         <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 rounded-full filter blur-3xl"></div>
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full filter blur-3xl" style={{ animationDelay: '1s' }}></div>
         
         <div className="relative">
-          <h3 className="text-2xl font-bold text-slate-100 mb-6 flex items-center">
+          <h3 className="text-2xl font-bold text-slate-100 mb-3 flex items-center">
             <Boat size={28} weight="duotone" className="text-cyan-400 mr-3" />
             Fleet Overview
           </h3>
@@ -58,7 +58,7 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="relative group">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl blur opacity-50 group-hover:opacity-75 transition"></div>
-              <div className="relative bg-slate-800/50 backdrop-blur-lg border border-cyan-500/30 rounded-xl p-5 hover:border-cyan-500/50 transition-all">
+              <div className="relative bg-slate-800/50 backdrop-blur-lg border border-cyan-500/30 rounded-xl p-4 hover:border-cyan-500/50 transition-all">
                 <div className="text-4xl font-bold text-white mb-1">{vessels.length}</div>
                 <div className="text-sm text-cyan-200 font-medium">Total Vessels</div>
                 <Boat size={32} weight="thin" className="absolute top-4 right-4 text-cyan-400/20" />
@@ -67,7 +67,7 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
             
             <div className="relative group">
               <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-xl blur opacity-50 group-hover:opacity-75 transition"></div>
-              <div className="relative bg-slate-800/50 backdrop-blur-lg border border-green-500/30 rounded-xl p-5 hover:border-green-500/50 transition-all">
+              <div className="relative bg-slate-800/50 backdrop-blur-lg border border-green-500/30 rounded-xl p-4 hover:border-green-500/50 transition-all">
                 <div className="text-4xl font-bold text-white mb-1">{availableVessels}</div>
                 <div className="text-sm text-green-200 font-medium">Available Now</div>
                 <CheckCircle className="absolute top-4 right-4 h-8 w-8 text-green-400/20" />
@@ -76,7 +76,7 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
             
             <div className="relative group">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl blur opacity-50 group-hover:opacity-75 transition"></div>
-              <div className="relative bg-slate-800/50 backdrop-blur-lg border border-blue-500/30 rounded-xl p-5 hover:border-blue-500/50 transition-all">
+              <div className="relative bg-slate-800/50 backdrop-blur-lg border border-blue-500/30 rounded-xl p-4 hover:border-blue-500/50 transition-all">
                 <div className="text-4xl font-bold text-white mb-1">{formatCompactNumber(totalCapacity)}</div>
                 <div className="text-sm text-blue-200 font-medium">MT Capacity</div>
                 <Anchor size={32} weight="thin" className="absolute top-4 right-4 text-blue-400/20" />
@@ -85,7 +85,7 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
             
             <div className="relative group">
               <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl blur opacity-50 group-hover:opacity-75 transition"></div>
-              <div className="relative bg-slate-800/50 backdrop-blur-lg border border-purple-500/30 rounded-xl p-5 hover:border-purple-500/50 transition-all">
+              <div className="relative bg-slate-800/50 backdrop-blur-lg border border-purple-500/30 rounded-xl p-4 hover:border-purple-500/50 transition-all">
                 <div className="text-4xl font-bold text-white mb-1">
                   {((availableVessels / vessels.length) * 100).toFixed(0)}%
                 </div>
@@ -98,8 +98,8 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
       </div>
 
       {/* Port Network Summary */}
-      <div className="glass-card rounded-xl border border-slate-700/50 p-6">
-        <h3 className="text-lg font-semibold text-slate-100 mb-4 flex items-center">
+      <div className="glass-card rounded-xl border border-slate-700/50 p-4">
+        <h3 className="text-lg font-semibold text-slate-100 mb-3 flex items-center">
           <MapPin className="h-5 w-5 text-cyan-400 mr-2" />
           Port Network
         </h3>
@@ -131,7 +131,7 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
 
       {/* Vessel List */}
       <div className="glass-card rounded-xl border border-slate-700/50 overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-700/50 bg-gradient-to-r from-slate-900/50 to-slate-800/30">
+        <div className="px-5 py-3 border-b border-slate-700/50 bg-gradient-to-r from-slate-900/50 to-slate-800/30">
           <h3 className="text-lg font-semibold text-slate-100 flex items-center">
             <Anchor size={20} weight="duotone" className="text-cyan-400 mr-2" />
             Vessel Status
@@ -140,7 +140,7 @@ export function FleetOverview({ vessels, ports }: FleetOverviewProps) {
         
         <div className="divide-y divide-slate-700/30">
           {vessels.map((vessel) => (
-            <div key={vessel.id} className="px-6 py-4 hover:bg-slate-800/30 transition-colors">
+            <div key={vessel.id} className="px-5 py-3 hover:bg-slate-800/30 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-3">

@@ -254,10 +254,10 @@ export function ChallengeOutput() {
 
       {/* Input Configuration Section */}
       {showInputs && (
-        <div className="glass-card rounded-2xl border border-slate-700/50 p-8">
-          <h3 className="text-xl font-semibold text-slate-200 mb-6">Fleet & Demand Configuration</h3>
-          <p className="text-sm text-slate-400 mb-6">Adjust vessel capacities, charter rates, and port demands to customize your optimization scenario</p>
-          <div className="space-y-6">
+        <div className="glass-card rounded-2xl border border-slate-700/50 p-5">
+          <h3 className="text-xl font-semibold text-slate-200 mb-4">Fleet & Demand Configuration</h3>
+          <p className="text-sm text-slate-400 mb-4">Adjust vessel capacities, charter rates, and port demands to customize your optimization scenario</p>
+          <div className="space-y-4">
           </div>
         </div>
       )}
@@ -265,13 +265,13 @@ export function ChallengeOutput() {
       {/* Input Tables */}
       {showInputs && (
         <div>
-          <div style={{ fontSize: '11px', letterSpacing: '0.08em', fontWeight: '700', color: '#0B5ED7', marginBottom: '20px', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: '11px', letterSpacing: '0.08em', fontWeight: '700', color: '#0B5ED7', marginBottom: '16px', textTransform: 'uppercase' }}>
             STEP 1 — INPUT CONFIGURATION
           </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Tankers Input */}
-          <div style={{ backgroundColor: '#F8FBFF', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid #E6F2FF' }}>
-            <div style={{ fontSize: '11px', letterSpacing: '0.08em', fontWeight: '700', color: '#0B5ED7', marginBottom: '20px', textTransform: 'uppercase' }}>
+          <div style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.1)', border: '1px solid rgba(148, 163, 184, 0.2)' }}>
+            <div style={{ fontSize: '11px', letterSpacing: '0.08em', fontWeight: '700', color: '#0B5ED7', marginBottom: '12px', textTransform: 'uppercase' }}>
               Available Coastal Tankers
             </div>
             <div className="text-xs text-slate-500 mb-3">Configure your fleet capacity and daily charter costs</div>
@@ -316,8 +316,8 @@ export function ChallengeOutput() {
           </div>
 
           {/* Demands Input */}
-          <div style={{ backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.3)', border: '1px solid rgba(148, 163, 184, 0.1)' }}>
-            <div style={{ fontSize: '11px', letterSpacing: '0.08em', fontWeight: '700', color: '#0B5ED7', marginBottom: '20px', textTransform: 'uppercase' }}>
+          <div style={{ backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.3)', border: '1px solid rgba(148, 163, 184, 0.1)' }}>
+            <div style={{ fontSize: '11px', letterSpacing: '0.08em', fontWeight: '700', color: '#0B5ED7', marginBottom: '12px', textTransform: 'uppercase' }}>
               Monthly Delivery Requirements
             </div>
             <div className="text-xs text-slate-500 mb-3">Cargo volumes to be delivered to each unloading port (MT/month)</div>
@@ -411,9 +411,10 @@ export function ChallengeOutput() {
         </div>
       )}
 
-      {/* Results Section Wrapper */}
-      <div style={{ backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(16px)', border: '1px solid rgba(148, 163, 184, 0.1)', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.3)', padding: '32px', marginTop: '32px' }}>
-        <div style={{ fontSize: '11px', letterSpacing: '0.08em', fontWeight: '700', color: '#22d3ee', marginBottom: '20px', textTransform: 'uppercase' }}>
+      {/* Results Section Wrapper - Only show if results exist */}
+      {(results || error) && (
+      <div style={{ backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(16px)', border: '1px solid rgba(148, 163, 184, 0.1)', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.3)', padding: '20px', marginTop: '20px' }}>
+        <div style={{ fontSize: '11px', letterSpacing: '0.08em', fontWeight: '700', color: '#22d3ee', marginBottom: '12px', textTransform: 'uppercase' }}>
           STEP 2 — OPTIMIZATION RESULTS
         </div>
         {error && (
@@ -425,17 +426,17 @@ export function ChallengeOutput() {
         {results && results.summary && (
         <>
           {/* Summary Section - HPCL Compliant (Layer 1) */}
-          <div className="mb-6 grid grid-cols-2 md:grid-cols-3 gap-4">
-            <div className="terminal-style p-4 rounded-lg border border-cyan-500/30">
+          <div className="mb-4 grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="terminal-style p-3 rounded-lg border border-cyan-500/30">
               <p className="text-sm font-medium text-cyan-400">HPCL Transportation Cost</p>
               <p className="text-2xl font-bold text-cyan-300">₹{results.summary.total_cost_cr} Cr</p>
               <p className="text-xs text-cyan-200 mt-1">Charter Hire × Trip Duration</p>
             </div>
-            <div className="terminal-style p-4 rounded-lg border border-green-500/30">
+            <div className="terminal-style p-3 rounded-lg border border-green-500/30">
               <p className="text-sm font-medium text-green-400">Total Trips</p>
               <p className="text-2xl font-bold text-green-300">{results.summary.total_routes}</p>
             </div>
-            <div className="terminal-style p-4 rounded-lg border border-blue-500/30">
+            <div className="terminal-style p-3 rounded-lg border border-blue-500/30">
               <p className="text-sm font-medium text-blue-400">Demand Compliance</p>
               <p className="text-2xl font-bold text-blue-300">✓ 100%</p>
               <p className="text-xs text-blue-200 mt-1">All demands met exactly</p>
@@ -443,9 +444,9 @@ export function ChallengeOutput() {
           </div>
 
           {/* Trip Cards Overview (Layer 1 - Default Collapsed) */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-slate-200 mb-4">Optimized Trip Plan</h3>
-            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-slate-200 mb-2">Optimized Trip Plan</h3>
+            <div className="space-y-2 max-h-[380px] overflow-y-auto pr-2">
               {results.optimization_results.map((route, idx) => (
                 <div key={idx} className={`border rounded-lg p-4 transition-all duration-200 ${expandedTripIdx === idx ? 'bg-slate-800/60 border-cyan-500/50' : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/60'}`}>
                   {/* Trip Header - Always Visible */}
@@ -758,6 +759,7 @@ export function ChallengeOutput() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
