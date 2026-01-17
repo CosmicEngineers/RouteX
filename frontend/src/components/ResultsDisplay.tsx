@@ -347,13 +347,13 @@ export function ResultsDisplay({ result, vessels, ports, onTweakAndRerun }: Resu
             <thead className="bg-gradient-to-r from-blue-600/40 to-cyan-600/40">
               <tr>
                 <th className="px-8 py-4 text-left text-base font-semibold text-white uppercase tracking-wider">
-                  Vessel
+                  Vessel (Capacity)
                 </th>
                 <th className="px-8 py-4 text-left text-base font-semibold text-white uppercase tracking-wider">
                   Route
                 </th>
                 <th className="px-8 py-4 text-left text-base font-semibold text-white uppercase tracking-wider">
-                  Cargo (MT)
+                  Cargo Delivered (MT)
                 </th>
                 <th className="px-8 py-4 text-left text-base font-semibold text-white uppercase tracking-wider">
                   Transit Time
@@ -364,7 +364,13 @@ export function ResultsDisplay({ result, vessels, ports, onTweakAndRerun }: Resu
               </tr>
             </thead>
             <tbody className="divide-y divide-cyan-500/30">
-              {actualRoutes.map((route: any, index: number) => (
+              {actualRoutes.map((route: any, index: number) => {
+                const vesselData = vessels.find(v => v.name === route.Tanker || v.id === route.Tanker);
+                const vesselCapacity = vesselData?.capacity_mt || 50000;
+                const routeCargo = route['Volume (MT)'] || 0;
+                const exceedsCapacity = routeCargo > vesselCapacity * 1.01;
+                
+                return (
                 <tr 
                   key={index} 
                   className="hover:bg-cyan-600/20 transition-colors" 
@@ -374,15 +380,25 @@ export function ResultsDisplay({ result, vessels, ports, onTweakAndRerun }: Resu
                   }}
                 >
                   <td className="px-8 py-5 whitespace-nowrap">
-                    <span style={{
-                      color: '#22d3ee !important',
-                      fontSize: '18px',
-                      fontWeight: '700',
-                      textShadow: '0 0 10px rgba(34, 211, 238, 0.5)',
-                      display: 'inline-block'
-                    }}>
-                      {route.Tanker || 'N/A'}
-                    </span>
+                    <div>
+                      <span style={{
+                        color: '#22d3ee !important',
+                        fontSize: '18px',
+                        fontWeight: '700',
+                        textShadow: '0 0 10px rgba(34, 211, 238, 0.5)',
+                        display: 'inline-block'
+                      }}>
+                        {route.Tanker || 'N/A'}
+                      </span>
+                      <div style={{
+                        color: '#94a3b8',
+                        fontSize: '12px',
+                        fontWeight: '400',
+                        marginTop: '2px'
+                      }}>
+                        Cap: {formatNumber(vesselCapacity)} MT
+                      </div>
+                    </div>
                   </td>
                   <td className="px-8 py-5">
                     <span style={{
@@ -398,15 +414,27 @@ export function ResultsDisplay({ result, vessels, ports, onTweakAndRerun }: Resu
                     </span>
                   </td>
                   <td className="px-8 py-5 whitespace-nowrap">
-                    <span style={{
-                      color: '#22d3ee !important',
-                      fontSize: '18px',
-                      fontWeight: '600',
-                      textShadow: '0 0 10px rgba(34, 211, 238, 0.5)',
-                      display: 'inline-block'
-                    }}>
-                      {formatNumber(route['Volume (MT)'] || 0)}
-                    </span>
+                    <div>
+                      <span style={{
+                        color: exceedsCapacity ? '#fbbf24' : '#22d3ee',
+                        fontSize: '18px',
+                        fontWeight: '600',
+                        textShadow: `0 0 10px ${exceedsCapacity ? 'rgba(251, 191, 36, 0.5)' : 'rgba(34, 211, 238, 0.5)'}`,
+                        display: 'inline-block'
+                      }}>
+                        {formatNumber(route['Volume (MT)'] || 0)}
+                      </span>
+                      {exceedsCapacity && (
+                        <div style={{
+                          color: '#fbbf24',
+                          fontSize: '11px',
+                          fontWeight: '500',
+                          marginTop: '2px'
+                        }}>
+                          ⚡ Multi-trip delivery
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-8 py-5 whitespace-nowrap">
                     <span style={{
@@ -431,7 +459,7 @@ export function ResultsDisplay({ result, vessels, ports, onTweakAndRerun }: Resu
                     </span>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </div>

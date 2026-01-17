@@ -692,6 +692,16 @@ export function ChallengeOutput() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-sm font-semibold text-cyan-400">{trip.trip_id} • {trip.vessel_id}</span>
+                          {(() => {
+                            const vessel = vessels.find(v => v.id === trip.vessel_id);
+                            const vesselCapacity = vessel?.capacity_mt || 50000;
+                            const totalCargo = trip.cargo_deliveries.reduce((sum, d) => sum + d.volume_mt, 0);
+                            return (
+                              <span className="text-xs px-2 py-0.5 rounded bg-slate-700/50 text-slate-300 border border-slate-600/50">
+                                Capacity: {formatNumber(vesselCapacity)} MT
+                              </span>
+                            );
+                          })()}
                           <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-300">Load: {trip.loading_port}</span>
                           {trip.discharge_ports.map((port, pidx) => (
                             <span key={pidx} className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-300">→ {port}</span>
@@ -748,6 +758,24 @@ export function ChallengeOutput() {
                           <span className="text-cyan-300">Trip Total</span>
                           <span className="text-cyan-300">{formatNumber(trip.cargo_deliveries.reduce((sum, d) => sum + d.volume_mt, 0))} MT</span>
                         </div>
+                        {(() => {
+                          const vessel = vessels.find(v => v.id === trip.vessel_id);
+                          const vesselCapacity = vessel?.capacity_mt || 50000;
+                          const totalCargo = trip.cargo_deliveries.reduce((sum, d) => sum + d.volume_mt, 0);
+                          if (totalCargo > vesselCapacity * 1.01) {
+                            const numSubTrips = Math.ceil(totalCargo / vesselCapacity);
+                            return (
+                              <div className="mt-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded text-xs">
+                                <p className="text-blue-300 font-semibold mb-1">⚡ Multi-Trip Optimization</p>
+                                <p className="text-blue-200/80">
+                                  This delivery requires ~{numSubTrips} sub-trips due to vessel capacity ({formatNumber(vesselCapacity)} MT).
+                                  Solver optimized {formatNumber(totalCargo)} MT total delivery across multiple loads.
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
 
                       {/* HPCL Cost Breakdown */}
@@ -855,23 +883,27 @@ export function ChallengeOutput() {
                   <thead className="table-header sticky top-0">
                     <tr>
                       <th className="px-6 py-4 text-left text-xs font-bold tracking-wide" style={{color: '#06b6d4'}}>TRIP ID</th>
-                      <th className="px-6 py-4 text-left text-xs font-bold tracking-wide" style={{color: '#06b6d4'}}>VESSEL</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold tracking-wide" style={{color: '#06b6d4'}}>VESSEL (CAPACITY)</th>
                       <th className="px-6 py-4 text-left text-xs font-bold tracking-wide" style={{color: '#06b6d4'}}>LOAD PORT</th>
                       <th className="px-6 py-4 text-left text-xs font-bold tracking-wide" style={{color: '#06b6d4'}}>DISCHARGE PORTS</th>
-                      <th className="px-6 py-4 text-right text-xs font-bold tracking-wide" style={{color: '#06b6d4'}}>TOTAL CARGO (MT)</th>
+                      <th className="px-6 py-4 text-right text-xs font-bold tracking-wide" style={{color: '#06b6d4'}}>CARGO DELIVERED (MT)</th>
                       <th className="px-6 py-4 text-right text-xs font-bold tracking-wide" style={{color: '#06b6d4'}}>TRIP COST (₹ CR)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-700/50">
                     {(results.trips && results.trips.length > 0 ? results.trips : []).map((trip, index) => {
                       const totalCargo = trip.cargo_deliveries.reduce((sum, d) => sum + d.volume_mt, 0);
+                      const vessel = vessels.find(v => v.id === trip.vessel_id);
+                      const vesselCapacity = vessel?.capacity_mt || 50000;
+                      const exceedsCapacity = totalCargo > vesselCapacity * 1.01;
                       return (
                         <tr key={index} className="table-row hover:bg-cyan-500/10 transition-colors" style={{backgroundColor: index % 2 === 0 ? 'rgba(51, 65, 85, 0.4)' : 'rgba(30, 41, 59, 0.4)'}}>
                           <td className="px-6 py-4 text-sm font-bold whitespace-nowrap" style={{color: '#fbbf24'}}>
                             {trip.trip_id}
                           </td>
                           <td className="px-6 py-4 text-sm font-medium whitespace-nowrap" style={{color: '#67e8f9'}}>
-                            {trip.vessel_id}
+                            <div>{trip.vessel_id}</div>
+                            <div className="text-xs" style={{color: '#94a3b8'}}>Cap: {formatNumber(vesselCapacity)} MT</div>
                           </td>
                           <td className="px-6 py-4 text-sm whitespace-nowrap" style={{color: '#6ee7b7'}}>
                             {trip.loading_port}
@@ -884,8 +916,13 @@ export function ChallengeOutput() {
                               ))}
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-sm text-right font-semibold whitespace-nowrap" style={{color: '#67e8f9'}}>
-                            {formatNumber(totalCargo)}
+                          <td className="px-6 py-4 text-sm text-right font-semibold whitespace-nowrap" style={{color: exceedsCapacity ? '#fbbf24' : '#67e8f9'}}>
+                            <div>{formatNumber(totalCargo)}</div>
+                            {exceedsCapacity && (
+                              <div className="text-xs" style={{color: '#fbbf24'}}>
+                                ⚡ Multi-trip
+                              </div>
+                            )}
                           </td>
                           <td className="px-6 py-4 text-sm text-right font-bold whitespace-nowrap" style={{color: '#6ee7b7'}}>
                             ₹{trip.hpcl_charter_cost_cr.toFixed(4)}
