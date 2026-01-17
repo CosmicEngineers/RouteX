@@ -105,7 +105,7 @@ Trip Cost = Charter Rate (₹ Cr/day) × Trip Duration (days)
 - **CP-SAT Solver**: Google OR-Tools Constraint Programming solver
 - **Set Partitioning Model**: Pre-generates ~726 feasible route patterns
 - **Multi-Objective Support**: Cost, time, emissions, or balanced optimization
-- **Solver Profiles**: Fast (15s), Balanced (60s), Thorough (300s) modes
+- **Solver Profiles**: Quick (15s), Balanced (60s), Thorough (300s) modes
 - **Parallel Processing**: Multi-threaded route generation and solving
 
 ### Fleet Management
@@ -236,7 +236,7 @@ Trip Cost = Charter Rate (₹ Cr/day) × Trip Duration (days)
 | **Tailwind CSS** | 3.4+ | Utility-first CSS framework |
 | **Phosphor Icons** | Latest | Modern icon library |
 | **Recharts** | Latest | Charting library for analytics |
-| **Leaflet** | Latest | Interactive maritime maps |
+| **Google Maps** | Latest | Interactive maritime maps |
 
 ### Development Tools
 
@@ -534,9 +534,10 @@ POST /api/v1/challenge/optimize
 Content-Type: application/json
 
 {
-  "solver_profile": "balanced",
-  "optimization_objective": "cost",
-  "include_return_trip": false
+  "vessels": [],  // Optional: custom vessel data
+  "demands": [],  // Optional: custom demand data  
+  "round_trip": false,
+  "optimization_objective": "cost"
 }
 ```
 
@@ -569,32 +570,32 @@ import requests
 response = requests.post(
     "http://localhost:8000/api/v1/challenge/optimize",
     json={
-        "solver_profile": "fast",
+        "round_trip": False,
         "optimization_objective": "cost"
     }
 )
 
 result = response.json()
-print(f"Total Cost: ₹{result['total_cost_cr']} Cr")
-print(f"Trips: {result['total_trips']}")
+print(f"Total Cost: ₹{result['summary']['total_cost_cr']} Cr")
+print(f"Trips: {result['summary']['total_trips']}")
 ```
 
-### Example 2: Compare Solver Profiles
+### Example 2: Compare Optimization Objectives
 
 ```python
-profiles = ["fast", "balanced", "thorough"]
+objectives = ["cost", "emissions", "time", "balanced"]
 results = {}
 
-for profile in profiles:
+for objective in objectives:
     response = requests.post(
         "http://localhost:8000/api/v1/challenge/optimize",
-        json={"solver_profile": profile}
+        json={"optimization_objective": objective}
     )
-    results[profile] = response.json()
+    results[objective] = response.json()
 
-# Compare costs
-for profile, result in results.items():
-    print(f"{profile}: ₹{result['total_cost_cr']} Cr in {result['solve_time_seconds']}s")
+# Compare results
+for objective, result in results.items():
+    print(f"{objective}: ₹{result['summary']['total_cost_cr']} Cr")
 ```
 
 ### Example 3: Multi-Objective Optimization
@@ -670,7 +671,7 @@ L1      U2,U3       T3      50000        0.357
 
 | Solver Profile | Time | Solution Quality |
 |----------------|------|------------------|
-| **Fast** | 15s | Good (5-10% gap) |
+| **Quick** | 15s | Good (5-10% gap) |
 | **Balanced** | 60s | Very Good (1-3% gap) |
 | **Thorough** | 300s | Optimal (< 1% gap) |
 

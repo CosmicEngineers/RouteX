@@ -16,7 +16,7 @@ The frontend provides an interactive dashboard for visualizing optimization resu
 | **Tailwind CSS** | 3.4+ | Utility-first CSS framework |
 | **Phosphor Icons** | Latest | Modern icon library |
 | **Recharts** | Latest | Data visualization |
-| **Leaflet** | Latest | Interactive maps |
+| **Google Maps API** | Latest | Interactive maritime maps |
 
 ## Features
 
@@ -144,38 +144,61 @@ Displays Challenge 7.1 specific interface with input data and results table.
 
 ```tsx
 interface ChallengeOutputProps {
-  // No props - fetches data internally
+  // No props - manages state internally
 }
 
-// Handles:
-// - Running optimization via API
-// - Displaying input specifications
-// - Showing results in challenge format
-// - Exporting results to CSV/JSON
+// Features:
+// - Editable vessel and demand inputs
+// - Real-time optimization execution
+// - Results display in challenge format (Source | Destination | Tanker | Volume | Cost)
+// - Export to CSV/JSON
+// - Trip-by-trip breakdown with cargo deliveries
 ```
 
 ### MaritimeMap
 
-Interactive Leaflet map showing ports and vessel routes.
+Interactive Google Maps visualization showing ports and vessel routes with maritime pathfinding.
 
 ```tsx
 interface MaritimeMapProps {
-  routes: Route[];
+  vessels: HPCLVessel[];
   ports: HPCLPort[];
-  selectedRoute?: Route;
-  onRouteSelect?: (route: Route) => void;
+  optimizationRoutes?: any[];
+  currentRouteIndex?: number;
+  showLiveStatus?: boolean;
+  onNextRoute?: () => void;
+  onPrevRoute?: () => void;
+  onGoToRoute?: (index: number) => void;
+  totalRoutes?: number;
+  selectedRoutes?: any[];
 }
+
+// Features:
+// - Google Maps integration with maritime routes
+// - JPS (Jump Point Search) pathfinding for coastal navigation
+// - Route playback and animation
+// - Port markers with popups
+// - Real-time route visualization
 ```
 
 ### FleetGanttChart
 
-Timeline visualization of vessel schedules and voyage durations.
+Timeline visualization of vessel schedules showing loading, transit, unloading, and idle phases.
 
 ```tsx
 interface FleetGanttChartProps {
-  routes: Route[];
-  vessels: HPCLVessel[];
-  timeframe?: 'daily' | 'weekly' | 'monthly';
+  vessels: Array<{ id: string; name: string }>;
+  trips: Trip[];
+  monthHours?: number;  // Default: 720 hours
+}
+
+interface Trip {
+  vessel: string;
+  start_hour: number;
+  end_hour: number;
+  route: string;
+  phase: 'loading' | 'transit' | 'unloading' | 'idle';
+  color: string;
 }
 ```
 
@@ -189,7 +212,7 @@ const fetchOptimization = async () => {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      solver_profile: 'balanced',
+      round_trip: false,
       optimization_objective: 'cost'
     })
   });

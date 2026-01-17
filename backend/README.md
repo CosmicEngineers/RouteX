@@ -175,9 +175,10 @@ POST /api/v1/challenge/optimize
 Content-Type: application/json
 
 {
-  "solver_profile": "balanced",
-  "optimization_objective": "cost",
-  "include_return_trip": false
+  "vessels": [...],  // Optional: custom vessel data
+  "demands": [...],  // Optional: custom demand data
+  "round_trip": false,
+  "optimization_objective": "cost"
 }
 ```
 
@@ -267,7 +268,14 @@ cost = calculator.calculate_voyage_cost(
 )
 ```
 
-**Components**: Charter cost, fuel cost, port charges, cargo handling
+**Components**: 
+- Charter/operating costs (time-based)
+- Bunker fuel costs (with speed optimization)
+- Port charges (Indian coastal ports)
+- Cargo handling costs
+- Demurrage risk provisioning
+- HPCL-specific compliance costs
+- Monsoon season factors (15% increase during Jun-Sep)
 
 ### Distance Calculator
 
@@ -300,6 +308,7 @@ class HPCLVessel(BaseModel):
     speed_knots: float
     fuel_consumption_mt_per_day: float
     status: VesselStatus
+    monthly_available_hours: float  # Default: 720 hours
 ```
 
 ### HPCLPort
@@ -348,7 +357,7 @@ Defined in `app/core/config.py`:
 
 ```python
 solver_profiles = {
-    "fast": {
+    "quick": {
         "max_time_seconds": 15,
         "num_workers": 4,
         "log_search_progress": False
@@ -458,13 +467,19 @@ async def optimize(request: OptimizationRequest):
 
 ```python
 if status == cp_model.INFEASIBLE:
-    analysis = analyze_infeasibility(model, demands)
+    analyzer = InfeasibilityAnalyzer(vessels, demands, fuel_price)
+    suggestions = [
+        *analyzer.analyze_capacity_shortage(),
+        *analyzer.analyze_time_constraints(),
+        *analyzer.analyze_vessel_constraints(),
+        *analyzer.analyze_demand_distribution(),
+        *analyzer.analyze_solver_settings(solve_time, num_workers)
+    ]
     raise HTTPException(
         status_code=400,
         detail={
             "error": "Infeasible problem",
-            "reason": analysis["reason"],
-            "details": analysis
+            "suggestions": [s.__dict__ for s in suggestions]
         }
     )
 ```
