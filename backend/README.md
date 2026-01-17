@@ -1,281 +1,581 @@
-# HPCL Coastal Tanker Fleet Optimizer - Backend
+# RouteX Backend - FastAPI Optimization Engine
+
+High-performance RESTful API for maritime logistics optimization using Google OR-Tools CP-SAT solver.
 
 ## Overview
-FastAPI-based backend for HPCL's coastal tanker fleet optimization system. Provides advanced optimization capabilities using OR-Tools CP-SAT solver with support for 9-vessel fleet across 17 Indian coastal ports.
 
-## Fixed Issues & Improvements
+The backend provides optimization services for HPCL's coastal tanker fleet, implementing advanced constraint programming algorithms to minimize transportation costs while satisfying operational constraints. Built with FastAPI for high performance and automatic API documentation.
 
-### ✅ Database Layer (models/database.py)
-- **Added in-memory fallback**: Backend now works seamlessly without MongoDB
-- **All database operations have dual implementation**: MongoDB when available, in-memory storage as fallback
-- **Graceful connection handling**: No crashes if MongoDB is unavailable
-- **Health check improvements**: Reports in-memory mode status
+## Technology Stack
 
-### ✅ API Routes (api/challenge_routes.py)
-- **Completed optimization endpoint**: Full implementation of route generation logic
-- **Round-trip support**: Optional return journey cost calculation
-- **Demand satisfaction tracking**: Monitors fulfilled and unfulfilled demands
-- **Challenge 7.1 output format**: Returns data in exact expected format
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| **Python** | 3.11+ | Core programming language |
+| **FastAPI** | 0.117+ | High-performance async web framework |
+| **OR-Tools** | 9.0+ | Google's CP-SAT optimization solver |
+| **Pydantic** | 2.11+ | Data validation and settings |
+| **Motor** | 3.7+ | Async MongoDB driver |
+| **Celery** | 5.4+ | Distributed task queue |
+| **Redis** | 5.2+ | Message broker and caching |
+| **searoute** | 1.4.3 | Maritime routing calculations |
+| **NumPy** | 1.26+ | Numerical computations |
+| **Pandas** | 2.0+ | Data manipulation |
 
-### ✅ Service Layer
-- **route_generator.py**: Complete implementation of feasible route generation
-- **cost_calculator.py**: Comprehensive voyage cost calculations
-- **distance_calculator.py**: Maritime distance matrix with searoute integration
-- **All services tested and working**: No incomplete implementations
+## Features
 
-### ✅ Data Initialization
-- **Automatic seeding**: Sample vessels and ports loaded on startup
-- **Challenge 7.1 data**: Uses exact specifications from hackathon challenge
-- **In-memory persistence**: Data survives without database
+### Core Optimization
+
+- **CP-SAT Solver**: Google OR-Tools constraint programming
+- **Set Partitioning Model**: Pre-generates ~726 feasible routes
+- **Multi-Objective**: Cost, time, emissions optimization
+- **Solver Profiles**: Fast (15s), Balanced (60s), Thorough (300s)
+- **Parallel Processing**: Multi-threaded route generation
+
+### Services
+
+- **Route Generator**: Creates all feasible voyage patterns
+- **Cost Calculator**: Comprehensive maritime cost breakdown
+- **Distance Calculator**: Realistic sea routes with searoute-py
+- **EEOI Calculator**: Energy efficiency metrics
+- **Infeasibility Analyzer**: Diagnoses unsolvable scenarios
+
+### Data Management
+
+- **MongoDB**: Primary database with async operations
+- **In-Memory Fallback**: Works without external database
+- **Redis Caching**: Fast access to frequently used data
+- **Pydantic Validation**: Type-safe data models
 
 ## Quick Start
 
 ### Prerequisites
+
+- Python 3.11 or higher
+- MongoDB 5.0+ (optional)
+- Redis 6.0+ (optional)
+
+### Installation
+
 ```bash
-# Python 3.11+ required
-python --version
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# On macOS/Linux:
+source venv/bin/activate
+# On Windows:
+venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 ```
 
-### Starting the Server
+### Environment Configuration
 
-**Windows:**
-```bash
-cd backend
-start_server.bat
+Create `.env` file:
+
+```env
+# Database
+MONGODB_URL=mongodb://localhost:27017
+DATABASE_NAME=hpcl_coastal_optimizer
+USE_MONGODB=true
+
+# Redis
+REDIS_URL=redis://localhost:6379/0
+
+# API
+API_PREFIX=/api/v1
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+
+# Security
+SECRET_KEY=your-secret-key-change-in-production
+API_KEYS=hpcl-demo-key,hpcl-admin-key
+
+# Optimization
+DEFAULT_SOLVER_PROFILE=balanced
+MAX_SOLVE_TIME_SECONDS=60
 ```
 
-**Linux/Mac:**
+### Running the Server
+
 ```bash
-cd backend
-chmod +x start_server.sh
-./start_server.sh
+# Development mode with auto-reload
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Production mode
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
-**Manual Start:**
+Server will be available at **http://localhost:8000**
+
+API Documentation at **http://localhost:8000/docs**
+
+### Optional: Celery Worker
+
 ```bash
-cd backend
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# Start Celery worker for async tasks
+celery -A app.core.celery_app worker --loglevel=info
 ```
 
-The server will start on http://localhost:8000
-
-## Features
-
-### Core Functionality
-- ✅ **Fleet Optimization**: OR-Tools CP-SAT solver for set partitioning
-- ✅ **9-Vessel Fleet**: Complete HPCL coastal tanker specifications
-- ✅ **17 Ports**: 6 loading + 11 unloading ports (Indian coastal network)
-- ✅ **HPCL Constraints**: Single loading, max 2 discharge ports
-- ✅ **Cost Calculation**: Comprehensive maritime cost breakdown
-- ✅ **Distance Matrix**: Realistic sea routes using searoute-py
-- ✅ **In-Memory Mode**: Works without external database
-
-### API Endpoints
-
-#### System Health
-- `GET /health` - Health check with component status
-- `GET /health/detailed` - Detailed system information
-- `GET /api/v1/status` - HPCL system status and capabilities
-
-#### Fleet Management
-- `GET /api/v1/fleet` - Get all 9 HPCL vessels
-- `GET /api/v1/fleet/vessel/{vessel_id}` - Get specific vessel details
-- `PUT /api/v1/fleet/vessel/{vessel_id}/status` - Update vessel status
-
-#### Port Network
-- `GET /api/v1/ports` - Get all 17 HPCL ports
-- `GET /api/v1/ports/loading` - Get 6 loading ports
-- `GET /api/v1/ports/unloading` - Get 11 unloading ports
-
-#### Optimization
-- `POST /api/v1/optimize` - Run fleet optimization
-- `GET /api/v1/optimize/task/{task_id}` - Check optimization status
-- `GET /api/v1/optimize/results/{request_id}` - Get optimization results
-
-#### Challenge 7.1 Endpoints
-- `GET /api/v1/challenge/data` - Get challenge input data
-- `POST /api/v1/challenge/optimize` - Run optimization (Challenge format)
-- `GET /api/v1/challenge/output-format` - Expected output format example
-
-### API Documentation
-- **Interactive Docs**: http://localhost:8000/docs
-- **OpenAPI Schema**: http://localhost:8000/openapi.json
-- **Alternative Docs**: http://localhost:8000/redoc
-
-## Architecture
+## Project Structure
 
 ```
 backend/
 ├── app/
-│   ├── main.py                 # FastAPI application with lifespan management
-│   ├── api/
-│   │   ├── routes.py          # Main API endpoints
-│   │   └── challenge_routes.py # Challenge 7.1 specific endpoints
-│   ├── models/
-│   │   ├── database.py        # Database operations with in-memory fallback
-│   │   └── schemas.py         # Pydantic models
-│   ├── services/
-│   │   ├── cp_sat_optimizer.py    # OR-Tools optimization engine
-│   │   ├── route_generator.py     # Feasible route generation
-│   │   ├── cost_calculator.py     # Maritime cost calculations
-│   │   ├── distance_calculator.py # Sea route distances
-│   │   ├── eeoi_calculator.py     # Emission calculations
-│   │   └── grid_manager.py        # Grid-based pathfinding
-│   ├── core/
-│   │   ├── config.py          # Application settings
-│   │   └── celery_app.py      # Async task processing
-│   └── data/
-│       ├── sample_data.py     # Sample data generator
-│       └── challenge_data.py  # Challenge 7.1 exact data
-├── requirements.txt           # Python dependencies
-├── start_server.bat          # Windows startup script
-└── start_server.sh           # Linux/Mac startup script
+│   ├── __init__.py
+│   ├── main.py                 # FastAPI application entry point
+│   ├── api/                    # API route handlers
+│   │   ├── routes.py           # Main API routes
+│   │   └── challenge_routes.py # Challenge 7.1 endpoints
+│   ├── core/                   # Core configuration
+│   │   ├── config.py           # Settings management
+│   │   └── celery_app.py       # Celery configuration
+│   ├── data/                   # Data fixtures
+│   │   ├── challenge_data.py   # Challenge 7.1 specifications
+│   │   └── sample_data.py      # Sample vessels and ports
+│   ├── models/                 # Data models
+│   │   ├── database.py         # MongoDB models
+│   │   └── schemas.py          # Pydantic schemas
+│   ├── services/               # Business logic
+│   │   ├── cp_sat_optimizer.py
+│   │   ├── route_generator.py
+│   │   ├── cost_calculator.py
+│   │   ├── distance_calculator.py
+│   │   ├── eeoi_calculator.py
+│   │   ├── grid_manager.py
+│   │   └── infeasibility_analyzer.py
+│   └── tasks/                  # Async tasks
+│       ├── optimization_tasks.py
+│       ├── analytics_tasks.py
+│       └── monitoring_tasks.py
+├── tests/                      # Test suite
+│   ├── test_cost_calc.py
+│   ├── test_demand_satisfaction.py
+│   ├── test_end_to_end.py
+│   └── test_route_time.py
+├── requirements.txt
+├── pyproject.toml
+└── README.md
+```
+
+## API Endpoints
+
+### System Health
+
+```http
+GET /health
+```
+
+Returns system status and component health.
+
+### Challenge 7.1 Optimization
+
+```http
+POST /api/v1/challenge/optimize
+Content-Type: application/json
+
+{
+  "vessels": [...],  // Optional: custom vessel data
+  "demands": [...],  // Optional: custom demand data
+  "round_trip": false,
+  "optimization_objective": "cost"
+}
+```
+
+### Fleet Management
+
+```http
+GET /api/v1/fleet                    # Get all vessels
+GET /api/v1/fleet/vessel/{id}        # Get specific vessel
+PUT /api/v1/fleet/vessel/{id}/status # Update vessel status
+```
+
+### Port Management
+
+```http
+GET /api/v1/ports                    # Get all ports
+GET /api/v1/ports/loading            # Get loading ports only
+GET /api/v1/ports/unloading          # Get unloading ports only
+```
+
+### Optimization
+
+```http
+POST /api/v1/optimize                # Run optimization
+GET /api/v1/optimize/task/{task_id}  # Check task status
+GET /api/v1/optimize/results/{id}    # Get results
+```
+
+## Core Services
+
+### CP-SAT Optimizer
+
+Main optimization engine implementing the Set Partitioning Problem.
+
+```python
+from app.services.cp_sat_optimizer import HPCLCPSATOptimizer
+
+optimizer = HPCLCPSATOptimizer(solver_profile="balanced")
+
+result = await optimizer.optimize_hpcl_fleet(
+    vessels=vessels,
+    loading_ports=loading_ports,
+    unloading_ports=unloading_ports,
+    monthly_demands=demands,
+    optimization_objective="cost"
+)
+```
+
+**Algorithm**: Constraint Programming (CP-SAT)
+**Approach**: Set Partitioning with pre-generated route columns
+**Performance**: Optimal or near-optimal in < 60 seconds
+
+### Route Generator
+
+Generates all feasible voyage patterns for set partitioning.
+
+```python
+from app.services.route_generator import HPCLRouteOptimizer
+
+route_gen = HPCLRouteOptimizer()
+
+routes = await route_gen.generate_optimized_route_set(
+    vessels=vessels,
+    loading_ports=loading_ports,
+    unloading_ports=unloading_ports,
+    optimization_focus="cost"
+)
+```
+
+**Output**: ~726 feasible routes satisfying all constraints
+**Constraints**: Single loading port, max 2 discharge ports, capacity limits
+
+### Cost Calculator
+
+Calculates comprehensive voyage costs.
+
+```python
+from app.services.cost_calculator import HPCLCostCalculator
+
+calculator = HPCLCostCalculator()
+
+cost = calculator.calculate_voyage_cost(
+    vessel=vessel,
+    trip_time_days=0.5,
+    cargo_volume_mt=50000,
+    loading_port=loading_port,
+    discharge_ports=[port1, port2]
+)
+```
+
+**Components**: 
+- Charter/operating costs (time-based)
+- Bunker fuel costs (with speed optimization)
+- Port charges (Indian coastal ports)
+- Cargo handling costs
+- Demurrage risk provisioning
+- HPCL-specific compliance costs
+- Monsoon season factors (15% increase during Jun-Sep)
+
+### Distance Calculator
+
+Computes maritime distances using actual sea routes.
+
+```python
+from app.services.distance_calculator import get_hpcl_route_distance
+
+distance = get_hpcl_route_distance(
+    origin_lat=18.9388,
+    origin_lon=72.8354,
+    dest_lat=13.0827,
+    dest_lon=80.2707
+)
+```
+
+**Method**: searoute-py for realistic maritime paths
+**Fallback**: Haversine (Great Circle) distance
+
+## Data Models
+
+### HPCLVessel
+
+```python
+class HPCLVessel(BaseModel):
+    id: str
+    name: str
+    capacity_mt: float
+    daily_charter_rate: float
+    speed_knots: float
+    fuel_consumption_mt_per_day: float
+    status: VesselStatus
+    monthly_available_hours: float  # Default: 720 hours
+```
+
+### HPCLPort
+
+```python
+class HPCLPort(BaseModel):
+    id: str
+    name: str
+    type: PortType  # loading or unloading
+    latitude: float
+    longitude: float
+    state: str
+```
+
+### HPCLRoute
+
+```python
+class HPCLRoute(BaseModel):
+    route_id: str
+    vessel_id: str
+    loading_port_id: str
+    discharge_port_ids: List[str]
+    total_cargo_mt: float
+    trip_time_days: float
+    total_cost: float
+```
+
+### OptimizationResult
+
+```python
+class OptimizationResult(BaseModel):
+    request_id: str
+    status: str
+    total_cost: float
+    total_cost_cr: str
+    selected_routes: List[HPCLRoute]
+    demand_satisfaction_rate: float
+    fleet_utilization: float
 ```
 
 ## Configuration
 
-Environment variables (optional):
-```bash
-# Database (optional - uses in-memory if not available)
-MONGODB_URL=mongodb://localhost:27017
+### Solver Profiles
 
-# API Settings
-CORS_ORIGINS=http://localhost:3000,http://localhost:3001
+Defined in `app/core/config.py`:
 
-# Optimization Parameters
-DEFAULT_FUEL_PRICE_PER_MT=45000
-MAX_SOLVE_TIME_SECONDS=300
+```python
+solver_profiles = {
+    "quick": {
+        "max_time_seconds": 15,
+        "num_workers": 4,
+        "log_search_progress": False
+    },
+    "balanced": {
+        "max_time_seconds": 60,
+        "num_workers": 8,
+        "log_search_progress": True
+    },
+    "thorough": {
+        "max_time_seconds": 300,
+        "num_workers": 16,
+        "log_search_progress": True
+    }
+}
+```
 
-# HPCL Fleet Configuration
-HPCL_FLEET_SIZE=9
-HPCL_LOADING_PORTS=6
-HPCL_UNLOADING_PORTS=11
+### Database Configuration
+
+```python
+class HPCLSettings(BaseSettings):
+    mongodb_url: str = "mongodb://localhost:27017"
+    database_name: str = "hpcl_coastal_optimizer"
+    use_mongodb: bool = True
+    
+    class Config:
+        env_file = ".env"
 ```
 
 ## Testing
 
-### Test Health Endpoint
+### Run All Tests
+
 ```bash
-curl http://localhost:8000/health
+pytest tests/ -v
 ```
 
-### Test Fleet Endpoint
+### Run Specific Test
+
 ```bash
-curl http://localhost:8000/api/v1/fleet
+pytest tests/test_end_to_end.py -v
 ```
 
-### Test Challenge Data
+### Test Coverage
+
 ```bash
-curl http://localhost:8000/api/v1/challenge/data
+pytest tests/ --cov=app --cov-report=html
 ```
 
-### Run Optimization
-```bash
-curl -X POST http://localhost:8000/api/v1/challenge/optimize \
-  -H "Content-Type: application/json" \
-  -d '{"round_trip": false}'
+### Test Categories
+
+- **Unit Tests**: Individual service functions
+- **Integration Tests**: Service interactions
+- **End-to-End Tests**: Full optimization pipeline
+- **Performance Tests**: Solver efficiency
+
+## Performance Optimization
+
+### Route Caching
+
+```python
+from functools import lru_cache
+
+@lru_cache(maxsize=10000)
+def calculate_trip_time_cached(
+    loading_port: str,
+    discharge_ports: Tuple[str, ...]
+) -> float:
+    return calculate_trip_time(loading_port, list(discharge_ports))
 ```
 
-## Dependencies
+### Async Processing
 
-### Core
-- FastAPI 0.117.1+ - Web framework
-- Uvicorn 0.37.0+ - ASGI server
-- Pydantic 2.11.0+ - Data validation
+```python
+# Parallel route generation
+tasks = [
+    generate_routes_for_vessel(vessel)
+    for vessel in vessels
+]
+routes = await asyncio.gather(*tasks)
+```
 
-### Optimization
-- OR-Tools 9.0.0+ - CP-SAT solver
-- NumPy 1.26.0+ - Numerical computing
-- Pulp 2.9.0+ - Linear programming (alternative)
+### Database Indexing
 
-### Maritime
-- searoute 1.4.3 - Realistic sea routes
-- geopy 2.4.1 - Geodesic calculations
-
-### Database (Optional)
-- Motor 3.7.1 - Async MongoDB driver
-- PyMongo 4.10.1 - MongoDB driver
-
-### Async Processing (Optional)
-- Celery 5.4.0 - Task queue
-- Redis 5.2.1 - Message broker
-
-## Performance
-
-- **Route Generation**: ~726 routes per vessel in seconds
-- **Optimization Solve**: 30-300 seconds depending on complexity
-- **API Response**: <100ms for data retrieval
-- **Memory Usage**: ~200-500MB without database
-- **Concurrent Requests**: Supports 100+ simultaneous connections
+```python
+# Create indexes for fast queries
+await db.vessels.create_index("id", unique=True)
+await db.ports.create_index([("type", 1), ("state", 1)])
+await db.optimization_results.create_index("request_id", unique=True)
+```
 
 ## Error Handling
 
-The backend gracefully handles:
-- ✅ Missing MongoDB connection (uses in-memory storage)
-- ✅ Invalid optimization requests (validates HPCL constraints)
-- ✅ Missing searoute package (falls back to Haversine distance)
-- ✅ Network errors (retry logic for external APIs)
-- ✅ Timeout scenarios (configurable solve time limits)
+### Input Validation
 
-## Production Deployment
+Pydantic automatically validates all inputs:
 
-### Docker (Recommended)
+```python
+@router.post("/optimize")
+async def optimize(request: OptimizationRequest):
+    # Request automatically validated
+    # Invalid data raises 422 Unprocessable Entity
+    ...
+```
+
+### Infeasibility Analysis
+
+```python
+if status == cp_model.INFEASIBLE:
+    analyzer = InfeasibilityAnalyzer(vessels, demands, fuel_price)
+    suggestions = [
+        *analyzer.analyze_capacity_shortage(),
+        *analyzer.analyze_time_constraints(),
+        *analyzer.analyze_vessel_constraints(),
+        *analyzer.analyze_demand_distribution(),
+        *analyzer.analyze_solver_settings(solve_time, num_workers)
+    ]
+    raise HTTPException(
+        status_code=400,
+        detail={
+            "error": "Infeasible problem",
+            "suggestions": [s.__dict__ for s in suggestions]
+        }
+    )
+```
+
+## Logging
+
+### Configuration
+
+```python
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+logger = logging.getLogger(__name__)
+```
+
+### Usage
+
+```python
+logger.info("Starting optimization...")
+logger.warning("High demand detected at port U2")
+logger.error(f"Optimization failed: {error}")
+```
+
+## Deployment
+
+### Production Server
+
+```bash
+# Using Gunicorn with Uvicorn workers
+gunicorn app.main:app \
+  --workers 4 \
+  --worker-class uvicorn.workers.UvicornWorker \
+  --bind 0.0.0.0:8000
+```
+
+### Docker
+
 ```dockerfile
 FROM python:3.11-slim
+
 WORKDIR /app
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-EXPOSE 8000
+
+COPY app ./app
+
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 ### Environment Variables
-Set these in production:
-- `ENVIRONMENT=production`
-- `DEBUG=False`
-- `SECRET_KEY=<secure-random-key>`
-- `MONGODB_URL=<production-mongodb-url>`
 
-## Troubleshooting
-
-### Port Already in Use
-```bash
-# Windows
-netstat -ano | findstr :8000
-taskkill /PID <process_id> /F
-
-# Linux/Mac
-lsof -i :8000
-kill -9 <process_id>
+```env
+ENVIRONMENT=production
+DEBUG=false
+MONGODB_URL=mongodb+srv://user:pass@cluster.mongodb.net
+SECRET_KEY=production-secret-key
 ```
 
-### MongoDB Connection Issues
-- Backend works without MongoDB using in-memory storage
-- Check MongoDB service: `mongodb://localhost:27017`
-- Verify firewall settings
+## Common Issues
 
-### Import Errors
-```bash
-# Reinstall dependencies
-pip install -r requirements.txt --upgrade
-```
+### Issue: MongoDB Connection Failed
 
-## Support
+**Solution**: System automatically falls back to in-memory storage.
 
-- **API Documentation**: http://localhost:8000/docs
-- **GitHub Issues**: Report bugs and feature requests
-- **Email**: dev@hpcl-optimizer.com
+### Issue: Slow Optimization
 
-## License
+**Solution**: Use "fast" solver profile or reduce route generation scope.
 
-MIT License - See LICENSE file for details
+### Issue: Infeasible Problem
+
+**Solution**: Check total demand vs. fleet capacity, adjust demands or add vessels.
+
+## Contributing
+
+When contributing to the backend:
+
+1. Follow PEP 8 style guidelines
+2. Add type hints to all functions
+3. Write unit tests for new services
+4. Update API documentation
+5. Use async/await for I/O operations
+
+## Resources
+
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [OR-Tools CP-SAT Guide](https://developers.google.com/optimization/cp/cp_solver)
+- [Pydantic Documentation](https://docs.pydantic.dev/)
+- [Motor (Async MongoDB) Documentation](https://motor.readthedocs.io/)
 
 ---
 
-**Status**: ✅ Fully Operational
-**Last Updated**: January 2026
-**Version**: 1.0.0
+For frontend integration details, see [Frontend README](../frontend/README.md)
+
+For overall project documentation, see [Main README](../README.md)

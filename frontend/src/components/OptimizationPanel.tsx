@@ -1,8 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Play, Settings, Calendar, DollarSign, Target } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Play, Gear, Calendar, CurrencyDollar, Target, WarningCircle, CaretDown, CaretUp, Lightning } from 'phosphor-react';
 import { HPCLVessel, HPCLPort } from './HPCLDashboard';
+
+type SolverPreset = 'quick' | 'balanced' | 'thorough';
+
+interface ValidationError {
+  field: string;
+  message: string;
+  suggestion?: string;
+}
 
 interface OptimizationPanelProps {
   vessels: HPCLVessel[];
@@ -14,9 +22,12 @@ interface OptimizationPanelProps {
 export function OptimizationPanel({ vessels, ports, onStartOptimization, isOptimizing }: OptimizationPanelProps) {
   const [fuelPrice, setFuelPrice] = useState(45000); // ₹45,000 per MT
   const [optimizationObjective, setOptimizationObjective] = useState('cost');
-  const [maxSolveTime, setMaxSolveTime] = useState(300); // 5 minutes
+  const [solverPreset, setSolverPreset] = useState<SolverPreset>('balanced');
+  const [maxSolveTime, setMaxSolveTime] = useState(120); // 2 minutes
   const [selectedVessels, setSelectedVessels] = useState<string[]>([]);
   const [isRoundTrip, setIsRoundTrip] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [demands] = useState([
     { port_id: 'INCHE', port_name: 'Chennai', demand_mt: 45000, priority: 'high' },
     { port_id: 'INJAW', port_name: 'Jawaharlal Nehru Port', demand_mt: 55000, priority: 'critical' },
@@ -33,6 +44,60 @@ export function OptimizationPanel({ vessels, ports, onStartOptimization, isOptim
     ? vessels.filter(v => selectedVessels.includes(v.id)) 
     : availableVessels
   ).reduce((sum, v) => sum + v.capacity_mt, 0);
+
+  // Solver preset configurations
+  const presetConfigs = {
+    quick: { time: 30, workers: 2, description: 'Fast optimization for demos (30s)' },
+    balanced: { time: 120, workers: 4, description: 'Balanced speed and quality (2 min)' },
+    thorough: { time: 300, workers: 8, description: 'High-quality solution (5 min)' }
+  };
+
+  // Validation logic
+  const validateInputs = useMemo(() => {
+    const errors: ValidationError[] = [];
+
+    // Check capacity vs demand
+    const maxTripsPerVessel = 10; // ~10 trips per month max
+    const effectiveCapacity = totalCapacity * maxTripsPerVessel;
+    
+    if (totalCapacity === 0) {
+      errors.push({
+        field: 'vessels',
+        message: 'No vessels selected',
+        suggestion: 'Select at least one vessel from the fleet'
+      });
+    } else if (effectiveCapacity < totalDemand) {
+      const shortfall = totalDemand - effectiveCapacity;
+      const additionalVesselsNeeded = Math.ceil(shortfall / (30000 * maxTripsPerVessel)); // Assume 30k MT average
+      errors.push({
+        field: 'capacity',
+        message: `Insufficient capacity: ${(totalCapacity / 1000).toFixed(0)}k MT × ${maxTripsPerVessel} trips = ${(effectiveCapacity / 1000).toFixed(0)}k MT < ${(totalDemand / 1000).toFixed(0)}k MT demand`,
+        suggestion: `Add ${additionalVesselsNeeded} more vessel(s) or reduce demand by ${(shortfall / 1000).toFixed(0)}k MT`
+      });
+    }
+
+    // Validate fuel price
+    if (fuelPrice < 20000 || fuelPrice > 80000) {
+      errors.push({
+        field: 'fuel_price',
+        message: 'Fuel price outside realistic range',
+        suggestion: 'Use market rate between ₹42,000 - ₹48,000 per MT'
+      });
+    }
+
+    return errors;
+  }, [totalCapacity, totalDemand, fuelPrice, selectedVessels]);
+
+  // Update validation errors
+  React.useEffect(() => {
+    setValidationErrors(validateInputs);
+  }, [validateInputs]);
+
+  // Handle preset change
+  const handlePresetChange = (preset: SolverPreset) => {
+    setSolverPreset(preset);
+    setMaxSolveTime(presetConfigs[preset].time);
+  };
 
   const handleVesselSelection = (vesselId: string, selected: boolean) => {
     if (selected) {
@@ -61,7 +126,7 @@ export function OptimizationPanel({ vessels, ports, onStartOptimization, isOptim
       {/* Optimization Parameters */}
       <div className="glass-card rounded-xl border border-slate-700/50 p-8">
         <h3 className="text-xl font-semibold text-slate-100 mb-6 flex items-center">
-          <Settings className="h-6 w-6 text-cyan-400 mr-2" />
+          <Gear size={24} weight="duotone" className="text-cyan-400 mr-2" />
           Optimization Parameters
         </h3>
 
@@ -69,7 +134,7 @@ export function OptimizationPanel({ vessels, ports, onStartOptimization, isOptim
           {/* Fuel Price */}
           <div>
             <label className="block text-base font-medium text-slate-200 mb-3">
-              <DollarSign className="inline h-5 w-5 mr-1" />
+              <CurrencyDollar size={20} weight="duotone" className="inline mr-1" />
               Fuel Price (₹ per MT)
             </label>
             <input

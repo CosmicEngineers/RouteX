@@ -1,13 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Ship, MapPin, Activity, DollarSign, Fuel, BarChart3, Settings, Play, Pause, AlertCircle, CheckCircle, Map, Compass, Zap } from 'lucide-react';
+import { Boat, MapPin, Activity, CurrencyInr, GasPump, ChartBar, Gear, Play, Pause, WarningCircle, CheckCircle, MapTrifold, Compass, Lightning } from 'phosphor-react';
 // Removed ImprovedHeader - using floating dock instead
 import { FleetOverview } from './FleetOverview';
 import { OptimizationPanel } from './OptimizationPanel';
 import { MaritimeMap } from './MaritimeMap';
 import { ResultsDisplay } from './ResultsDisplay';
 import { ChallengeOutput } from './ChallengeOutput';
+import { RunStatusCard } from './RunStatusCard';
+import { GuidedTour } from './GuidedTour';
+import { RunHistory } from './RunHistory';
+import { EnhancedErrorDisplay } from './EnhancedErrorDisplay';
+import { OptimizationLoadingState } from './LoadingSkeleton';
 import { formatNumber } from '../utils/formatters';
 
 export interface HPCLVessel {
@@ -48,11 +53,35 @@ export default function HPCLDashboard() {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [systemStatus, setSystemStatus] = useState<'connecting' | 'connected' | 'error'>('connected');
   const [activeTab, setActiveTab] = useState<'overview' | 'optimize' | 'results' | 'analytics' | 'challenge'>('challenge');
+  const [optimizationError, setOptimizationError] = useState<any>(null);
+  const [currentResultId, setCurrentResultId] = useState<string | null>(null);
 
   // Route visualization states
   const [currentRouteIndex, setCurrentRouteIndex] = useState(0);
   const [isPlayingRoutes, setIsPlayingRoutes] = useState(false);
   const [showLiveStatus, setShowLiveStatus] = useState(false);
+
+  // Load saved data from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedResult = localStorage.getItem('hpcl_optimization_result');
+      const savedActiveTab = localStorage.getItem('hpcl_active_tab');
+      
+      if (savedResult) {
+        try {
+          setOptimizationResult(JSON.parse(savedResult));
+        } catch (e) {
+          console.error('Failed to load saved optimization result:', e);
+        }
+      }
+      
+      if (savedActiveTab) {
+        setActiveTab(savedActiveTab as any);
+      }
+    }
+    
+    loadMockData();
+  }, []);
 
   // Mock optimization results with step-by-step routes (like your example)
   const mockOptimizationResult = {
@@ -151,11 +180,6 @@ export default function HPCLDashboard() {
     }
   }, [isPlayingRoutes, showLiveStatus]);
 
-  // Load demo data immediately
-  useEffect(() => {
-    loadMockData();
-  }, []);
-
   // Load initial data from API
   const loadInitialData = async () => {
     // Demo mode - use mock data only
@@ -244,18 +268,26 @@ export default function HPCLDashboard() {
       const totalCostCr = routes.reduce((sum, r) => sum + r['Trip Cost (Rs Cr)'], 0);
       const totalCostRs = totalCostCr * 10000000; // Convert Cr to Rs
       
-      setOptimizationResult({
+      const result = {
         request_id: 'demo_' + Date.now(),
         total_cost: totalCostRs,
         fleet_utilization: 87.5,
-        demand_satisfaction_rate: 98.2,
+        demand_satisfaction_rate: 100.0,
         routes_generated: routes.length * 3, // Simulated: 3x routes were considered
         selected_routes: routes,
         summary: {
           round_trip: isRoundTrip,
           total_cost_cr: totalCostCr.toFixed(2)
         }
-      });
+      };
+      
+      setOptimizationResult(result);
+      
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('hpcl_optimization_result', JSON.stringify(result));
+      }
+      
       setIsOptimizing(false);
       setActiveTab('results');
     }, 3000);
@@ -290,54 +322,46 @@ export default function HPCLDashboard() {
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-950/30 via-transparent to-transparent" style={{ zIndex: -18 }}></div>
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-cyan-950/20 via-transparent to-transparent" style={{ zIndex: -17 }}></div>
       
-      {/* Floating Brand Badge - Top Left */}
-      <div className="fixed top-6 left-6 z-50 glass-card rounded-2xl p-4 border border-cyan-500/30 shadow-2xl shadow-cyan-500/20">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl blur-lg opacity-75"></div>
-            <div className="relative bg-gradient-to-br from-blue-600 to-cyan-500 p-2.5 rounded-xl">
-              <Ship className="h-6 w-6 text-white" />
+      {/* Single Row Header */}
+      <div className="fixed top-6 left-6 right-6 z-50 flex items-center justify-between gap-4">
+        {/* Brand Badge - Left */}
+        <div className="glass-card rounded-2xl p-4 border border-cyan-500/30 shadow-2xl shadow-cyan-500/20">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl blur-lg opacity-75"></div>
+              <div className="relative bg-gradient-to-br from-blue-600 to-cyan-500 p-2.5 rounded-xl">
+                <Boat size={24} weight="duotone" className="text-white" />
+              </div>
             </div>
-          </div>
-          <div>
-            <div className="text-sm font-black tracking-tight bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">HPCL RouteX</div>
-            <div className="text-xs text-slate-400 flex items-center gap-1">
-              <Zap className="h-3 w-3 text-cyan-400" />
-              Command Center
+            <div>
+              <div className="text-sm font-black tracking-tight bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">HPCL RouteX</div>
+              <div className="text-xs text-slate-400 flex items-center gap-1">
+                <Lightning size={12} weight="bold" className="text-cyan-400" />
+                Command Center
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* System Status Indicator - Top Right */}
-      <div className="fixed top-6 right-6 z-50 glass-card rounded-2xl px-4 py-3 border border-slate-700">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-400"></span>
-            </span>
-            <span className="text-xs font-semibold text-green-400">OPERATIONAL</span>
-          </div>
-          <div className="h-4 w-px bg-slate-700 mx-2"></div>
-          <Activity className="h-4 w-4 text-cyan-400" />
-        </div>
-      </div>
-
-      {/* Centered Floating Dock Navigation */}
-      <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50">
+        {/* Centered Navigation */}
         <div className="glass-card rounded-full px-3 py-3 border border-slate-700/50 shadow-2xl shadow-blue-500/20">
           <div className="flex items-center gap-2">
             {[
-              { id: 'challenge', name: 'Challenge', icon: BarChart3, tooltip: 'Challenge Output' },
-              { id: 'overview', name: 'Fleet', icon: Ship, tooltip: 'Fleet Overview' },
-              { id: 'optimize', name: 'Optimize', icon: Compass, tooltip: 'Optimization' },
-              { id: 'results', name: 'Results', icon: CheckCircle, tooltip: 'Results' },
-              { id: 'analytics', name: 'Analytics', icon: Activity, tooltip: 'Analytics' }
+              { id: 'challenge', name: 'Optimizer', icon: ChartBar, tooltip: 'Route Optimization & Cost Calculator' },
+              { id: 'overview', name: 'Fleet', icon: Boat, tooltip: 'View Available Coastal Tankers' },
+              { id: 'optimize', name: 'Configure', icon: Compass, tooltip: 'Advanced Optimization Settings' },
+              { id: 'results', name: 'Results', icon: CheckCircle, tooltip: 'View Optimized Routes & Costs' },
+              { id: 'analytics', name: 'Analytics', icon: Activity, tooltip: 'Performance Metrics & Insights' }
             ].map(({ id, name, icon: Icon, tooltip }) => (
               <button
                 key={id}
-                onClick={() => setActiveTab(id as any)}
+                onClick={() => {
+                  setActiveTab(id as any);
+                  // Save active tab to localStorage
+                  if (typeof window !== 'undefined') {
+                    localStorage.setItem('hpcl_active_tab', id);
+                  }
+                }}
                 title={tooltip}
                 className={`group relative flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold text-sm transition-all duration-300 ${
                   activeTab === id
@@ -347,17 +371,29 @@ export default function HPCLDashboard() {
               >
                 <Icon size={18} className={activeTab === id ? 'drop-shadow-[0_0_10px_rgba(34,211,238,1)]' : ''} />
                 <span className="hidden md:inline">{name}</span>
-                {activeTab === id && (
-                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-cyan-400 rounded-full shadow-lg shadow-cyan-400/50"></div>
-                )}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Status Indicator - Right */}
+        <div className="glass-card rounded-2xl px-4 py-3 border border-slate-700">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-400"></span>
+              </span>
+              <span className="text-xs font-semibold text-green-400">OPERATIONAL</span>
+            </div>
+            <div className="h-4 w-px bg-slate-700 mx-2"></div>
+            <Activity className="h-4 w-4 text-cyan-400" />
           </div>
         </div>
       </div>
 
       {/* Main Content Container - Centered with Glass Effect */}
-      <div className="pt-40 pb-16 px-6">
+      <div className="pt-28 pb-16 px-6">
         <div className="max-w-[1600px] mx-auto">
 
         {activeTab === 'overview' && (
@@ -365,15 +401,17 @@ export default function HPCLDashboard() {
             {/* Route Control Panel */}
             <div className="glass-card rounded-3xl border border-slate-700/50 shadow-2xl shadow-blue-500/10 p-8">
               {/* Fleet Overview Section */}
-              <FleetOverview vessels={vessels} ports={ports} />
+              <div className="mb-10">
+                <FleetOverview vessels={vessels} ports={ports} />
+              </div>
               
               {/* Route Optimization Control Panel */}
-              <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
+              <div className="flex flex-wrap justify-between items-center mb-8 gap-6">
                 <div>
-                  <h3 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                  <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
                     HPCL Algorithmic Route Optimization
                   </h3>
-                  <p className="text-sm text-slate-400 mt-1">Step-by-step optimized delivery routes with real-time monitoring</p>
+                  <p className="text-sm text-slate-400 mt-2">Step-by-step optimized delivery routes with real-time monitoring</p>
                 </div>
                 <div className="flex flex-wrap gap-3">
                   <button
@@ -385,7 +423,7 @@ export default function HPCLDashboard() {
                     }`}
                   >
                     <span className="flex items-center gap-2">
-                      {showLiveStatus ? <Activity size={16} className="animate-pulse" /> : <Map size={16} />}
+                      {showLiveStatus ? <Activity size={16} className="animate-pulse" /> : <MapTrifold size={16} />}
                       {showLiveStatus ? 'Live Status' : 'Route View'}
                     </span>
                   </button>
@@ -424,7 +462,7 @@ export default function HPCLDashboard() {
 
               {/* Current Route Info Cards */}
               {!showLiveStatus && (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                   <div className="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 backdrop-blur-lg rounded-2xl p-6 border border-white/20 card-hover">
                     <div className="text-3xl font-bold text-white mb-1">{mockOptimizationResult.routes[currentRouteIndex].sequence}</div>
                     <div className="text-sm text-gray-300">Current Route</div>
@@ -511,7 +549,7 @@ export default function HPCLDashboard() {
               ) : (
                 <div className="text-center text-gray-500 py-12">
                   <div className="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
-                    <Settings className="h-10 w-10 text-blue-600" />
+                    <Gear size={40} weight="duotone" className="text-blue-600" />
                   </div>
                   <p className="text-lg font-medium text-gray-700">Ready to optimize HPCL fleet</p>
                   <p className="text-sm text-gray-500 mt-2">Configure parameters and click "Start Optimization"</p>
@@ -522,8 +560,51 @@ export default function HPCLDashboard() {
         )}
 
         {activeTab === 'results' && (
-          <div className="glass-card rounded-3xl border border-slate-700/50 shadow-2xl shadow-blue-500/10 p-8">
-            <ResultsDisplay result={optimizationResult} vessels={vessels} ports={ports} />
+          <div className="space-y-6">
+            {/* Run Status Card if optimizing */}
+            {isOptimizing && currentResultId && (
+              <RunStatusCard resultId={currentResultId} />
+            )}
+            
+            {/* Error Display */}
+            {optimizationError && (
+              <EnhancedErrorDisplay error={optimizationError} solverLogs={[]} />
+            )}
+            
+            {/* Loading State */}
+            {isOptimizing && !optimizationResult && (
+              <OptimizationLoadingState />
+            )}
+            
+            {/* Results Display */}
+            {optimizationResult && !isOptimizing && (
+              <div className="glass-card rounded-3xl border border-slate-700/50 shadow-2xl shadow-blue-500/10 p-8">
+                <ResultsDisplay result={optimizationResult} vessels={vessels} ports={ports} />
+              </div>
+            )}
+            
+            {/* Run History */}
+            <RunHistory 
+              onRevertToRun={(runId) => {
+                // Load run from history and display
+                const history = JSON.parse(localStorage.getItem('hpcl-optimization-history') || '[]');
+                const run = history.find((r: any) => r.id === runId);
+                if (run) {
+                  setOptimizationResult({
+                    request_id: run.id,
+                    total_cost: run.summary.total_cost,
+                    fleet_utilization: run.summary.fleet_utilization,
+                    demand_satisfaction_rate: 100.0,
+                    selected_routes: [],
+                    routes_generated: run.summary.routes_count
+                  });
+                }
+              }}
+              onDeleteRun={(runId) => {
+                // Already handled in RunHistory component
+                console.log('Deleted run:', runId);
+              }}
+            />
           </div>
         )}
 
@@ -536,7 +617,7 @@ export default function HPCLDashboard() {
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center">
                   <div className="p-3 bg-gradient-to-br from-green-400 to-emerald-400 rounded-xl shadow-lg shadow-green-500/50">
-                    <DollarSign className="h-6 w-6 text-white" />
+                    <CurrencyInr size={24} weight="duotone" className="text-white" />
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-cyan-400">Cost Savings</p>
@@ -559,7 +640,7 @@ export default function HPCLDashboard() {
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center">
                   <div className="p-3 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-xl shadow-lg shadow-blue-500/50">
-                    <Fuel className="h-6 w-6 text-white" />
+                    <GasPump size={24} weight="duotone" className="text-white" />
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-cyan-400">Fuel Efficiency</p>
@@ -605,21 +686,21 @@ export default function HPCLDashboard() {
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center">
                   <div className="p-3 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl shadow-lg">
-                    <BarChart3 className="h-6 w-6 text-white" />
+                    <ChartBar size={24} weight="duotone" className="text-white" />
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-cyan-300">Demand Satisfaction</p>
-                    <p className="text-3xl font-bold text-cyan-400">98.2%</p>
+                    <p className="text-sm font-medium text-cyan-300">Demand Compliance</p>
+                    <p className="text-3xl font-bold text-cyan-400">✔ 100%</p>
                   </div>
                 </div>
               </div>
               <div className="mt-4">
                 <div className="flex justify-between text-xs mb-1 text-slate-300">
-                  <span>Target: 100%</span>
-                  <span className="font-bold text-cyan-400">98.2%</span>
+                  <span>All unloading port demands met exactly</span>
+                  <span className="font-bold text-cyan-400">HPCL Requirement</span>
                 </div>
                 <div className="w-full bg-slate-700/30 rounded-full h-2.5">
-                  <div className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2.5 rounded-full transition-all duration-1000 shadow-lg" style={{ width: '98.2%' }}></div>
+                  <div className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2.5 rounded-full transition-all duration-1000 shadow-lg" style={{ width: '100%' }}></div>
                 </div>
               </div>
             </div>
@@ -799,8 +880,8 @@ export default function HPCLDashboard() {
                   <p className="text-xs text-gray-200">15% reduction in CO2 emissions per MT cargo</p>
                 </div>
                 <div className="p-4 bg-gradient-to-r from-teal-500/20 to-cyan-500/20 rounded-xl border-l-4 border-teal-400 card-hover">
-                  <p className="text-sm font-bold text-teal-300 mb-2">Demand Coverage</p>
-                  <p className="text-xs text-gray-200">98.2% demand satisfied with optimal routing</p>
+                  <p className="text-sm font-bold text-teal-300 mb-2">Demand Exactness</p>
+                  <p className="text-xs text-gray-200">100% — All demands met exactly (HPCL requirement)</p>
                 </div>
               </div>
             </div>
@@ -994,6 +1075,9 @@ export default function HPCLDashboard() {
         )}
         </div>
       </div>
+
+      {/* Guided Tour */}
+      <GuidedTour />
     </div>
   );
 }

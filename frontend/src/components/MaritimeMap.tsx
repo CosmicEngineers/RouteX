@@ -64,10 +64,20 @@ export function MaritimeMap({
   const polylinesRef = useRef<google.maps.Polyline[]>([]);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [time, setTime] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [showBaseline, setShowBaseline] = useState(false);
 
   // Load Google Maps script
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    
+    // Suppress Google Maps error dialogs
+    if (typeof window !== 'undefined') {
+      (window as any).gm_authFailure = () => {
+        console.warn('Google Maps authentication failed - using fallback rendering');
+      };
+    }
     
     // Check if Google Maps is already loaded
     if (window.google && window.google.maps) {
@@ -80,7 +90,10 @@ export function MaritimeMap({
     script.async = true;
     script.defer = true;
     script.onload = () => setIsMapLoaded(true);
-    script.onerror = () => console.error('Failed to load Google Maps');
+    script.onerror = () => {
+      console.error('Failed to load Google Maps - rendering without map');
+      setIsMapLoaded(false);
+    };
     document.head.appendChild(script);
 
     return () => {
@@ -90,11 +103,12 @@ export function MaritimeMap({
 
   // Animation loop for moving vessels
   useEffect(() => {
+    if (!isPlaying) return;
     const interval = setInterval(() => {
-      setTime(t => t + 0.1);
+      setTime(t => t + (0.1 * playbackSpeed));
     }, 100);
     return () => clearInterval(interval);
-  }, []);
+  }, [isPlaying, playbackSpeed]);
 
   // Keyboard navigation for routes
   useEffect(() => {
@@ -349,7 +363,7 @@ export function MaritimeMap({
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
           scale: isInRoute ? 10 : 7,
-          fillColor: isInRoute ? '#FCD34D' : (port.type === 'loading' ? '#4ADE80' : '#60A5FA'),
+          fillColor: isInRoute ? '#FCD34D' : (port.type === 'loading' ? '#22c55e' : '#3b82f6'),
           fillOpacity: 1,
           strokeColor: '#FFFFFF',
           strokeWeight: 2
@@ -522,6 +536,47 @@ export function MaritimeMap({
 
       {/* Google Maps View */}
       <div className="relative h-[calc(100vh-200px)] min-h-[600px] bg-gray-100">
+        {/* Playback Controls */}
+        {!showLiveStatus && (
+          <div className="absolute top-4 left-4 z-10 flex items-center space-x-3">
+            <button
+              onClick={() => setIsPlaying(!isPlaying)}
+              className="p-3 bg-slate-900/90 backdrop-blur-sm border border-slate-700/50 rounded-lg text-white hover:bg-slate-800/90 transition-all shadow-lg"
+              title={isPlaying ? 'Pause animation' : 'Play animation'}
+              aria-label={isPlaying ? 'Pause' : 'Play'}
+            >
+              {isPlaying ? '⏸' : '▶'}
+            </button>
+            
+            <div className="flex items-center space-x-2 bg-slate-900/90 backdrop-blur-sm border border-slate-700/50 rounded-lg px-4 py-2">
+              <span className="text-white text-sm">Speed:</span>
+              <select
+                value={playbackSpeed}
+                onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
+                className="bg-slate-800 text-white text-sm rounded px-2 py-1 border border-slate-600"
+                aria-label="Playback speed"
+              >
+                <option value="0.5">0.5x</option>
+                <option value="1">1x</option>
+                <option value="2">2x</option>
+                <option value="5">5x</option>
+              </select>
+            </div>
+
+            <button
+              onClick={() => setShowBaseline(!showBaseline)}
+              className={`px-4 py-2 backdrop-blur-sm border rounded-lg font-medium transition-all shadow-lg ${
+                showBaseline
+                  ? 'bg-purple-500/90 border-purple-400/50 text-white'
+                  : 'bg-slate-900/90 border-slate-700/50 text-slate-300 hover:bg-slate-800/90'
+              }`}
+              title="Toggle baseline routes"
+            >
+              {showBaseline ? 'Hide' : 'Show'} Baseline
+            </button>
+          </div>
+        )}
+        
         {!isMapLoaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-blue-50">
             <div className="text-center">

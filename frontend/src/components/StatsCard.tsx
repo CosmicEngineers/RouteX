@@ -1,13 +1,13 @@
 'use client';
 
 import React from 'react';
-import { LucideIcon } from 'lucide-react';
+import { Icon } from 'phosphor-react';
 
 interface StatsCardProps {
   title: string;
   value: string | number;
   subtitle?: string;
-  icon: LucideIcon;
+  icon: Icon;
   gradient: string;
   trend?: {
     value: string;

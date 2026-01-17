@@ -4,15 +4,21 @@ Generates ~726 feasible voyage patterns for HPCL's optimization constraints
 """
 
 import asyncio
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 import itertools
 import uuid
 from datetime import datetime, timedelta
 import logging
+import json
+from functools import lru_cache
 
 from .distance_calculator import get_hpcl_route_distance, get_hpcl_route_coordinates
 from .cost_calculator import HPCLCostCalculator
 from ..models.schemas import HPCLVessel, HPCLPort, HPCLRoute
+from ..data.challenge_data import (
+    get_challenge_trip_times_load_to_unload,
+    get_challenge_trip_times_unload_to_unload
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -22,36 +28,123 @@ logger = logging.getLogger(__name__)
 MAX_DISCHARGE_PORTS = 2
 SINGLE_LOADING_CONSTRAINT = True
 
+# Load trip time tables
+TRIP_TIMES_LOAD_TO_UNLOAD = get_challenge_trip_times_load_to_unload()
+TRIP_TIMES_UNLOAD_TO_UNLOAD = get_challenge_trip_times_unload_to_unload()
+
+# Service time constants (hours)
+LOADING_TIME_HOURS = 6.0  # 6 hours for loading
+UNLOADING_TIME_HOURS_PER_PORT = 4.0  # 4 hours per unloading port
+
+
+def calculate_trip_time_from_tables(
+    loading_port_id: str,
+    discharge_port_ids: List[str],
+    include_service_time: bool = True,
+    include_return_trip: bool = False
+) -> float:
+    """
+    Calculate trip time using exact trip time tables from challenge data.
+    
+    Args:
+        loading_port_id: Loading port ID (L1-L6)
+        discharge_port_ids: List of discharge port IDs (U1-U11), max 2 ports
+        include_service_time: Include loading/unloading time
+        include_return_trip: Include return journey from last discharge back to loading port
+    
+    Returns:
+        Total trip time in days
+    """
+    if not discharge_port_ids:
+        return 0.0
+    
+    total_trip_time_days = 0.0
+    
+    # Step 1: Loading port to first discharge port
+    first_discharge = discharge_port_ids[0]
+    load_to_first_unload = TRIP_TIMES_LOAD_TO_UNLOAD.get(loading_port_id, {}).get(first_discharge, 0.5)
+    total_trip_time_days += load_to_first_unload
+    
+    # Step 2: If there's a second discharge port, add inter-port sailing time
+    if len(discharge_port_ids) > 1:
+        for i in range(len(discharge_port_ids) - 1):
+            from_port = discharge_port_ids[i]
+            to_port = discharge_port_ids[i + 1]
+            unload_to_unload = TRIP_TIMES_UNLOAD_TO_UNLOAD.get(from_port, {}).get(to_port, 0.2)
+            total_trip_time_days += unload_to_unload
+    
+    # Step 3: Add service time (loading + unloading)
+    if include_service_time:
+        loading_time_days = LOADING_TIME_HOURS / 24.0
+        unloading_time_days = (UNLOADING_TIME_HOURS_PER_PORT * len(discharge_port_ids)) / 24.0
+        total_trip_time_days += loading_time_days + unloading_time_days
+    
+    # Step 4: Add return trip if needed (from last discharge port back to loading port)
+    if include_return_trip:
+        last_discharge = discharge_port_ids[-1]
+        # Return time is approximately same as load to unload (reverse route)
+        return_time = TRIP_TIMES_LOAD_TO_UNLOAD.get(loading_port_id, {}).get(last_discharge, 0.5)
+        total_trip_time_days += return_time
+    
+    return total_trip_time_days
+
 
 class HPCLRouteGenerator:
     """
     HPCL Set Partitioning Route Generator
     Pre-generates ALL feasible voyage patterns for optimization
+    With smart pruning and caching for performance
     """
     
-    def __init__(self):
+    def __init__(self, enable_pruning: bool = True, enable_caching: bool = True):
         self.cost_calculator = HPCLCostCalculator()
         self.generated_routes: List[Dict[str, Any]] = []
+        self.enable_pruning = enable_pruning
+        self.enable_caching = enable_caching
+        self.route_cache: Dict[str, List[Dict[str, Any]]] = {}
+        self.pruning_stats = {
+            "total_generated": 0,
+            "pruned_time_exceeded": 0,
+            "pruned_dominated": 0,
+            "pruned_cost_threshold": 0,
+            "final_count": 0
+        }
         
     async def generate_all_feasible_routes(
         self, 
         vessels: List[HPCLVessel], 
         loading_ports: List[HPCLPort],
         unloading_ports: List[HPCLPort],
-        fuel_price_per_mt: float = 45000.0
+        fuel_price_per_mt: float = 45000.0,
+        vessel_available_hours: float = 720.0,
+        max_cost_per_mt: Optional[float] = None,
+        max_time_per_mt: Optional[float] = None
     ) -> List[Dict[str, Any]]:
         """
         Generate ALL feasible routes for HPCL Set Partitioning Problem
+        With smart pruning for performance optimization
         
         Pattern A: Direct routes (Load → Unload) = 6 × 11 = 66 per vessel
         Pattern B: Split routes (Load → Unload1 → Unload2) = 6 × 11 × 10 = 660 per vessel
-        Total: ~726 routes per vessel type
+        Total: ~726 routes per vessel type (before pruning)
         """
-        logger.info("Starting HPCL feasible route generation...")
+        logger.info(f"Starting HPCL feasible route generation (pruning={'ON' if self.enable_pruning else 'OFF'})...")
         start_time = datetime.now()
         
+        # Check cache first
+        cache_key = f"{len(vessels)}_{len(loading_ports)}_{len(unloading_ports)}_{fuel_price_per_mt}"
+        if self.enable_caching and cache_key in self.route_cache:
+            logger.info(f"Using cached routes ({len(self.route_cache[cache_key])} routes)")
+            return self.route_cache[cache_key]
+        
         all_routes = []
-        route_counter = 0
+        self.pruning_stats = {
+            "total_generated": 0,
+            "pruned_time_exceeded": 0,
+            "pruned_dominated": 0,
+            "pruned_cost_threshold": 0,
+            "final_count": 0
+        }
         
         for vessel in vessels:
             logger.info(f"Generating routes for vessel: {vessel.name}")
@@ -61,22 +154,141 @@ class HPCLRouteGenerator:
                 vessel, loading_ports, unloading_ports, fuel_price_per_mt
             )
             all_routes.extend(direct_routes)
-            route_counter += len(direct_routes)
+            self.pruning_stats["total_generated"] += len(direct_routes)
             
             # Pattern B: Split Routes (Two discharge ports)
             split_routes = await self._generate_split_routes(
                 vessel, loading_ports, unloading_ports, fuel_price_per_mt
             )
             all_routes.extend(split_routes)
-            route_counter += len(split_routes)
+            self.pruning_stats["total_generated"] += len(split_routes)
             
             logger.info(f"Generated {len(direct_routes)} direct + {len(split_routes)} split routes for {vessel.name}")
         
+        # Apply pruning heuristics
+        if self.enable_pruning:
+            all_routes = self._prune_routes(
+                all_routes, 
+                vessel_available_hours,
+                max_cost_per_mt or 2500.0,
+                max_time_per_mt or 0.015
+            )
+        
+        self.pruning_stats["final_count"] = len(all_routes)
         generation_time = (datetime.now() - start_time).total_seconds()
-        logger.info(f"Route generation completed: {route_counter} total routes in {generation_time:.2f} seconds")
+        
+        # Log structured JSON for profiling
+        logger.info(json.dumps({
+            "event": "route_generation_complete",
+            "total_routes_generated": self.pruning_stats["total_generated"],
+            "routes_after_pruning": self.pruning_stats["final_count"],
+            "pruned_time_exceeded": self.pruning_stats["pruned_time_exceeded"],
+            "pruned_dominated": self.pruning_stats["pruned_dominated"],
+            "pruned_cost_threshold": self.pruning_stats["pruned_cost_threshold"],
+            "generation_time_seconds": round(generation_time, 2),
+            "vessels_count": len(vessels),
+            "pruning_enabled": self.enable_pruning
+        }))
+        
+        # Cache results
+        if self.enable_caching:
+            self.route_cache[cache_key] = all_routes
         
         self.generated_routes = all_routes
         return all_routes
+    
+    def _prune_routes(
+        self,
+        routes: List[Dict[str, Any]],
+        vessel_available_hours: float,
+        max_cost_per_mt: float,
+        max_time_per_mt: float
+    ) -> List[Dict[str, Any]]:
+        """
+        Prune infeasible and dominated routes for better performance
+        
+        Pruning heuristics:
+        1. Drop routes with trip_time > vessel available time
+        2. Drop routes with cost-per-MT > threshold
+        3. Drop routes with time-per-MT > threshold
+        4. Drop dominated routes (same ports, worse on all metrics)
+        """
+        logger.info(f"Applying pruning heuristics to {len(routes)} routes...")
+        
+        pruned_routes = []
+        
+        # Heuristic 1: Prune routes exceeding vessel available time
+        for route in routes:
+            trip_time_hours = route.get('total_time_hours', 0)
+            if trip_time_hours > vessel_available_hours:
+                self.pruning_stats['pruned_time_exceeded'] += 1
+                continue
+            
+            # Heuristic 2: Prune routes with high cost-per-MT
+            cost_per_mt = route.get('cost_per_mt', 0)
+            if cost_per_mt > max_cost_per_mt:
+                self.pruning_stats['pruned_cost_threshold'] += 1
+                continue
+            
+            # Heuristic 3: Prune routes with high time-per-MT
+            total_cargo = sum(route.get('cargo_split', {}).values())
+            if total_cargo > 0:
+                time_per_mt = (trip_time_hours / 24.0) / total_cargo
+                if time_per_mt > max_time_per_mt:
+                    self.pruning_stats['pruned_cost_threshold'] += 1
+                    continue
+            
+            pruned_routes.append(route)
+        
+        # Heuristic 4: Remove dominated routes
+        final_routes = self._remove_dominated_routes(pruned_routes)
+        
+        logger.info(f"Pruning complete: {len(routes)} → {len(final_routes)} routes")
+        return final_routes
+    
+    def _remove_dominated_routes(self, routes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Remove routes that are dominated by others
+        Route A dominates Route B if:
+        - Same vessel and same port combination
+        - A has lower cost AND lower time
+        """
+        # Group routes by vessel and port combination
+        route_groups: Dict[str, List[Dict[str, Any]]] = {}
+        
+        for route in routes:
+            key = f"{route['vessel_id']}_{route['loading_port']}_{'_'.join(sorted(route['discharge_ports']))}"
+            if key not in route_groups:
+                route_groups[key] = []
+            route_groups[key].append(route)
+        
+        non_dominated = []
+        
+        for group in route_groups.values():
+            if len(group) == 1:
+                non_dominated.extend(group)
+                continue
+            
+            # Find Pareto-optimal routes (non-dominated)
+            for route_a in group:
+                is_dominated = False
+                for route_b in group:
+                    if route_a == route_b:
+                        continue
+                    
+                    # Check if route_b dominates route_a
+                    if (route_b.get('total_cost', float('inf')) <= route_a.get('total_cost', float('inf')) and
+                        route_b.get('total_time_hours', float('inf')) <= route_a.get('total_time_hours', float('inf')) and
+                        (route_b.get('total_cost') < route_a.get('total_cost') or 
+                         route_b.get('total_time_hours') < route_a.get('total_time_hours'))):
+                        is_dominated = True
+                        self.pruning_stats['pruned_dominated'] += 1
+                        break
+                
+                if not is_dominated:
+                    non_dominated.append(route_a)
+        
+        return non_dominated
     
     async def _generate_direct_routes(
         self,
@@ -148,35 +360,62 @@ class HPCLRouteGenerator:
         route_type: str
     ) -> Dict[str, Any]:
         """
-        Calculate complete metrics for a single route
+        Calculate complete metrics for a single route using EXACT trip time tables
         """
         try:
             # Generate unique route ID
             route_id = f"HPCL_{vessel.id}_{loading_port.id}_{'_'.join([p.id for p in discharge_ports])}_{uuid.uuid4().hex[:8]}"
             
-            # Calculate route segments and total distance
+            # Calculate EXACT trip time from challenge data tables
+            discharge_port_ids = [p.id for p in discharge_ports]
+            total_time_days = calculate_trip_time_from_tables(
+                loading_port_id=loading_port.id,
+                discharge_port_ids=discharge_port_ids,
+                include_service_time=True,  # Include loading/unloading time
+                include_return_trip=False   # Don't include return by default
+            )
+            total_time_hours = total_time_days * 24.0
+            
+            # Calculate route segments and total distance (for visualization)
             route_segments = await self._calculate_route_segments(loading_port, discharge_ports)
             total_distance_nm = sum(segment['distance_nm'] for segment in route_segments)
-            
-            # Calculate voyage time
-            sailing_time_hours = total_distance_nm / vessel.speed_knots
-            port_time_hours = self._calculate_port_time(loading_port, discharge_ports, vessel)
-            total_time_hours = sailing_time_hours + port_time_hours
             
             # Determine cargo split for discharge ports
             cargo_split = self._calculate_cargo_split(vessel.capacity_mt, discharge_ports, route_type)
             total_cargo_mt = sum(cargo_split.values())
             
-            # Calculate comprehensive costs
-            cost_breakdown = await self.cost_calculator.calculate_voyage_cost(
-                vessel=vessel,
-                loading_port=loading_port,
-                discharge_ports=discharge_ports,
-                total_distance_nm=total_distance_nm,
-                total_time_hours=total_time_hours,
-                cargo_quantity=total_cargo_mt,
-                fuel_price_per_mt=fuel_price_per_mt
+            # Calculate cost using EXACT trip time
+            # Cost = (trip_days × charter_rate) + port_charges + fuel
+            charter_cost = total_time_days * vessel.daily_charter_rate
+            
+            # Calculate port charges (simplified)
+            port_charges = loading_port.port_charges_per_visit or 100000
+            for discharge_port in discharge_ports:
+                port_charges += (discharge_port.port_charges_per_visit or 80000)
+            
+            # Calculate fuel cost (based on actual sailing time, not including service time)
+            sailing_time_days = calculate_trip_time_from_tables(
+                loading_port_id=loading_port.id,
+                discharge_port_ids=discharge_port_ids,
+                include_service_time=False,  # Only sailing time for fuel
+                include_return_trip=False
             )
+            fuel_consumption_mt = vessel.fuel_consumption_mt_per_day * sailing_time_days
+            fuel_cost = fuel_consumption_mt * fuel_price_per_mt
+            
+            # Total cost composition
+            total_cost = charter_cost + port_charges + fuel_cost
+            
+            cost_breakdown = {
+                'charter_cost': charter_cost,
+                'port_charges': port_charges,
+                'fuel_cost': fuel_cost,
+                'total_cost': total_cost,
+                'fuel_consumption_mt': fuel_consumption_mt,
+                'trip_time_days': total_time_days,
+                'sailing_time_days': sailing_time_days,
+                'service_time_days': total_time_days - sailing_time_days
+            }
             
             # Get route coordinates for visualization
             route_coordinates = await self._get_route_coordinates_chain(loading_port, discharge_ports)
@@ -196,10 +435,11 @@ class HPCLRouteGenerator:
                 'discharge_ports': [port.id for port in discharge_ports],
                 'route_segments': route_segments,
                 
-                # Metrics
-                'total_distance_nm': round(total_distance_nm, 2),
+                # EXACT metrics from trip time tables
                 'total_time_hours': round(total_time_hours, 2),
-                'total_cost': round(cost_breakdown['total_cost'], 2),
+                'total_time_days': round(total_time_days, 3),
+                'total_distance_nm': round(total_distance_nm, 2),
+                'total_cost': round(total_cost, 2),
                 'cargo_quantity': total_cargo_mt,
                 'cargo_split': cargo_split,
                 
@@ -210,14 +450,14 @@ class HPCLRouteGenerator:
                 'route_coordinates': route_coordinates,
                 
                 # Operational data
-                'sailing_time_hours': round(sailing_time_hours, 2),
-                'port_time_hours': round(port_time_hours, 2),
-                'fuel_consumption_mt': round(cost_breakdown.get('fuel_consumption_mt', 0), 2),
+                'sailing_time_hours': round(sailing_time_days * 24, 2),
+                'port_time_hours': round((total_time_days - sailing_time_days) * 24, 2),
+                'fuel_consumption_mt': round(fuel_consumption_mt, 2),
                 
                 # Performance indicators
-                'cost_per_nm': round(cost_breakdown['total_cost'] / total_distance_nm, 2) if total_distance_nm > 0 else 0,
-                'cost_per_mt': round(cost_breakdown['total_cost'] / total_cargo_mt, 2) if total_cargo_mt > 0 else 0,
-                'speed_efficiency': round(total_distance_nm / total_time_hours, 2) if total_time_hours > 0 else 0,
+                'cost_per_nm': round(total_cost / total_distance_nm, 2) if total_distance_nm > 0 else 0,
+                'cost_per_mt': round(total_cost / total_cargo_mt, 2) if total_cargo_mt > 0 else 0,
+                'cost_per_day': round(total_cost / total_time_days, 2) if total_time_days > 0 else 0,
                 
                 # Metadata
                 'generated_at': datetime.now().isoformat(),
@@ -226,6 +466,8 @@ class HPCLRouteGenerator:
             
         except Exception as e:
             logger.error(f"Error calculating route metrics: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     async def _calculate_route_segments(
@@ -328,26 +570,39 @@ class HPCLRouteGenerator:
         discharge_ports: List[HPCLPort]
     ) -> bool:
         """
-        Validate route against HPCL-specific constraints
+        Validate route against HPCL-specific operational constraints
+        
+        HARD CONSTRAINTS from Challenge 7.1:
+        1. Single loading port per voyage (enforced by route structure)
+        2. Maximum 2 discharge ports per voyage
+        3. At least 1 discharge port
+        4. No duplicate discharge ports
+        5. Loading port ≠ discharge port
         """
         # HPCL Constraint 1: Single loading port (automatically satisfied by generation logic)
+        # Each route is generated with exactly one loading port
         
-        # HPCL Constraint 2: Max 2 discharge ports
+        # HPCL Constraint 2: Max 2 discharge ports (HARD CONSTRAINT)
         if len(discharge_ports) > MAX_DISCHARGE_PORTS:
+            logger.warning(f"Route violates max discharge ports constraint: {len(discharge_ports)} > {MAX_DISCHARGE_PORTS}")
             return False
         
         # HPCL Constraint 3: At least one discharge port
         if len(discharge_ports) == 0:
+            logger.warning("Route has no discharge ports")
             return False
         
         # HPCL Constraint 4: No duplicate discharge ports
         if len(set(port.id for port in discharge_ports)) != len(discharge_ports):
+            logger.warning(f"Route has duplicate discharge ports: {[p.id for p in discharge_ports]}")
             return False
         
         # HPCL Constraint 5: Loading port cannot be same as discharge port
         if loading_port.id in [port.id for port in discharge_ports]:
+            logger.warning(f"Loading port {loading_port.id} appears in discharge ports")
             return False
         
+        # All constraints satisfied
         return True
     
     def get_route_statistics(self) -> Dict[str, Any]:

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Ship, Zap, Activity, TrendingUp, Award, Target } from 'lucide-react';
+import { Boat, Lightning, Activity, TrendUp, Trophy, Target } from 'phosphor-react';
 
 export function ImprovedHeader() {
   return (
@@ -25,7 +25,7 @@ export function ImprovedHeader() {
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl blur-xl opacity-75 animate-pulse"></div>
               <div className="relative bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-600 p-4 rounded-2xl shadow-2xl">
-                <Ship className="h-12 w-12 text-white animate-float" />
+                <Boat size={48} weight="duotone" className="text-white animate-float" />
               </div>
             </div>
             <div>
@@ -33,8 +33,8 @@ export function ImprovedHeader() {
                 HPCL RouteX
               </h1>
               <p className="text-blue-300 font-semibold text-sm flex items-center gap-2 mt-1">
-                <Zap className="h-4 w-4 text-yellow-400" />
-                Next-Generation Fleet Optimization Platform
+                <Lightning size={16} weight="bold" className="text-yellow-400" />
+                AI-Powered Coastal Fleet Route Optimization
               </p>
             </div>
           </div>
@@ -60,8 +60,8 @@ export function ImprovedHeader() {
             <div className="glass-effect rounded-xl px-5 py-3 backdrop-blur-xl border border-white/20">
               <div className="flex items-center gap-3">
                 <div className="flex flex-col items-end">
-                  <span className="text-xs text-blue-200 font-medium">Optimization</span>
-                  <span className="text-sm font-bold text-blue-300">CP-SAT Engine</span>
+                  <span className="text-xs text-blue-200 font-medium">Solver Engine</span>
+                  <span className="text-sm font-bold text-blue-300">Google OR-Tools</span>
                 </div>
                 <Target className="h-8 w-8 text-blue-400" />
               </div>

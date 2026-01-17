@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Ship, Wifi, WifiOff, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Boat, WifiHigh, WifiSlash, Warning, CheckCircle } from 'phosphor-react';
 
 interface HPCLHeaderProps {
   systemStatus: 'connecting' | 'connected' | 'error';
@@ -36,11 +36,11 @@ export function HPCLHeader({ systemStatus, isOptimizing }: HPCLHeaderProps) {
       case 'connected':
         return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'connecting':
-        return <Wifi className="h-5 w-5 text-yellow-500 animate-pulse" />;
+        return <WifiHigh size={20} weight="bold" className="text-yellow-500 animate-pulse" />;
       case 'error':
-        return <WifiOff className="h-5 w-5 text-red-500" />;
+        return <WifiSlash size={20} weight="bold" className="text-red-500" />;
       default:
-        return <AlertTriangle className="h-5 w-5 text-gray-500" />;
+        return <Warning size={20} weight="bold" className="text-gray-500" />;
     }
   };
 
@@ -64,7 +64,7 @@ export function HPCLHeader({ systemStatus, isOptimizing }: HPCLHeaderProps) {
           {/* HPCL Logo and Title */}
           <div className="flex items-center space-x-4">
             <div className="bg-gradient-to-br from-blue-600 to-cyan-500 p-2 rounded-lg shadow-lg shadow-blue-500/50">
-              <Ship className="h-8 w-8 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
+              <Boat size={32} weight="duotone" className="text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
             </div>
             <div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">

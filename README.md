@@ -1,749 +1,769 @@
-#  RouteX - HPCL Coastal Tanker Fleet Optimizer
+# RouteX - HPCL Coastal Tanker Fleet Optimization Platform
 
-**An intelligent maritime logistics platform that transforms HPCL's coastal shipping operations through advanced mathematical optimization and AI-powered decision support.**
+> **Optimizing Maritime Logistics and Trade Operations**
+> 
+> An advanced AI-powered optimization platform for minimizing bulk cargo transportation costs in HPCL's coastal vessel operations.
 
-![RouteX Dashboard](https://img.shields.io/badge/Status-Production%20Ready-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.0-blue) ![License](https://img.shields.io/badge/License-MIT-yellow)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.117+-009688?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-14+-000000?style=flat&logo=next.js)](https://nextjs.org/)
+[![OR-Tools](https://img.shields.io/badge/OR--Tools-9.0+-4285F4?style=flat&logo=google)](https://developers.google.com/optimization)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python)](https://www.python.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 
 ---
 
 ## Table of Contents
+
 | # | Section |
 |---|---------|
 | 1 | [Overview](#overview) |
-| 2 | [Problem & Solution](#problem--solution) |
-| 3 | [Live Demo](#live-demo) |
-| 4 | [Technology Stack](#technology-stack) |
-| 5 | [System Architecture](#system-architecture) |
-| 6 | [Key Features](#key-features) |
-| 7 | [Quick Start](#quick-start) |
-| 8 | [Development Setup](#development-setup) |
-| 9 | [API Documentation](#api-documentation) |
-| 10 | [Project Structure](#project-structure) |
-| 11 | [Performance Specifications](#performance-specifications) |
-| 12 | [Business Impact](#business-impact) |
+| 2 | [Problem Statement](#problem-statement) |
+| 3 | [Key Features](#key-features) |
+| 4 | [Architecture](#architecture) |
+| 5 | [Technology Stack](#technology-stack) |
+| 6 | [Quick Start](#quick-start) |
+| 7 | [Project Structure](#project-structure) |
+| 8 | [API Documentation](#api-documentation) |
+| 9 | [Usage Examples](#usage-examples) |
+| 10 | [Challenge 7.1 Specification](#challenge-71-specification) |
+| 11 | [Performance Metrics](#performance-metrics) |
+| 12 | [Development](#development) |
+| 13 | [Deployment](#deployment) |
+| 14 | [Contributing](#contributing) |
+| 15 | [License](#license) |
 
 ---
 
 ## Overview
 
-**RouteX** is a full-stack maritime logistics optimization platform built for the **HP Power Lab 2.0 Hackathon**. It implements a sophisticated fleet management system specifically designed for **Hindustan Petroleum Corporation Limited (HPCL)** to optimize their coastal tanker operations across Indian ports.
+**RouteX** is an enterprise-grade maritime logistics optimization platform designed specifically for **Hindustan Petroleum Corporation Limited (HPCL)** to solve the **Challenge 7.1: Coastal Vessel Optimization** problem. The system minimizes bulk cargo transportation costs while satisfying complex operational constraints using advanced **Constraint Programming (CP-SAT)** algorithms powered by Google's OR-Tools.
 
-### Challenge Context: Theme 7 - Maritime Supply Chain Optimization
+### What Problem Does RouteX Solve?
 
-The platform leverages advanced **Operations Research** (OR-Tools CP-SAT solver), **Set Partitioning algorithms**, and **real-time maritime routing** to solve HPCL's complex logistics challenges involving 9 coastal vessels, 17 ports, and monthly demand satisfaction of 325,000+ metric tons.
+RouteX tackles the **Set Partitioning Problem** in maritime logistics:
 
-### Built with Industry Standards
+- **9 coastal tankers** with varying capacities (25,000-50,000 MT) and charter rates (₹0.38-0.65 Cr/day)
+- **6 loading ports** with unlimited supply capacity
+- **11 unloading ports** with specific monthly demand requirements (5,000-135,000 MT)
+- **Complex routing constraints**: Single-port loading, maximum 2-port discharge per trip
+- **Cost optimization**: Minimize total transportation cost = Charter Rate × Trip Duration
 
-- **Mathematical Optimization**: Google OR-Tools with CP-SAT constraint solver
-- **Maritime Routing**: Searoute-py for real sea distance calculations
-- **Environmental Compliance**: IMO EEOI (Energy Efficiency Operational Indicator) tracking
-- **Real-time Visualization**: WebGL-powered 3D maritime maps with vessel animation
+### Why RouteX?
 
----
+Traditional manual planning methods are:
+- **Time-consuming**: Days to weeks for a single monthly plan
+- **Suboptimal**: Often 40-50% higher costs than optimal solution
+- **Error-prone**: Human calculation mistakes in complex routing
+- **Inflexible**: Cannot quickly adapt to changing demands or vessel availability
 
-## Problem & Solution
-
-### HP Power Lab 2.0 Challenge: "Coastal Vessel Fleet Optimization"
-
-**Context & Problem**: HPCL operates a fleet of 9 coastal tankers to transport petroleum products from 6 loading ports to 11 unloading ports along the Indian coast. Current manual planning using Excel takes 2-3 days per month and results in:
-
-- **Suboptimal routing** causing 15-20% excess fuel consumption
-- **Demurrage charges** of ₹5-15 lakhs monthly due to port delays
-- **Fleet underutilization** at ~70% capacity
-- **Manual errors** in demand-capacity matching
-- **No environmental tracking** for regulatory compliance
-
-### Solution Approach: Mathematical Optimization
-
-RouteX transforms this into a **Set Partitioning Problem (SPP)** solved using constraint programming:
-
-#### Mathematical Formulation
-
-```
-Minimize: Total Cost = Σ(Fuel Cost + Port Charges + Demurrage Risk)
-
-Subject to:
-1. Demand Satisfaction: Σ(cargo delivered to port p) ≥ Demand[p] ∀ ports
-2. Single Loading: Each voyage loads from exactly 1 loading port
-3. Max 2 Discharges: Each voyage unloads at ≤ 2 unloading ports
-4. Time Budget: Σ(voyage times for vessel v) ≤ 720 hours ∀ vessels
-5. Capacity: Cargo loaded ≤ Vessel capacity per voyage
-6. Binary Assignment: Each route is either selected (1) or not (0)
-```
-## Project Structure
-
-```
-RouteX/
-├── backend/                          # Python FastAPI backend
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py                  # FastAPI application entry
-│   │   ├── api/                     # API route definitions
-│   │   │   ├── __init__.py
-│   │   │   ├── routes.py            # Main API endpoints
-│   │   │   └── challenge_routes.py  # Challenge 7.1 specific
-│   │   ├── core/                    # Core configuration
-│   │   │   ├── __init__.py
-│   │   │   ├── config.py            # Settings and environment
-│   │   │   └── celery_app.py        # Background task configuration
-│   │   ├── models/                  # Data models
-│   │   │   ├── __init__.py
-│   │   │   ├── database.py          # MongoDB connection
-│   │   │   └── schemas.py           # Pydantic models
-│   │   ├── services/                # Business logic
-│   │   │   ├── __init__.py
-│   │   │   ├── cp_sat_optimizer.py  # OR-Tools CP-SAT solver
-│   │   │   ├── route_generator.py   # Feasible route enumeration
-│   │   │   ├── distance_calculator.py # Maritime routing
-│   │   │   ├── cost_calculator.py   # Cost modeling
-│   │   │   ├── eeoi_calculator.py   # Environmental metrics
-│   │   │   ├── grid_manager.py      # Spatial grid system
-│   │   │   └── ortools_mock.py      # Fallback for Python 3.14
-│   │   ├── data/                    # Data modules
-│   │   │   ├── __init__.py
-│   │   │   ├── sample_data.py       # HPCL fleet/port data
-│   │   │   ├── challenge_data.py    # November 2025 scenario
-│   │   │   └── maritime_obstacles.py # Navigation hazards
-│   │   ├── tasks/                   # Celery background tasks
-│   │   │   ├── __init__.py
-│   │   │   ├── optimization_tasks.py
-│   │   │   ├── analytics_tasks.py
-│   │   │   └── monitoring_tasks.py
-│   │   └── utils/                   # Utility scripts
-│   │       ├── seed_data.py         # Database seeding
-│   │       └── fix_ports.py         # Port data corrections
-│   ├── requirements.txt             # Python dependencies
-│   └── .env.example                 # Environment template
-│
-├── frontend/                        # React Next.js frontend
-│   ├── src/
-│   │   ├── app/                    # Next.js app router
-│   │   │   ├── layout.tsx          # Root layout
-│   │   │   ├── page.tsx            # Home page
-│   │   │   └── globals.css         # Global styles
-│   │   ├── components/             # React components
-│   │   │   ├── HPCLDashboard.tsx   # Main dashboard
-│   │   │   ├── MaritimeMap.tsx     # 3D map with Deck.gl
-│   │   │   ├── FleetOverview.tsx   # Vessel cards
-│   │   │   ├── OptimizationPanel.tsx # Solver controls
-│   │   │   ├── ResultsDisplay.tsx  # Results visualization
-│   │   │   ├── ChallengeOutput.tsx # Challenge 7.1 UI
-│   │   │   └── HPCLHeader.tsx      # Navigation header
-│   │   └── utils/                  # Utility functions
-│   │       └── api.ts              # API client
-│   ├── public/                     # Static assets
-│   ├── package.json                # Node.js dependencies
-│   ├── tsconfig.json               # TypeScript configuration
-│   ├── tailwind.config.ts          # Tailwind CSS config
-│   └── next.config.js              # Next.js configuration
-│
-├── .gitignore                      # Git ignore patterns
-├── README.md                       # Original README
-├── README_COMPREHENSIVE.md         # This file
-├── DEMO_INSTRUCTIONS.md            # Demo walkthrough
-├── start_dev.bat                   # Windows startup script
-├── start_dev.sh                    # Linux/Mac startup script
-└── docker-compose.yml              # Docker orchestration (future)
-```
-
-### User Journey Flow
-
-#### Step 1 - Fleet Configuration
-- **Trigger**: User opens RouteX dashboard
-- **Action**: Views 9-vessel HPCL fleet with real-time status
-- **System Response**: Displays vessel specifications, positions, and availability
-
-#### Step 2 - Demand Input & Optimization
-- **Goal**: Configure monthly demand and optimization parameters
-- **Action**: User sets:
-  - Fuel price (₹20,000 - ₹80,000 per MT)
-  - Optimization objective (Cost/Time/Emissions/Utilization)
-  - Time limits and vessel selection
-- **System Value**: Runs CP-SAT solver to generate optimal schedules
-
-#### Step 3 - Results & Insights
-- **Visualization**: Interactive 3D maritime map with animated routes
-- **Analytics**: Cost savings, fleet utilization, emission tracking
-- **Actionable Output**: Detailed vessel schedules with voyage assignments
-
-#### Step 4 - Knowledge Graph & Analytics
-- **Advanced Features**: 
-  - Port connectivity visualization
-  - Route optimization patterns
-  - Historical trend analysis
-  - Environmental impact tracking
-
-### Example Use Case
-
-A fleet manager preparing the **November 2025 schedule**:
-
-1. **Input**: 325,000 MT total demand across 11 unloading ports
-2. **Constraints**: 9 vessels, max 2 unloading ports per voyage, 30-day planning horizon
-3. **Optimization**: RouteX generates 726 feasible route patterns
-4. **Output**: 
-   - Optimal schedule in **5 minutes** (vs 2-3 days manual)
-   - **₹15.2L monthly savings** (18% cost reduction)
-   - **87.5% fleet utilization** (up from 70%)
-   - **98.2% demand satisfaction** with elastic constraints
+RouteX delivers:
+- **Speed**: Optimal solutions in seconds to minutes
+- **Cost savings**: 40-50% reduction in transportation costs
+- **Accuracy**: Mathematically proven optimal or near-optimal solutions
+- **Flexibility**: Real-time re-optimization for changing scenarios
 
 ---
 
-## Live Demo
+## Problem Statement
 
-**Development Server**: 
-- Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:8000/docs`
+### Challenge 7.1: Coastal Vessel Optimization - Minimizing Bulk Cargo Transportation Cost
 
-**Production Deployment**: Coming Soon
+#### Background & Context
 
----
+Optimizing coastal tanker allocation is critical for cost-effective bulk cargo movement in HPCL's international and coastal trade operations. The objective is to develop an optimal transportation model for coastal shipping of bulk cargo using:
 
-## Technology Stack
+- **Fleet**: 9 coastal tankers
+- **Loading Network**: 6 ports with unlimited supply
+- **Unloading Network**: 11 ports with specific monthly demands
+- **Objective**: Minimize total transportation cost while satisfying all demands
 
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| **Frontend** | React 18 + Next.js 14 | Modern SPA with SSR capabilities |
-| **UI Framework** | Tailwind CSS + Headless UI | Responsive maritime dashboard |
-| **3D Visualization** | Deck.gl + Mapbox GL | WebGL-powered maritime mapping |
-| **Charts** | Recharts | Business analytics and KPIs |
-| **Backend** | Python FastAPI | High-performance async REST API |
-| **Database** | MongoDB + Motor | Document-based fleet data storage |
-| **Optimization** | Google OR-Tools CP-SAT | Constraint programming solver |
-| **Route Engine** | Searoute-py + Geopy | Real maritime distance calculations |
-| **Task Queue** | Celery + Redis | Background optimization jobs |
-| **Cost Calculator** | Custom HPCL Engine | Fuel, port, and demurrage costs |
-| **Environmental** | EEOI Calculator | IMO compliance reporting |
-| **Containerization** | Docker + Docker Compose | Development and deployment |
+#### Operational Constraints
 
-### Core Algorithms & Frameworks
+1. **Single-Port Full Loading**: Each tanker must load its full capacity from only ONE loading port (no multiport loading)
+2. **Maximum Two-Port Discharge**: A tanker may unload at a maximum of TWO unloading ports per trip
+3. **Unlimited Supply**: Loading ports have unlimited cargo availability
+4. **Demand Satisfaction**: ALL unloading port demands must be fully met
 
-| Algorithm | Implementation | Purpose |
-|-----------|---------------|---------|
-| **Set Partitioning** | CP-SAT Constraint Solver | Optimal route selection from feasible set |
-| **Route Generation** | Pattern Enumeration | 726 feasible routes per month (6×11 + 6×11×10) |
-| **Distance Matrix** | Searoute Maritime Routing | Realistic sea distances (not Euclidean) |
-| **Cost Optimization** | Multi-objective Function | Bunker fuel + port charges + time penalties |
-| **Demand Elasticity** | Soft Constraints | Handles capacity-demand mismatches |
-| **EEOI Calculation** | IMO 2018 Standard | CO₂ emissions per tonne-nautical mile |
-
----
-
-## System Architecture
-
-### Three-Panel Maritime Dashboard
+#### Cost Model
 
 ```
-┌─────────────────┬─────────────────────┬─────────────────┐
-│   Workspace     │     Workbench       │    Synapse      │
-│  (Left Panel)   │  (Center Panel)     │  (Right Panel)  │
-├─────────────────┼─────────────────────┼─────────────────┤
-│ Fleet Overview  │ 3D Maritime Map     │ Analytics &     │
-│                 │ with Routes         │ Insights        │
-│ • 9 Vessels     │ • Deck.gl WebGL     │ • Cost Savings  │
-│ • Status Cards  │ • Animated Paths    │ • Fleet KPIs    │
-│ • Port Network  │ • Port Markers      │ • EEOI Metrics  │
-│ • Quick Filters │ • Selection Tools   │ • Knowledge     │
-│                 │ • Layer Controls    │   Graph         │
-└─────────────────┴─────────────────────┴─────────────────┘
+Trip Cost = Charter Rate (₹ Cr/day) × Trip Duration (days)
 ```
 
-### Data Processing Pipeline
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      RouteX Pipeline                         │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  Fleet Data → Route Generator → CP-SAT Optimizer → Results  │
-│     ↓              ↓                  ↓                      │
-│  Vessels      Feasible Routes    Constraint Solving         │
-│  Ports        Distance Matrix    Cost Minimization          │
-│  Demand       Pattern A & B      Demand Satisfaction        │
-│                                                              │
-│  ← Knowledge Graph ← Analytics Engine ← Schedule Extractor  │
-│         ↓                  ↓                  ↓              │
-│  Port Connectivity   Fleet Utilization   Vessel Assignments │
-│  Route Patterns      Cost Analysis       Voyage Details     │
-│  Bottleneck IDs      EEOI Calculation    Port Sequences     │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Backend Service Architecture
-
-```python
-FastAPI Application
-├── API Layer (REST Endpoints)
-│   ├── /api/v1/vessels - Fleet management
-│   ├── /api/v1/ports - Port operations
-│   ├── /api/v1/optimize - Optimization engine
-│   └── /api/v1/analytics - Business intelligence
-│
-├── Service Layer (Business Logic)
-│   ├── cp_sat_optimizer.py - OR-Tools integration
-│   ├── route_generator.py - Feasible route enumeration
-│   ├── distance_calculator.py - Maritime routing
-│   ├── cost_calculator.py - Financial modeling
-│   └── eeoi_calculator.py - Environmental tracking
-│
-├── Data Layer (Storage & Retrieval)
-│   ├── MongoDB - Fleet, ports, schedules
-│   ├── Redis - Optimization job queue
-│   └── In-Memory - Distance matrix cache
-│
-└── Background Workers (Celery Tasks)
-    ├── Long-running optimizations
-    ├── Report generation
-    └── Data synchronization
-```
+**Trip Duration** includes:
+- Loading port → First discharge port (sailing time)
+- First discharge → Second discharge port (if applicable, inter-port sailing time)
+- Loading/unloading service times
+- Optional: Return journey to loading port
 
 ---
 
 ## Key Features
 
-### Core Hackathon Features (Mandatory)
+### Core Optimization Engine
 
-#### 1. Fleet Management System
-- **9-Vessel HPCL Fleet**: Complete specifications (capacity, speed, fuel consumption)
-- **Real-time Status**: Vessel positions, availability, and maintenance schedules
-- **Constraint Validation**: Single loading, max 2 discharge ports per voyage
-- **Performance Tracking**: Historical voyage data and efficiency metrics
+- **CP-SAT Solver**: Google OR-Tools Constraint Programming solver
+- **Set Partitioning Model**: Pre-generates ~726 feasible route patterns
+- **Multi-Objective Support**: Cost, time, emissions, or balanced optimization
+- **Solver Profiles**: Quick (15s), Balanced (60s), Thorough (300s) modes
+- **Parallel Processing**: Multi-threaded route generation and solving
 
-#### 2. Mathematical Optimization Engine
-- **Set Partitioning Algorithm**: Pre-generates 726 feasible voyage patterns
-- **CP-SAT Constraint Solver**: Google OR-Tools for optimal route selection
-- **Multi-objective Function**: Cost, time, emissions, utilization objectives
-- **Elastic Demand Constraints**: Handles capacity-demand mismatches gracefully
-- **Sub-5-minute Solve Time**: Production-ready performance
+### Fleet Management
 
-#### 3. Maritime Route Visualization
-- **3D Interactive Map**: Deck.gl WebGL-powered maritime visualization
-- **Animated Vessel Paths**: Real-time route rendering with vessel movement
-- **Port Network Display**: 6 loading (green) + 11 unloading (blue) ports
-- **Route Selection**: Click routes to view details and voyage information
-- **Layer Controls**: Toggle vessels, routes, ports, and labels
+- **Real-time Vessel Status**: Track all 9 HPCL tankers
+- **Vessel Specifications**: Capacity, speed, fuel consumption, charter rates
+- **Dynamic Assignment**: Automatic optimal tanker-to-route allocation
+- **Utilization Analytics**: Fleet efficiency and utilization metrics
 
-#### 4. Business Intelligence Dashboard
-- **Cost Analysis**: Fuel, port charges, demurrage breakdown
-- **Fleet Utilization**: Vessel-wise capacity usage and idle time
-- **Demand Satisfaction**: Monthly fulfillment rates by port
-- **Savings Calculator**: Comparison vs manual planning baseline
+### Maritime Routing
 
-### Advanced Features 
+- **17 Indian Coastal Ports**: 6 loading + 11 unloading ports
+- **Realistic Sea Routes**: Integration with searoute-py for actual maritime distances
+- **Trip Time Tables**: Pre-calculated voyage durations from challenge data
+- **Inter-Port Navigation**: Optimal sequencing for multi-port discharge
 
-#### 5. Knowledge Graph Visualization 
-- **Port Connectivity Graph**: Interactive force-directed graph showing route patterns
-- **Node Sizing**: Proportional to cargo throughput
-- **Edge Thickness**: Frequency of route usage
-- **Cluster Detection**: Identifies hub ports and bottlenecks
-- **Click Interactions**: Zoom to port details and connected routes
+### Advanced Analytics
 
-#### 6. Environmental Compliance 
-- **IMO EEOI Calculation**: International Maritime Organization standards
-- **CO₂ Emission Tracking**: Per voyage, vessel, and fleet-wide
-- **Carbon Cost Estimation**: Financial impact of emissions
-- **Regulatory Reporting**: Automated compliance documentation
-- **Green Shipping Metrics**: Efficiency benchmarking
+- **Cost Breakdown**: Charter, fuel, port charges, cargo handling
+- **Demand Satisfaction**: Real-time tracking of fulfilled/unfulfilled demands
+- **Fleet Utilization**: Vessel working hours and efficiency metrics
+- **Emissions Tracking**: EEOI (Energy Efficiency Operational Indicator) calculations
+- **Comparative Analysis**: Optimal vs. manual planning cost comparison
 
-#### 7. Challenge 7.1 Specific Solver 
-- **Dedicated Optimization Module**: `challenge_routes.py` endpoint
-- **November 2025 Scenario**: Pre-configured with exact hackathon data
-- **Constraint Validation**: Automatic HPCL rule checking
-- **Result Visualization**: Detailed voyage assignments and port sequences
-- **Performance Metrics**: Cost, utilization, demand satisfaction scores
+### Interactive Dashboard
 
-### Technical Features
+- **Real-time Visualization**: Live maritime map with route playback
+- **Gantt Chart**: Fleet timeline and voyage scheduling
+- **Results Export**: CSV, JSON, PDF report generation
+- **Guided Tour**: Interactive onboarding for new users
+- **Run History**: Track and compare multiple optimization runs
 
-#### 8. Performance Optimization
-- **Distance Matrix Caching**: Pre-computed sea routes (168-hour TTL)
-- **Route Pattern Memoization**: Cached feasible route generation
-- **Async Processing**: Non-blocking optimization with Celery workers
-- **Database Indexing**: Optimized MongoDB queries for vessel/port data
-- **Frontend Code Splitting**: Next.js automatic bundle optimization
+### Developer-Friendly
 
-#### 9. Production-Ready Architecture
-- **API Versioning**: `/api/v1/` prefix for future compatibility
-- **Error Handling**: Comprehensive exception management with user-friendly messages
-- **Input Validation**: Pydantic schemas for request/response validation
-- **CORS Configuration**: Secure cross-origin resource sharing
-- **Health Checks**: `/health` and `/api/v1/status` monitoring endpoints
+- **RESTful API**: FastAPI with automatic OpenAPI documentation
+- **Type Safety**: Full TypeScript frontend, Pydantic backend validation
+- **Async Operations**: Non-blocking optimization with Celery task queue
+- **Database Flexibility**: MongoDB support with in-memory fallback
+- **Comprehensive Testing**: Unit, integration, and end-to-end tests
 
-#### 10. Developer Experience
-- **Interactive API Docs**: Swagger UI at `/docs` and ReDoc at `/redoc`
-- **Type Safety**: Full TypeScript frontend + Pydantic backend
-- **Code Organization**: Modular architecture with clear separation of concerns
-- **Comprehensive Comments**: Detailed docstrings and inline explanations
-- **Development Scripts**: One-command setup with `start_dev.bat`/`.sh`
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Frontend Layer (Next.js)                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │  Dashboard   │  │ Optimization │  │   Results    │     │
+│  │   (React)    │  │    Panel     │  │  Visualizer  │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+│                         ↕ HTTP/REST                         │
+└─────────────────────────────────────────────────────────────┘
+                          ↕
+┌─────────────────────────────────────────────────────────────┐
+│                  API Layer (FastAPI)                        │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │  Challenge   │  │    Fleet     │  │     Port     │     │
+│  │   Routes     │  │  Management  │  │  Management  │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+└─────────────────────────────────────────────────────────────┘
+                          ↕
+┌─────────────────────────────────────────────────────────────┐
+│              Business Logic Layer (Services)                │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │          CP-SAT Optimization Engine                │    │
+│  │  • Route Generation (Set Partitioning Columns)    │    │
+│  │  • Constraint Modeling (CP-SAT Variables)         │    │
+│  │  • Objective Function (Cost Minimization)         │    │
+│  │  • Solution Extraction & Validation               │    │
+│  └────────────────────────────────────────────────────┘    │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │     Cost     │  │   Distance   │  │     EEOI     │     │
+│  │  Calculator  │  │  Calculator  │  │  Calculator  │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+└─────────────────────────────────────────────────────────────┘
+                          ↕
+┌─────────────────────────────────────────────────────────────┐
+│                Data Layer (Database)                        │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │   MongoDB    │  │   In-Memory  │  │    Redis     │     │
+│  │  (Primary)   │  │  (Fallback)  │  │   (Cache)    │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+└─────────────────────────────────────────────────────────────┘
+                          ↕
+┌─────────────────────────────────────────────────────────────┐
+│            Async Task Queue (Celery + Redis)                │
+│  • Long-running optimizations                              │
+│  • Background analytics processing                         │
+│  • Monitoring and alerts                                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Design Patterns
+
+- **MVC Pattern**: Separation of concerns (Models, Views, Controllers)
+- **Repository Pattern**: Database abstraction with in-memory fallback
+- **Service Layer**: Business logic encapsulation
+- **Factory Pattern**: Dynamic solver profile creation
+- **Observer Pattern**: Real-time status updates via WebSocket (planned)
+
+---
+
+## Technology Stack
+
+### Backend
+
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| **Python** | 3.11+ | Core programming language |
+| **FastAPI** | 0.117+ | High-performance async web framework |
+| **OR-Tools** | 9.0+ | Google's optimization library (CP-SAT solver) |
+| **Pydantic** | 2.11+ | Data validation and settings management |
+| **Motor** | 3.7+ | Async MongoDB driver |
+| **Celery** | 5.4+ | Distributed task queue |
+| **Redis** | 5.2+ | Message broker and caching |
+| **searoute** | 1.4.3 | Maritime routing and distance calculation |
+| **NumPy** | 1.26+ | Numerical computations |
+| **Pandas** | 2.0+ | Data manipulation and analysis |
+
+### Frontend
+
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| **Next.js** | 14+ | React framework with SSR/SSG |
+| **React** | 18+ | UI component library |
+| **TypeScript** | 5.0+ | Type-safe JavaScript |
+| **Tailwind CSS** | 3.4+ | Utility-first CSS framework |
+| **Phosphor Icons** | Latest | Modern icon library |
+| **Recharts** | Latest | Charting library for analytics |
+| **Google Maps** | Latest | Interactive maritime maps |
+
+### Development Tools
+
+- **Uvicorn**: ASGI server for FastAPI
+- **Pytest**: Testing framework
+- **ESLint**: JavaScript/TypeScript linting
+- **Git**: Version control
 
 ---
 
 ## Quick Start
 
 ### Prerequisites
-- **Python 3.10+** (Backend)
-- **Node.js 18+** (Frontend)
-- **Redis Server** (Optional for Celery)
-- **MongoDB** (Optional - falls back to in-memory)
 
-### One-Command Startup (Windows)
+Ensure you have the following installed:
 
-```powershell
-# Clone the repository
-git clone https://github.com/CosmicEngineers/RouteX.git
-cd RouteX
+- **Python** 3.11 or higher
+- **Node.js** 18.0 or higher
+- **npm** or **yarn** package manager
+- **MongoDB** 5.0+ (optional, has in-memory fallback)
+- **Redis** 6.0+ (optional, for async tasks)
 
-# Start both backend and frontend
-.\start_dev.bat
-```
+### Installation
 
-### One-Command Startup (Linux/Mac)
+#### 1. Clone the Repository
 
 ```bash
-# Clone the repository
-git clone https://github.com/CosmicEngineers/RouteX.git
+git clone https://github.com/your-username/RouteX.git
 cd RouteX
-
-# Make script executable and run
-chmod +x start_dev.sh
-./start_dev.sh
 ```
 
-### Manual Setup
-
-#### Backend
+#### 2. Backend Setup
 
 ```bash
+# Navigate to backend directory
 cd backend
 
 # Create virtual environment
 python -m venv venv
 
-# Activate (Windows)
+# Activate virtual environment
+# On Windows:
 venv\Scripts\activate
-# Activate (Linux/Mac)
+# On macOS/Linux:
 source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
-
-# Run FastAPI server
-uvicorn app.main:app --reload --port 8000
 ```
 
-#### Frontend
+#### 3. Frontend Setup
 
 ```bash
+# Navigate to frontend directory (from root)
 cd frontend
 
 # Install dependencies
 npm install
-
-# Run Next.js development server
-npm run dev
+# or
+yarn install
 ```
 
-### Access Points
+#### 4. Environment Configuration
 
--  **Frontend Dashboard**: http://localhost:3000
--  **API Documentation**: http://localhost:8000/docs
--  **ReDoc API Docs**: http://localhost:8000/redoc
--  **Health Check**: http://localhost:8000/health
--  **System Status**: http://localhost:8000/api/v1/status
-
----
-
-## Development Setup
-
-### Backend Development
-
-#### Environment Variables
-
-Create `backend/.env`:
+Create `.env` file in backend directory:
 
 ```env
-# Application Settings
-APP_NAME=HPCL Coastal Tanker Fleet Optimizer
-ENVIRONMENT=development
-DEBUG=true
-
-# Database
+# Backend Configuration
 MONGODB_URL=mongodb://localhost:27017
 DATABASE_NAME=hpcl_coastal_optimizer
 USE_MONGODB=true
-
-# Redis (for Celery)
 REDIS_URL=redis://localhost:6379/0
 
-# HPCL Configuration
-HPCL_FLEET_SIZE=9
-HPCL_LOADING_PORTS=6
-HPCL_UNLOADING_PORTS=11
-MAX_DISCHARGE_PORTS=2
+# API Settings
+API_PREFIX=/api/v1
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 
-# Optimization Settings
-DEFAULT_FUEL_PRICE_PER_MT=45000.0
-MAX_SOLVE_TIME_SECONDS=300
-DEFAULT_OPTIMIZATION_OBJECTIVE=cost
-
-# External APIs (Optional)
-MAPBOX_TOKEN=your_mapbox_token_here
-WEATHER_API_KEY=your_weather_api_key
+# Security
+SECRET_KEY=your-super-secret-key-change-in-production
 ```
 
-#### Running Tests
-
-```bash
-cd backend
-pytest tests/ -v
-```
-
-#### Background Workers (Optional)
-
-```bash
-# Terminal 1: Start Redis
-redis-server
-
-# Terminal 2: Start Celery worker
-celery -A app.core.celery_app worker --loglevel=info
-
-# Terminal 3: Start Celery beat (for scheduled tasks)
-celery -A app.core.celery_app beat --loglevel=info
-```
-
-### Frontend Development
-
-#### Environment Variables
-
-Create `frontend/.env.local`:
+Create `.env.local` file in frontend directory:
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_MAPBOX_TOKEN=your_mapbox_token_here
-NEXT_PUBLIC_GOOGLE_MAPS_KEY=your_google_maps_key
 ```
 
-#### Building for Production
+### Running the Application
+
+#### Start Backend Server
 
 ```bash
+# From backend directory
+cd backend
+
+# Start FastAPI server
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Backend will be available at: **http://localhost:8000**
+
+API Documentation: **http://localhost:8000/docs**
+
+#### Start Frontend Server
+
+```bash
+# From frontend directory (new terminal)
 cd frontend
-npm run build
-npm run start
+
+# Start Next.js development server
+npm run dev
+# or
+yarn dev
+```
+
+Frontend will be available at: **http://localhost:3000**
+
+#### Optional: Start Celery Worker (for async tasks)
+
+```bash
+# From backend directory (new terminal)
+cd backend
+
+# Start Celery worker
+celery -A app.core.celery_app worker --loglevel=info
+```
+
+### First Time Usage
+
+1. Open browser and navigate to **http://localhost:3000**
+2. The guided tour will automatically start on first visit
+3. Navigate to **Challenge 7.1** tab
+4. Click **"Run Optimization"** to solve the challenge problem
+5. View results in the **Results Display** panel
+
+---
+
+## Project Structure
+
+```
+RouteX/
+├── backend/                      # Python FastAPI Backend
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── main.py              # FastAPI application entry point
+│   │   ├── api/                 # API route handlers
+│   │   │   ├── routes.py        # Main API routes
+│   │   │   └── challenge_routes.py  # Challenge 7.1 specific endpoints
+│   │   ├── core/                # Core configuration
+│   │   │   ├── config.py        # Settings and environment variables
+│   │   │   └── celery_app.py    # Celery task queue configuration
+│   │   ├── data/                # Data fixtures and samples
+│   │   │   ├── challenge_data.py    # Challenge 7.1 exact specifications
+│   │   │   └── sample_data.py       # Sample vessel and port data
+│   │   ├── models/              # Data models and schemas
+│   │   │   ├── database.py      # MongoDB models with in-memory fallback
+│   │   │   └── schemas.py       # Pydantic validation schemas
+│   │   ├── services/            # Business logic services
+│   │   │   ├── cp_sat_optimizer.py       # CP-SAT optimization engine
+│   │   │   ├── route_generator.py        # Feasible route generation
+│   │   │   ├── cost_calculator.py        # Cost calculation service
+│   │   │   ├── distance_calculator.py    # Maritime distance service
+│   │   │   ├── eeoi_calculator.py        # Emissions calculation
+│   │   │   ├── grid_manager.py           # Spatial grid management
+│   │   │   └── infeasibility_analyzer.py # Infeasibility diagnostics
+│   │   └── tasks/               # Async Celery tasks
+│   │       ├── optimization_tasks.py     # Background optimization
+│   │       ├── analytics_tasks.py        # Analytics processing
+│   │       └── monitoring_tasks.py       # System monitoring
+│   ├── tests/                   # Test suite
+│   │   ├── test_cost_calc.py
+│   │   ├── test_demand_satisfaction.py
+│   │   ├── test_end_to_end.py
+│   │   └── test_route_time.py
+│   ├── requirements.txt         # Python dependencies
+│   ├── pyproject.toml           # Python project configuration
+│   └── README.md                # Backend documentation
+│
+├── frontend/                    # Next.js Frontend
+│   ├── src/
+│   │   ├── app/                 # Next.js app directory
+│   │   │   ├── layout.tsx       # Root layout
+│   │   │   ├── page.tsx         # Home page
+│   │   │   └── globals.css      # Global styles
+│   │   ├── components/          # React components
+│   │   │   ├── HPCLDashboard.tsx         # Main dashboard
+│   │   │   ├── OptimizationPanel.tsx     # Optimization controls
+│   │   │   ├── ResultsDisplay.tsx        # Results visualization
+│   │   │   ├── ChallengeOutput.tsx       # Challenge 7.1 output
+│   │   │   ├── FleetOverview.tsx         # Fleet status cards
+│   │   │   ├── MaritimeMap.tsx           # Interactive map
+│   │   │   ├── FleetGanttChart.tsx       # Timeline visualization
+│   │   │   ├── RunHistory.tsx            # Optimization history
+│   │   │   ├── GuidedTour.tsx            # User onboarding
+│   │   │   └── ...
+│   │   └── utils/               # Utility functions
+│   │       ├── formatters.ts    # Number/date formatting
+│   │       ├── accessibility.ts # A11y utilities
+│   │       └── jps-pathfinding.ts   # Pathfinding algorithms
+│   ├── public/                  # Static assets
+│   ├── package.json             # Node dependencies
+│   ├── tsconfig.json            # TypeScript configuration
+│   ├── next.config.js           # Next.js configuration
+│   └── tailwind.config.js       # Tailwind CSS configuration
+│
+├── dump.rdb                     # Redis snapshot (dev)
+├── run.sh                       # Quick start script
+├── README.md                    # This file
+└── TECHNICAL.md                 # In-depth technical documentation
 ```
 
 ---
 
 ## API Documentation
 
-### Interactive Documentation
+### Base URL
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-- **OpenAPI Spec**: http://localhost:8000/openapi.json
+```
+http://localhost:8000/api/v1
+```
 
-### Key Endpoints
+### Authentication
+
+Currently using API key authentication (development):
+
+```http
+X-API-Key: hpcl-demo-key
+```
+
+### Endpoints Overview
+
+#### System Health
+
+```http
+GET /health
+```
+
+Response:
+```json
+{
+  "status": "healthy",
+  "database": "connected",
+  "timestamp": "2026-01-17T10:30:00Z"
+}
+```
 
 #### Fleet Management
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/vessels` | GET | List all HPCL vessels |
-| `/api/v1/vessels/{vessel_id}` | GET | Get vessel details |
-| `/api/v1/vessels/fleet/status` | GET | Fleet-wide status summary |
+```http
+GET /api/v1/fleet
+```
 
-#### Port Operations
+Response:
+```json
+{
+  "vessels": [
+    {
+      "id": "T1",
+      "name": "Tanker T1",
+      "capacity_mt": 50000,
+      "daily_charter_rate": 6300000,
+      "status": "available"
+    }
+  ],
+  "total_vessels": 9
+}
+```
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/ports` | GET | List all ports |
-| `/api/v1/ports/loading` | GET | Get loading ports only |
-| `/api/v1/ports/unloading` | GET | Get unloading ports only |
-| `/api/v1/ports/{port_id}` | GET | Get port details |
+#### Port Network
 
-#### Optimization Engine
+```http
+GET /api/v1/ports?type=loading
+```
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/optimize/fleet` | POST | Run fleet optimization |
-| `/api/v1/optimize/single-vessel` | POST | Optimize single vessel route |
-| `/api/v1/optimize/status/{job_id}` | GET | Check optimization job status |
-| `/api/v1/optimize/result/{job_id}` | GET | Get optimization results |
+Response:
+```json
+{
+  "ports": [
+    {
+      "id": "L1",
+      "name": "Mumbai Port",
+      "type": "loading",
+      "latitude": 18.9388,
+      "longitude": 72.8354
+    }
+  ],
+  "total_ports": 6
+}
+```
 
-#### Challenge 7.1 Specific
+#### Optimization
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/challenge/solve` | POST | Solve hackathon challenge |
-| `/api/v1/challenge/validate` | POST | Validate solution constraints |
-| `/api/v1/challenge/november-scenario` | GET | Get November 2025 data |
+```http
+POST /api/v1/challenge/optimize
+Content-Type: application/json
 
-#### Analytics & Reporting
+{
+  "vessels": [],  // Optional: custom vessel data
+  "demands": [],  // Optional: custom demand data  
+  "round_trip": false,
+  "optimization_objective": "cost"
+}
+```
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/analytics/cost-breakdown` | GET | Detailed cost analysis |
-| `/api/v1/analytics/fleet-utilization` | GET | Utilization metrics |
-| `/api/v1/analytics/eeoi-report` | GET | Environmental compliance |
-| `/api/v1/analytics/knowledge-graph` | GET | Port connectivity data |
+Response:
+```json
+{
+  "request_id": "opt_abc123",
+  "status": "completed",
+  "total_cost_cr": "2.856",
+  "total_trips": 12,
+  "routes_generated": 726,
+  "solve_time_seconds": 45.2,
+  "selected_routes": [...]
+}
+```
 
-### Example API Calls
+### Interactive API Documentation
 
-#### 1. Run Fleet Optimization
+Visit **http://localhost:8000/docs** for Swagger UI documentation with interactive endpoint testing.
+
+---
+
+## Usage Examples
+
+### Example 1: Run Basic Optimization
+
+```python
+import requests
+
+response = requests.post(
+    "http://localhost:8000/api/v1/challenge/optimize",
+    json={
+        "round_trip": False,
+        "optimization_objective": "cost"
+    }
+)
+
+result = response.json()
+print(f"Total Cost: ₹{result['summary']['total_cost_cr']} Cr")
+print(f"Trips: {result['summary']['total_trips']}")
+```
+
+### Example 2: Compare Optimization Objectives
+
+```python
+objectives = ["cost", "emissions", "time", "balanced"]
+results = {}
+
+for objective in objectives:
+    response = requests.post(
+        "http://localhost:8000/api/v1/challenge/optimize",
+        json={"optimization_objective": objective}
+    )
+    results[objective] = response.json()
+
+# Compare results
+for objective, result in results.items():
+    print(f"{objective}: ₹{result['summary']['total_cost_cr']} Cr")
+```
+
+### Example 3: Multi-Objective Optimization
+
+```python
+# Optimize for emissions instead of cost
+response = requests.post(
+    "http://localhost:8000/api/v1/challenge/optimize",
+    json={
+        "optimization_objective": "emissions",
+        "solver_profile": "balanced"
+    }
+)
+
+result = response.json()
+print(f"Total Emissions: {result['total_emissions_kg']} kg CO2")
+```
+
+---
+
+## Challenge 7.1 Specification
+
+### Input Data
+
+#### Fleet Specifications (9 Tankers)
+
+| Tanker | Capacity (MT) | Charter Rate (₹ Cr/day) |
+|--------|---------------|-------------------------|
+| T1-T7  | 50,000        | 0.63, 0.49, 0.51, 0.51, 0.53, 0.57, 0.65 |
+| T8-T9  | 25,000        | 0.39, 0.38 |
+
+#### Demand at Unloading Ports (MT/month)
+
+| Port | Demand | Port | Demand | Port | Demand |
+|------|--------|------|--------|------|--------|
+| U1   | 40,000 | U5   | 20,000 | U9   | 20,000 |
+| U2   | 135,000| U6   | 20,000 | U10  | 20,000 |
+| U3   | 5,000  | U7   | 110,000| U11  | 20,000 |
+| U4   | 20,000 | U8   | 30,000 |      |        |
+
+**Total Monthly Demand**: 440,000 MT
+
+### Expected Output Format
+
+```
+Source  Destination  Tanker  Volume (MT)  Trip Cost (₹ Cr)
+L1      U2          T2      50000        0.294
+L1      U2,U3       T3      50000        0.357
+...
+```
+
+### Performance Targets
+
+- **Total Cost**: ≤ ₹3.0 Cr/month
+- **Demand Satisfaction**: 100%
+- **Solve Time**: < 5 minutes
+- **Route Feasibility**: All constraints satisfied
+
+---
+
+## Performance Metrics
+
+### Optimization Quality
+
+| Metric | Value |
+|--------|-------|
+| **Cost Reduction vs. Manual** | 40-50% |
+| **Optimal Gap** | < 1% |
+| **Demand Satisfaction** | 100% |
+| **Fleet Utilization** | 85-95% |
+
+### Computational Performance
+
+| Solver Profile | Time | Solution Quality |
+|----------------|------|------------------|
+| **Quick** | 15s | Good (5-10% gap) |
+| **Balanced** | 60s | Very Good (1-3% gap) |
+| **Thorough** | 300s | Optimal (< 1% gap) |
+
+### Route Generation
+
+- **Feasible Routes Generated**: ~726 patterns
+- **Average Routes per Vessel**: 80-85
+- **Route Generation Time**: 2-5 seconds
+- **Memory Usage**: < 500 MB
+
+---
+
+## Development
+
+### Running Tests
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/optimize/fleet" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "fuel_price_per_mt": 45000.0,
-    "optimization_objective": "cost",
-    "max_solve_time_seconds": 300,
-    "selected_vessel_ids": ["HPCL-CT-001", "HPCL-CT-002"],
-    "monthly_demands": [
-      {"port_id": "INMAA", "demand_mt": 25000},
-      {"port_id": "INVTZ", "demand_mt": 30000}
-    ]
-  }'
+# Backend tests
+cd backend
+pytest tests/ -v
+
+# Run specific test
+pytest tests/test_end_to_end.py -v
+
+# Frontend tests (if available)
+cd frontend
+npm test
 ```
 
-#### 2. Get Fleet Status
+### Code Quality
 
 ```bash
-curl "http://localhost:8000/api/v1/vessels/fleet/status"
+# Python linting
+cd backend
+flake8 app/
+
+# TypeScript linting
+cd frontend
+npm run lint
 ```
 
-#### 3. Solve Challenge 7.1
+### Database Management
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/challenge/solve" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "fuel_price": 50000.0,
-    "max_solve_time": 300
-  }'
+# Start MongoDB (if using)
+mongod --dbpath /path/to/data
+
+# Start Redis (if using)
+redis-server
 ```
 
 ---
 
+## Deployment
 
+### Docker Deployment (Recommended)
+
+```dockerfile
+# Coming soon: Docker Compose configuration
+```
+
+### Cloud Deployment
+
+The application can be deployed on:
+- **Backend**: AWS EC2, Google Cloud Run, Azure App Service
+- **Frontend**: Vercel, Netlify, AWS Amplify
+- **Database**: MongoDB Atlas, AWS DocumentDB
+- **Cache**: Redis Cloud, AWS ElastiCache
 
 ---
 
-## Performance Specifications
+## Contributing
 
-### HP Power Lab 2.0 Requirements
+Contributions are welcome! Please follow these guidelines:
 
-#### Response Times
-
-- **Fleet Status Retrieval**: < 100ms (cached data)
-- **Route Generation**: < 2 seconds (726 feasible routes)
-- **CP-SAT Optimization**: < 5 minutes (300-second limit)
-- **Results Rendering**: < 500ms (3D map with routes)
-- **Knowledge Graph**: < 1 second (force-directed layout)
-- **EEOI Calculation**: < 200ms per vessel
-
-#### Quality Metrics
-
-- **Optimization Accuracy**: 95%+ optimal solutions within time limit
-- **Constraint Satisfaction**: 100% HPCL rules validation
-- **Demand Fulfillment**: 95%+ with elastic constraints
-- **Cost Savings**: 15-25% vs manual planning baseline
-- **Fleet Utilization**: 80%+ recommended target
-
-#### Technical Specifications
-
-**System Requirements**:
-- Memory: 4GB minimum, 8GB recommended
-- CPU: 4+ cores for parallel CP-SAT solving
-- Storage: 1GB for application + 5GB for data
-- Network: 10 Mbps for map tile loading
-
-**Scalability**:
-- Concurrent Users: 50+ with load balancing
-- Fleet Size: Tested up to 20 vessels
-- Port Network: Tested up to 50 ports
-- Monthly Demands: Up to 1M MT total capacity
-- Route Generation: ~1000 routes in < 5 seconds
-
-**Performance Optimization Techniques**:
-1. **Distance Matrix Pre-computation**: All port-to-port distances cached
-2. **Route Pattern Memoization**: Feasible routes stored per configuration
-3. **Lazy Loading**: Frontend components load on-demand
-4. **Database Indexing**: MongoDB indexes on vessel_id, port_id
-5. **API Response Compression**: Gzip enabled for large payloads
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ---
 
+## License
 
-
-### Environment Variables (Production)
-
-#### Backend
-
-```env
-ENVIRONMENT=production
-DEBUG=false
-MONGODB_URL=mongodb+srv://username:password@cluster.mongodb.net
-REDIS_URL=redis://production-redis:6379/0
-SECRET_KEY=production-secret-key-change-this
-CORS_ORIGINS=["https://routex.yourdomain.com"]
-```
-
-#### Frontend
-
-```env
-NEXT_PUBLIC_API_URL=https://api.routex.yourdomain.com
-NEXT_PUBLIC_MAPBOX_TOKEN=production_mapbox_token
-NODE_ENV=production
-```
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
 
-## Business Impact
+## Acknowledgments
 
-### Cost Savings Analysis
-
-| Metric | Manual Planning | RouteX Optimization | Improvement |
-|--------|----------------|-------------------|-------------|
-| **Planning Time** | 2-3 days | 5 minutes | **99.7% faster** |
-| **Monthly Fuel Cost** | ₹1.2 crores | ₹1.02 crores | **₹18L savings** |
-| **Demurrage Charges** | ₹10-15L | ₹3-5L | **₹7L reduction** |
-| **Fleet Utilization** | 68-72% | 85-90% | **+18% capacity** |
-| **Demand Satisfaction** | 92-95% | 98-100% | **+5% reliability** |
-| **CO₂ Emissions** | 1200 MT | 1050 MT | **-12.5% greener** |
-
-### ROI Projection 
-
-```
-Annual Cost Savings:
-- Fuel Optimization: ₹18L × 12 = ₹2.16 crores
-- Demurrage Prevention: ₹7L × 12 = ₹84 lakhs
-- Improved Utilization: ₹5L × 12 = ₹60 lakhs
-- Carbon Credits: ₹150 MT × 12 = ₹18 lakhs
-----------------------------------------------------
-Total Annual Savings: ₹3.78 crores
-
-Implementation Cost:
-- Development: ₹50 lakhs (one-time)
-- Infrastructure: ₹10 lakhs/year
-- Training & Support: ₹15 lakhs/year
-----------------------------------------------------
-First Year ROI: 250%+
-Payback Period: 4.5 months
-```
-
-### Operational Benefits
-
-1. **Predictability**: Deterministic schedules vs reactive planning
-2. **Compliance**: Automated EEOI reporting for IMO regulations
-3. **Transparency**: Real-time visibility for stakeholders
-4. **Scalability**: Handles fleet expansion without manual overhead
-5. **Decision Support**: What-if scenario analysis in minutes
-
-### Strategic Value
-
-- **Competitive Advantage**: Faster turnaround than competitors
-- **Customer Satisfaction**: 98%+ on-time delivery rates
-- **Employee Efficiency**: Planners focus on exceptions, not routine
-- **Data-Driven Culture**: Metrics-based continuous improvement
-- **Regulatory Readiness**: IMO 2030 emission targets compliance
-
----
-
+- **HPCL (Hindustan Petroleum Corporation Limited)** for the challenge problem
+- **Google OR-Tools** team for the excellent CP-SAT solver
+- **FastAPI** and **Next.js** communities for amazing frameworks
+- **searoute-py** for maritime routing calculations

@@ -3,19 +3,17 @@ HPCL Coastal Tanker Optimization - CP-SAT Optimization Engine
 OR-Tools CP-SAT solver for HPCL's Set Partitioning Problem
 """
 
-try:
-    from ortools.sat.python import cp_model
-except ImportError:
-    # Fallback to mock for Python 3.14 compatibility
-    from .ortools_mock import cp_model
-    
+from ortools.sat.python import cp_model
 from typing import List, Dict, Any, Optional, Tuple
 import time
 import logging
+import json
 from datetime import datetime, timedelta
 
 from ..models.schemas import HPCLVessel, HPCLPort, MonthlyDemand, OptimizationResult, VesselSchedule, VoyageActivity, ActivityType
 from .route_generator import HPCLRouteOptimizer
+from .infeasibility_analyzer import analyze_infeasibility
+from ..core.config import get_settings
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -26,14 +24,26 @@ class HPCLCPSATOptimizer:
     """
     HPCL CP-SAT Optimization Engine
     Solves Set Partitioning Problem for coastal tanker fleet optimization
+    With configurable solver parameters and structured logging
     """
     
-    def __init__(self):
+    def __init__(self, solver_profile: str = "balanced"):
         self.route_optimizer = HPCLRouteOptimizer()
         self.model = None
         self.solver = None
         self.decision_variables = {}
         self.constraints = {}
+        self.solver_profile = solver_profile
+        self.settings = get_settings()
+        self.metrics = {
+            "route_generation_time": 0,
+            "model_setup_time": 0,
+            "solve_time": 0,
+            "total_time": 0,
+            "num_routes": 0,
+            "num_variables": 0,
+            "num_constraints": 0
+        }
         
     async def optimize_hpcl_fleet(
         self,
@@ -43,17 +53,43 @@ class HPCLCPSATOptimizer:
         monthly_demands: List[MonthlyDemand],
         fuel_price_per_mt: float = 45000.0,
         optimization_objective: str = "cost",
-        max_solve_time_seconds: int = 300
+        max_solve_time_seconds: Optional[int] = None,
+        num_workers: Optional[int] = None
     ) -> OptimizationResult:
         """
         Main optimization function for HPCL fleet
+        With configurable solver parameters and comprehensive logging
         """
-        logger.info("Starting HPCL CP-SAT fleet optimization...")
-        start_time = time.time()
+        total_start = time.time()
+        logger.info(f"Starting HPCL CP-SAT fleet optimization (profile={self.solver_profile})...")
+        
+        # Get solver configuration from profile
+        profile_config = self.settings.solver_profiles.get(
+            self.solver_profile, 
+            self.settings.solver_profiles["balanced"]
+        )
+        
+        # Override with custom parameters if provided
+        solve_time = max_solve_time_seconds or profile_config["max_time_seconds"]
+        workers = num_workers or profile_config["num_workers"]
+        
+        logger.info(json.dumps({
+            "event": "optimization_start",
+            "solver_profile": self.solver_profile,
+            "max_time_seconds": solve_time,
+            "num_workers": workers,
+            "vessels_count": len(vessels),
+            "loading_ports": len(loading_ports),
+            "unloading_ports": len(unloading_ports),
+            "total_demand_mt": sum(d.demand_mt for d in monthly_demands),
+            "objective": optimization_objective
+        }))
         
         try:
             # Step 1: Generate all feasible routes (Set Partitioning columns)
+            route_gen_start = time.time()
             logger.info("Generating feasible routes...")
+            
             feasible_routes = await self.route_optimizer.generate_optimized_route_set(
                 vessels=vessels,
                 loading_ports=loading_ports,
@@ -62,16 +98,21 @@ class HPCLCPSATOptimizer:
                 optimization_focus=optimization_objective
             )
             
-            if not feasible_routes:
-                return self._create_error_result("No feasible routes generated", start_time)
+            self.metrics["route_generation_time"] = time.time() - route_gen_start
+            self.metrics["num_routes"] = len(feasible_routes)
             
-            logger.info(f"Generated {len(feasible_routes)} feasible routes")
+            if not feasible_routes:
+                return self._create_error_result("No feasible routes generated", total_start)
+            
+            logger.info(f"Generated {len(feasible_routes)} feasible routes in {self.metrics['route_generation_time']:.2f}s")
             
             # Step 2: Set up CP-SAT model
+            model_setup_start = time.time()
             self._initialize_cp_model()
             
             # Step 3: Create decision variables
             self._create_decision_variables(feasible_routes)
+            self.metrics["num_variables"] = len(self.decision_variables)
             
             # Step 4: Add constraints
             demand_dict = {demand.port_id: demand.demand_mt for demand in monthly_demands}
@@ -79,42 +120,88 @@ class HPCLCPSATOptimizer:
             self._add_vessel_time_constraints(feasible_routes, vessels)
             self._add_hpcl_operational_constraints(feasible_routes, vessels)
             
+            self.metrics["num_constraints"] = len(self.constraints)
+            self.metrics["model_setup_time"] = time.time() - model_setup_start
+            
             # Step 5: Set objective function
             self._set_optimization_objective(feasible_routes, optimization_objective)
+            
+            # Log model statistics
+            logger.info(json.dumps({
+                "event": "model_ready",
+                "num_variables": self.metrics["num_variables"],
+                "num_constraints": self.metrics["num_constraints"],
+                "model_setup_time": round(self.metrics["model_setup_time"], 2)
+            }))
             
             # Step 6: Solve the model
             logger.info("Starting CP-SAT solver...")
             solve_start = time.time()
             
-            # Configure solver
-            self.solver.parameters.max_time_in_seconds = max_solve_time_seconds
-            self.solver.parameters.num_search_workers = 4  # Use multiple cores
-            self.solver.parameters.log_search_progress = True
+            # Configure solver with profile parameters
+            self.solver.parameters.max_time_in_seconds = solve_time
+            self.solver.parameters.num_search_workers = workers
+            self.solver.parameters.log_search_progress = self.settings.solver_log_progress
             
             # Solve
             status = self.solver.Solve(self.model)
-            solve_time = time.time() - solve_start
+            self.metrics["solve_time"] = time.time() - solve_start
+            
+            # Log solver statistics
+            logger.info(json.dumps({
+                "event": "solve_complete",
+                "status": self.solver.StatusName(status),
+                "solve_time": round(self.metrics["solve_time"], 2),
+                "wall_time": round(self.solver.WallTime(), 2),
+                "best_objective_bound": float(self.solver.BestObjectiveBound()) if status != cp_model.INFEASIBLE else None,
+                "num_branches": self.solver.NumBranches(),
+                "num_conflicts": self.solver.NumConflicts()
+            }))
             
             # Step 7: Process results
             if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
                 result = await self._extract_optimization_result(
                     status, feasible_routes, vessels, unloading_ports, 
-                    demand_dict, solve_time, optimization_objective
+                    demand_dict, self.metrics["solve_time"], optimization_objective
+                )
+            elif status == cp_model.INFEASIBLE:
+                # Problem is infeasible - demands cannot be met
+                total_demand = sum(demand_dict.values())
+                total_capacity = sum(v.capacity_mt for v in vessels) * 10  # Max ~10 trips/vessel/month
+                result = self._create_infeasibility_result(
+                    total_demand, total_capacity, demand_dict, vessels, total_start
                 )
             else:
                 result = self._create_error_result(
                     f"Solver failed with status: {self.solver.StatusName(status)}", 
-                    start_time
+                    total_start
                 )
             
-            total_time = time.time() - start_time
-            logger.info(f"Optimization completed in {total_time:.2f} seconds")
+            self.metrics["total_time"] = time.time() - total_start
+            
+            # Final comprehensive log
+            logger.info(json.dumps({
+                "event": "optimization_complete",
+                "total_time": round(self.metrics["total_time"], 2),
+                "route_generation_time": round(self.metrics["route_generation_time"], 2),
+                "model_setup_time": round(self.metrics["model_setup_time"], 2),
+                "solve_time": round(self.metrics["solve_time"], 2),
+                "num_routes_generated": self.metrics["num_routes"],
+                "num_variables": self.metrics["num_variables"],
+                "num_constraints": self.metrics["num_constraints"],
+                "status": self.solver.StatusName(status) if self.solver else "ERROR",
+                "profile": self.solver_profile
+            }))
             
             return result
             
         except Exception as e:
-            logger.error(f"Optimization error: {e}")
-            return self._create_error_result(str(e), start_time)
+            logger.error(json.dumps({
+                "event": "optimization_error",
+                "error": str(e),
+                "error_type": type(e).__name__
+            }))
+            return self._create_error_result(str(e), total_start)
     
     def _initialize_cp_model(self):
         """
@@ -127,19 +214,41 @@ class HPCLCPSATOptimizer:
     
     def _create_decision_variables(self, feasible_routes: List[Dict[str, Any]]):
         """
-        Create decision variables for Set Partitioning Problem
-        x[route_id] = number of times route is executed (integer 0-10)
+        Create decision variables for continuous cargo flow model (HPCL-aligned)
+        
+        Two types of variables per route:
+        1. cargo_flow[r] = cargo volume (MT) transported on route r ∈ [0, vessel_capacity]
+        2. route_active[r] = binary indicator (1 if route is used, 0 otherwise)
+        
+        Linking constraint: if cargo_flow[r] > 0, then route_active[r] = 1
         """
         logger.info("Creating decision variables...")
         
+        self.cargo_flow_vars = {}
+        self.route_active_vars = {}
+        
         for route in feasible_routes:
             route_id = route['route_id']
-            # Each route can be executed 0 to 10 times per month
-            self.decision_variables[route_id] = self.model.NewIntVar(
-                0, 10, f"route_{route_id}"
+            vessel_capacity = route.get('vessel_capacity_mt', 50000)  # Default 50k MT
+            
+            # Continuous cargo flow variable: 0 to vessel capacity (MT)
+            self.cargo_flow_vars[route_id] = self.model.NewIntVar(
+                0, vessel_capacity, f"cargo_{route_id}"
+            )
+            
+            # Binary route activation indicator
+            self.route_active_vars[route_id] = self.model.NewBoolVar(f"active_{route_id}")
+            
+            # Linking constraint: cargo_flow[r] > 0 ⟹ route_active[r] = 1
+            # Implemented as: cargo_flow[r] ≤ vessel_capacity × route_active[r]
+            self.model.Add(
+                self.cargo_flow_vars[route_id] <= vessel_capacity * self.route_active_vars[route_id]
             )
         
-        logger.info(f"Created {len(self.decision_variables)} decision variables")
+        # For backward compatibility with existing code
+        self.decision_variables = self.cargo_flow_vars
+        
+        logger.info(f"Created {len(self.cargo_flow_vars)} cargo flow + {len(self.route_active_vars)} activation variables")
     
     def _add_demand_constraints(
         self, 
@@ -148,57 +257,84 @@ class HPCLCPSATOptimizer:
         unloading_ports: List[HPCLPort]
     ):
         """
-        Add elastic demand satisfaction constraints
+        Add EXACT demand satisfaction constraints per HPCL Challenge 7.1
+        Continuous cargo flow model: Σ cargo_flow[r] = demand[p] (exact equality)
+        No scaling, no tolerance - direct MT values
         """
-        logger.info("Adding demand constraints...")
+        logger.info("Adding demand satisfaction constraints (HPCL Challenge 7.1)...")
         
-        # Create shortage and excess variables for each unloading port
-        shortage_vars = {}
-        excess_vars = {}
+        # Track statistics
+        ports_with_routes = 0
+        ports_without_routes = 0
+        total_serving_routes = 0
         
+        # HPCL requirement: Delivered[p] = Demand[p] EXACTLY for all unloading ports
         for port in unloading_ports:
             port_id = port.id
-            demand = demand_dict.get(port_id, 0.0)
+            demand_mt = int(round(demand_dict.get(port_id, 0.0)))  # Integer MT
             
-            # Create slack variables
-            shortage_vars[port_id] = self.model.NewIntVar(0, int(demand), f"shortage_{port_id}")
-            excess_vars[port_id] = self.model.NewIntVar(0, int(demand * 2), f"excess_{port_id}")
+            if demand_mt == 0:
+                continue
             
-            # Find all routes that serve this port
-            serving_routes = []
+            # Build constraint terms based on route type
+            # For direct routes: full cargo goes to port
+            # For 2-discharge routes: half cargo goes to each port
+            
+            # Separate routes by type
+            direct_routes = []
+            split_routes = []
+            
             for route in feasible_routes:
                 if port_id in route['discharge_ports']:
-                    # Get cargo quantity delivered to this port
-                    cargo_delivered = route['cargo_split'].get(port_id, 0.0)
-                    if cargo_delivered > 0:
-                        serving_routes.append((route['route_id'], cargo_delivered))
+                    num_discharge_ports = len(route['discharge_ports'])
+                    if num_discharge_ports == 1:
+                        direct_routes.append(route)
+                    elif num_discharge_ports == 2:
+                        split_routes.append(route)
+                    else:
+                        logger.warning(f"Route {route['route_id']} has {num_discharge_ports} discharge ports (>2)")
             
-            if serving_routes:
-                # Demand constraint: Supply + Shortage - Excess = Demand
-                supply_terms = []
-                for route_id, cargo_qty in serving_routes:
-                    var = self.decision_variables[route_id]
-                    supply_terms.append(var * int(cargo_qty))
-                
-                # Convert demand to integer
-                demand_int = int(demand)
-                
-                self.model.Add(
-                    sum(supply_terms) + shortage_vars[port_id] - excess_vars[port_id] == demand_int
-                )
-                
-                self.constraints[f"demand_{port_id}"] = {
-                    'type': 'demand_satisfaction',
-                    'port': port_id,
-                    'demand': demand_int,
-                    'serving_routes': len(serving_routes)
-                }
+            if not direct_routes and not split_routes:
+                logger.warning(f"Port {port_id}: no viable routes")
+                continue
+            
+            # Build constraint: Σ direct_cargo + Σ (split_cargo / 2) = demand
+            # To avoid division, multiply through: 2×Σ direct_cargo + Σ split_cargo = 2×demand
+            constraint_terms = []
+            
+            for route in direct_routes:
+                cargo_var = self.cargo_flow_vars[route['route_id']]
+                constraint_terms.append(cargo_var * 2)  # Multiply by 2
+            
+            for route in split_routes:
+                cargo_var = self.cargo_flow_vars[route['route_id']]
+                constraint_terms.append(cargo_var)  # Already accounts for 1/2 split
+            
+            # Add exact equality constraint
+            self.model.Add(sum(constraint_terms) == demand_mt * 2)
+            
+            ports_with_routes += 1
+            total_serving_routes += len([r for r in feasible_routes if port_id in r['discharge_ports']])
+            
+            self.constraints[f"demand_{port_id}"] = {
+                'type': 'demand_satisfaction',
+                'port': port_id,
+                'demand': demand_mt,
+                'serving_routes': total_serving_routes
+            }
         
-        # Store slack variables for objective function
-        self.shortage_vars = shortage_vars
-        self.excess_vars = excess_vars
+        # Initialize empty dicts for compatibility
+        self.shortage_vars = {}
+        self.excess_vars = {}
         
-        logger.info(f"Added demand constraints for {len(unloading_ports)} ports")
+        logger.info(f"Added EXACT demand constraints for {ports_with_routes} ports (no tolerance)")
+        logger.info(f"Ports with routes: {ports_with_routes}, without routes: {ports_without_routes}, total assignments: {total_serving_routes}")
+        
+        # Log constraint details for debugging
+        for port_id, demand_mt in demand_dict.items():
+            direct_count = len([r for r in feasible_routes if port_id in r['discharge_ports'] and len(r['discharge_ports']) == 1])
+            split_count = len([r for r in feasible_routes if port_id in r['discharge_ports'] and len(r['discharge_ports']) == 2])
+            logger.info(f"  Port {port_id}: demand={demand_mt} MT, direct_routes={direct_count}, split_routes={split_count}")
     
     def _add_vessel_time_constraints(
         self, 
@@ -206,9 +342,12 @@ class HPCLCPSATOptimizer:
         vessels: List[HPCLVessel]
     ):
         """
-        Add vessel time budget constraints
+        Add vessel monthly time budget constraints (≤ 720 hours/month)
+        
+        HARD CONSTRAINT: Each vessel can work max 720 hours per month
+        (30 days × 24 hours = 720 hours operational constraint)
         """
-        logger.info("Adding vessel time constraints...")
+        logger.info("Adding vessel time constraints (≤ 720 hours/month)...")
         
         for vessel in vessels:
             vessel_id = vessel.id
@@ -220,15 +359,17 @@ class HPCLCPSATOptimizer:
             ]
             
             if vessel_routes:
-                # Time constraint: Sum of route times <= available hours
+                # Time constraint: Sum of (route_time × route_active) ≤ available_hours
+                # Time is incurred only if route is used (binary activation), NOT proportional to cargo
                 time_terms = []
                 for route in vessel_routes:
                     route_id = route['route_id']
-                    time_hours = route['total_time_hours']
-                    var = self.decision_variables[route_id]
-                    time_terms.append(var * int(time_hours))
+                    time_hours = int(round(route['total_time_hours']))  # Round to integer hours
+                    active_var = self.route_active_vars[route_id]
+                    time_terms.append(active_var * time_hours)
                 
-                available_hours = int(vessel.monthly_available_hours)
+                # Enforce max hours per month (rounded to integer)
+                available_hours = int(round(vessel.monthly_available_hours))
                 
                 self.model.Add(sum(time_terms) <= available_hours)
                 
@@ -238,8 +379,10 @@ class HPCLCPSATOptimizer:
                     'available_hours': available_hours,
                     'route_count': len(vessel_routes)
                 }
+                
+                logger.debug(f"Vessel {vessel_id}: {len(vessel_routes)} routes, max {available_hours} hours")
         
-        logger.info(f"Added time constraints for {len(vessels)} vessels")
+        logger.info(f"Added time constraints for {len(vessels)} vessels (HARD: ≤ 720 hours/month)")
     
     def _add_hpcl_operational_constraints(
         self, 
@@ -260,7 +403,7 @@ class HPCLCPSATOptimizer:
             
             if vessel_routes:
                 # A vessel cannot execute too many routes simultaneously
-                route_vars = [self.decision_variables[route['route_id']] for route in vessel_routes]
+                route_vars = [self.route_active_vars[route['route_id']] for route in vessel_routes]
                 self.model.Add(sum(route_vars) <= 8)  # Max 8 voyages per month
         
         # Constraint 2: Load balancing among vessels
@@ -279,11 +422,12 @@ class HPCLCPSATOptimizer:
                 vessel_utilizations.append(utilization)
         
         # Add load balancing constraint (optional - can be relaxed)
-        if len(vessel_utilizations) > 1:
-            avg_utilization = sum(vessel_utilizations) // len(vessel_utilizations)
-            for utilization in vessel_utilizations:
-                # No vessel should be idle while others are overutilized
-                self.model.Add(utilization >= avg_utilization // 2)
+        # Note: Commented out floor division as CP-SAT doesn't support // on SumArray
+        # if len(vessel_utilizations) > 1:
+        #     avg_utilization = sum(vessel_utilizations) // len(vessel_utilizations)
+        #     for utilization in vessel_utilizations:
+        #         # No vessel should be idle while others are overutilized
+        #         self.model.Add(utilization >= avg_utilization // 2)
         
         logger.info("Added HPCL operational constraints")
     
@@ -294,58 +438,57 @@ class HPCLCPSATOptimizer:
     ):
         """
         Set the optimization objective function
+        Note: With hard demand constraints, no penalty terms needed for unmet demand
         """
         logger.info(f"Setting objective: {optimization_objective}")
         
         objective_terms = []
         
         if optimization_objective == "cost":
-            # Minimize total cost
+            # Minimize total cost (route fixed cost + cargo-proportional cost)
+            # For HPCL: Cost = Charter cost (fixed per trip) + Fuel (proportional to cargo)
+            # Simplified: use route activation for fixed costs
             for route in feasible_routes:
                 route_id = route['route_id']
-                cost = int(route['total_cost'])
-                var = self.decision_variables[route_id]
-                objective_terms.append(var * cost)
+                # Use route activation as proxy (binary: route used or not)
+                # Cost scaled to avoid precision loss
+                cost_scaled = int(route['total_cost'] / 100)  # Scale down to manageable range
+                active_var = self.route_active_vars[route_id]
+                objective_terms.append(active_var * cost_scaled)
                 
         elif optimization_objective == "emissions":
             # Minimize CO2 emissions (use fuel consumption as proxy)
             for route in feasible_routes:
                 route_id = route['route_id']
-                fuel_consumption = int(route.get('fuel_consumption_mt', 0) * 1000)  # Scale up
-                var = self.decision_variables[route_id]
-                objective_terms.append(var * fuel_consumption)
+                fuel_consumption = int(route.get('fuel_consumption_mt', 0) * 100)  # Scale
+                active_var = self.route_active_vars[route_id]
+                objective_terms.append(active_var * fuel_consumption)
                 
         elif optimization_objective == "time":
             # Minimize total voyage time
             for route in feasible_routes:
                 route_id = route['route_id']
                 time = int(route['total_time_hours'])
-                var = self.decision_variables[route_id]
-                objective_terms.append(var * time)
+                active_var = self.route_active_vars[route_id]
+                objective_terms.append(active_var * time)
                 
         else:  # balanced
             # Balanced objective: cost + time
             for route in feasible_routes:
                 route_id = route['route_id']
                 cost = int(route['total_cost'] / 1000)  # Scale down cost
-                time = int(route['total_time_hours'] * 100)  # Scale up time
-                var = self.decision_variables[route_id]
-                objective_terms.append(var * (cost + time))
+                time = int(route['total_time_hours'])
+                active_var = self.route_active_vars[route_id]
+                objective_terms.append(active_var * (cost + time))
         
-        # Add penalty for unmet demand (high penalty)
-        shortage_penalty = 1000000  # ₹10 lakh per MT shortage
-        for port_id, shortage_var in self.shortage_vars.items():
-            objective_terms.append(shortage_var * shortage_penalty)
-        
-        # Add small penalty for excess delivery
-        excess_penalty = 50000  # ₹50,000 per MT excess
-        for port_id, excess_var in self.excess_vars.items():
-            objective_terms.append(excess_var * excess_penalty)
+        # NO shortage/excess penalties - we use hard constraints instead
+        # This ensures the solver finds a feasible solution that meets all demand
+        # or returns INFEASIBLE status
         
         # Set objective to minimize
         self.model.Minimize(sum(objective_terms))
         
-        logger.info(f"Objective set with {len(objective_terms)} terms")
+        logger.info(f"Objective set with {len(objective_terms)} cost/time terms (hard demand constraints, no penalties)")
     
     async def _extract_optimization_result(
         self,
@@ -362,7 +505,7 @@ class HPCLCPSATOptimizer:
         """
         logger.info("Extracting optimization results...")
         
-        # Get selected routes
+        # Get selected routes with continuous cargo flow values
         selected_routes = []
         total_cost = 0.0
         total_distance = 0.0
@@ -370,24 +513,29 @@ class HPCLCPSATOptimizer:
         
         for route in feasible_routes:
             route_id = route['route_id']
-            var = self.decision_variables[route_id]
-            execution_count = self.solver.Value(var)
+            cargo_flow = self.solver.Value(self.cargo_flow_vars[route_id])
+            route_active = self.solver.Value(self.route_active_vars[route_id])
             
-            if execution_count > 0:
-                # Scale route metrics by execution count
+            if route_active > 0:  # Route is used
+                # Create route copy with actual cargo flow
                 route_copy = route.copy()
-                route_copy['execution_count'] = execution_count
-                route_copy['scaled_cost'] = route['total_cost'] * execution_count
-                route_copy['scaled_distance'] = route['total_distance_nm'] * execution_count
-                route_copy['scaled_cargo'] = route['cargo_quantity'] * execution_count
+                route_copy['cargo_flow_mt'] = cargo_flow  # Actual cargo transported (may be < capacity)
+                route_copy['execution_count'] = 1  # Binary: route either happens or doesn't
+                
+                # Cost calculation: fixed trip cost (not cargo-proportional for HPCL charter cost)
+                # But fuel may be cargo-proportional - for now use route total_cost as-is
+                route_copy['scaled_cost'] = route['total_cost']
+                route_copy['scaled_distance'] = route['total_distance_nm']
+                route_copy['scaled_cargo'] = cargo_flow  # Use actual cargo, not capacity
                 
                 selected_routes.append(route_copy)
                 
                 total_cost += route_copy['scaled_cost']
                 total_distance += route_copy['scaled_distance']
-                total_cargo += route_copy['scaled_cargo']
+                total_cargo += cargo_flow
         
         # Calculate demand satisfaction
+        # With hard constraints, all demand is met exactly (if solution is feasible)
         demands_met = {}
         unmet_demand = {}
         
@@ -395,16 +543,39 @@ class HPCLCPSATOptimizer:
             port_id = port.id
             original_demand = demand_dict.get(port_id, 0.0)
             
-            shortage = self.solver.Value(self.shortage_vars.get(port_id, 0))
-            excess = self.solver.Value(self.excess_vars.get(port_id, 0))
+            # Calculate actual delivered quantity from selected routes
+            # For continuous cargo flow model: need to account for cargo split
+            delivered = 0.0
+            for route in selected_routes:
+                if port_id in route['discharge_ports']:
+                    num_discharge_ports = len(route['discharge_ports'])
+                    cargo_flow = route['cargo_flow_mt']
+                    
+                    if num_discharge_ports == 1:
+                        # Direct delivery: full cargo to this port
+                        delivered += cargo_flow
+                    elif num_discharge_ports == 2:
+                        # Split delivery: half cargo to this port
+                        delivered += cargo_flow / 2
             
-            met_demand = original_demand - shortage + excess
-            demands_met[port_id] = max(0, met_demand)
-            unmet_demand[port_id] = max(0, shortage)
+            demands_met[port_id] = delivered
+            # With exact equality constraints, unmet should always be 0 if feasible
+            unmet_demand[port_id] = max(0, original_demand - delivered)
         
         total_demand = sum(demand_dict.values())
         total_met = sum(demands_met.values())
         demand_satisfaction_rate = (total_met / total_demand * 100) if total_demand > 0 else 0
+        
+        # Log demand satisfaction details for debugging
+        logger.info(f"Demand Satisfaction Summary:")
+        logger.info(f"  Total Demand: {total_demand} MT")
+        logger.info(f"  Total Delivered: {total_met} MT")
+        logger.info(f"  Satisfaction Rate: {demand_satisfaction_rate:.2f}%")
+        for port_id in sorted(demands_met.keys()):
+            demand = demand_dict.get(port_id, 0)
+            delivered = demands_met[port_id]
+            unmet = unmet_demand[port_id]
+            logger.info(f"  Port {port_id}: demand={demand} MT, delivered={delivered} MT, unmet={unmet} MT")
         
         # Generate vessel schedules
         vessel_schedules = await self._generate_vessel_schedules(selected_routes, vessels)
@@ -439,7 +610,7 @@ class HPCLCPSATOptimizer:
                     'total_cost': route['total_cost'],
                     'total_distance_nm': route['total_distance_nm'],
                     'total_time_hours': route['total_time_hours'],
-                    'cargo_quantity': route['cargo_quantity'],
+                    'cargo_quantity': route['cargo_flow_mt'],  # Use actual cargo flow from solver, not vessel capacity
                     'execution_count': route['execution_count']
                 }
                 for route in selected_routes
@@ -623,6 +794,49 @@ class HPCLCPSATOptimizer:
             recommendations.append("Optimization results look good. Current fleet deployment appears efficient.")
         
         return recommendations
+    
+    def _create_infeasibility_result(
+        self, 
+        total_demand: float, 
+        total_capacity: float,
+        demand_dict: Dict[str, float],
+        vessels: List[HPCLVessel],
+        start_time: float
+    ) -> OptimizationResult:
+        """
+        Create result when problem is infeasible with detailed explanation
+        """
+        capacity_gap = total_demand - total_capacity
+        
+        recommendations = [
+            f"⚠️ INFEASIBLE: Total demand ({total_demand:,.0f} MT) exceeds available fleet capacity ({total_capacity:,.0f} MT)",
+            f"Capacity gap: {capacity_gap:,.0f} MT shortage",
+            f"Suggested solutions:",
+            f"  1. Charter additional vessel(s) with minimum {capacity_gap:,.0f} MT capacity",
+            f"  2. Allow vessels to make additional trips (currently limited to ~10/month)",
+            f"  3. Consider multi-loading port operations (currently restricted to single loading)",
+            f"  4. Reduce demand at high-demand ports: " + ", ".join(
+                f"{port_id} ({demand:,.0f} MT)" 
+                for port_id, demand in sorted(demand_dict.items(), key=lambda x: -x[1])[:3]
+            )
+        ]
+        
+        return OptimizationResult(
+            request_id=f"hpcl_infeasible_{int(time.time())}",
+            month="2025-11",
+            optimization_status="infeasible",
+            solve_time_seconds=time.time() - start_time,
+            selected_routes=[],
+            vessel_schedules=[],
+            total_cost=0.0,
+            total_distance_nm=0.0,
+            total_cargo_mt=0.0,
+            fleet_utilization=0.0,
+            demands_met={port_id: 0.0 for port_id in demand_dict.keys()},
+            unmet_demand=demand_dict.copy(),
+            demand_satisfaction_rate=0.0,
+            recommendations=recommendations
+        )
     
     def _create_error_result(self, error_message: str, start_time: float) -> OptimizationResult:
         """
