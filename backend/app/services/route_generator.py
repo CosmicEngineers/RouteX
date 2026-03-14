@@ -32,60 +32,61 @@ SINGLE_LOADING_CONSTRAINT = True
 TRIP_TIMES_LOAD_TO_UNLOAD = get_challenge_trip_times_load_to_unload()
 TRIP_TIMES_UNLOAD_TO_UNLOAD = get_challenge_trip_times_unload_to_unload()
 
-# Service time constants (hours)
-LOADING_TIME_HOURS = 6.0  # 6 hours for loading
-UNLOADING_TIME_HOURS_PER_PORT = 4.0  # 4 hours per unloading port
+# NOTE: No service time constants — the PS trip time tables already
+# encode full trip duration (loading + sailing + unloading). Adding
+# extra service time would double-count and contradict the PS.
 
 
 def calculate_trip_time_from_tables(
     loading_port_id: str,
     discharge_port_ids: List[str],
-    include_service_time: bool = True,
+    include_service_time: bool = False,  # Service time NOT added — PS tables encode full duration
     include_return_trip: bool = False
 ) -> float:
     """
-    Calculate trip time using exact trip time tables from challenge data.
-    
+    Calculate trip time using exact trip time tables from the Challenge 7.1 PS.
+
+    The PS provides trip times in days directly — these represent the total
+    time for each voyage leg. No service time is added on top.
+
     Args:
         loading_port_id: Loading port ID (L1-L6)
         discharge_port_ids: List of discharge port IDs (U1-U11), max 2 ports
-        include_service_time: Include loading/unloading time
+        include_service_time: Kept for API compatibility but has NO EFFECT.
+                              PS tables already encode full trip time.
         include_return_trip: Include return journey from last discharge back to loading port
-    
+
     Returns:
         Total trip time in days
     """
     if not discharge_port_ids:
         return 0.0
-    
+
     total_trip_time_days = 0.0
-    
-    # Step 1: Loading port to first discharge port
+
+    # Step 1: Loading port to first discharge port (from PS table)
     first_discharge = discharge_port_ids[0]
     load_to_first_unload = TRIP_TIMES_LOAD_TO_UNLOAD.get(loading_port_id, {}).get(first_discharge, 0.5)
     total_trip_time_days += load_to_first_unload
-    
-    # Step 2: If there's a second discharge port, add inter-port sailing time
+
+    # Step 2: If there's a second discharge port, add inter-port sailing time (from PS table)
     if len(discharge_port_ids) > 1:
         for i in range(len(discharge_port_ids) - 1):
             from_port = discharge_port_ids[i]
             to_port = discharge_port_ids[i + 1]
             unload_to_unload = TRIP_TIMES_UNLOAD_TO_UNLOAD.get(from_port, {}).get(to_port, 0.2)
             total_trip_time_days += unload_to_unload
-    
-    # Step 3: Add service time (loading + unloading)
-    if include_service_time:
-        loading_time_days = LOADING_TIME_HOURS / 24.0
-        unloading_time_days = (UNLOADING_TIME_HOURS_PER_PORT * len(discharge_port_ids)) / 24.0
-        total_trip_time_days += loading_time_days + unloading_time_days
-    
-    # Step 4: Add return trip if needed (from last discharge port back to loading port)
+
+    # Step 3: include_service_time parameter is intentionally ignored.
+    # The PS trip time tables represent the complete voyage duration.
+    # Adding extra loading/unloading time would contradict the PS data.
+
+    # Step 4: Add return trip sailing time if needed
     if include_return_trip:
         last_discharge = discharge_port_ids[-1]
-        # Return time is approximately same as load to unload (reverse route)
         return_time = TRIP_TIMES_LOAD_TO_UNLOAD.get(loading_port_id, {}).get(last_discharge, 0.5)
         total_trip_time_days += return_time
-    
+
     return total_trip_time_days
 
 
@@ -205,89 +206,80 @@ class HPCLRouteGenerator:
         max_time_per_mt: float
     ) -> List[Dict[str, Any]]:
         """
-        Prune infeasible and dominated routes for better performance
-        
-        Pruning heuristics:
-        1. Drop routes with trip_time > vessel available time
-        2. Drop routes with cost-per-MT > threshold
-        3. Drop routes with time-per-MT > threshold
-        4. Drop dominated routes (same ports, worse on all metrics)
+        Prune physically infeasible routes only.
+
+        REMOVED heuristics:
+        - Cost-per-MT threshold (was 2500 Rs/MT) — arbitrary, caused ports like
+          U3 (5,000 MT demand) to lose all serving routes → artificial infeasibility.
+        - Time-per-MT threshold — similarly arbitrary and dangerous.
+
+        KEPT heuristic:
+        - Drop routes where trip_time > vessel_available_hours (physical impossibility).
+          With monthly averaging allowance: any single trip > 720 hours is infeasible.
+
+        Dominated-route removal is also kept as it only removes strictly worse routes.
         """
         logger.info(f"Applying pruning heuristics to {len(routes)} routes...")
-        
+
         pruned_routes = []
-        
-        # Heuristic 1: Prune routes exceeding vessel available time
+
+        # Only hard physical constraint: trip must fit in one month
         for route in routes:
             trip_time_hours = route.get('total_time_hours', 0)
             if trip_time_hours > vessel_available_hours:
                 self.pruning_stats['pruned_time_exceeded'] += 1
                 continue
-            
-            # Heuristic 2: Prune routes with high cost-per-MT
-            cost_per_mt = route.get('cost_per_mt', 0)
-            if cost_per_mt > max_cost_per_mt:
-                self.pruning_stats['pruned_cost_threshold'] += 1
-                continue
-            
-            # Heuristic 3: Prune routes with high time-per-MT
-            total_cargo = sum(route.get('cargo_split', {}).values())
-            if total_cargo > 0:
-                time_per_mt = (trip_time_hours / 24.0) / total_cargo
-                if time_per_mt > max_time_per_mt:
-                    self.pruning_stats['pruned_cost_threshold'] += 1
-                    continue
-            
             pruned_routes.append(route)
-        
-        # Heuristic 4: Remove dominated routes
+
+        # Remove strictly dominated routes (safe — only removes worse options)
         final_routes = self._remove_dominated_routes(pruned_routes)
-        
+
         logger.info(f"Pruning complete: {len(routes)} → {len(final_routes)} routes")
         return final_routes
     
     def _remove_dominated_routes(self, routes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Remove routes that are dominated by others
+        Remove routes that are dominated by others.
         Route A dominates Route B if:
-        - Same vessel and same port combination
-        - A has lower cost AND lower time
+        - Same vessel, same loading port, and same discharge port *sequence*
+        - A has lower cost AND lower time than B.
+
+        IMPORTANT: Port order is preserved in the key (no `sorted()`), because
+        L→U1→U2 and L→U2→U1 have different inter-port trip times from the PS
+        tables (the U→U matrix is not symmetric).
         """
-        # Group routes by vessel and port combination
         route_groups: Dict[str, List[Dict[str, Any]]] = {}
-        
+
         for route in routes:
-            key = f"{route['vessel_id']}_{route['loading_port']}_{'_'.join(sorted(route['discharge_ports']))}"
+            # Preserve discharge port ORDER — asymmetric trip times mean order matters
+            discharge_seq = '→'.join(route['discharge_ports'])
+            key = f"{route['vessel_id']}_{route['loading_port']}_{discharge_seq}"
             if key not in route_groups:
                 route_groups[key] = []
             route_groups[key].append(route)
-        
+
         non_dominated = []
-        
+
         for group in route_groups.values():
             if len(group) == 1:
                 non_dominated.extend(group)
                 continue
-            
-            # Find Pareto-optimal routes (non-dominated)
+
             for route_a in group:
                 is_dominated = False
                 for route_b in group:
-                    if route_a == route_b:
+                    if route_a is route_b:
                         continue
-                    
-                    # Check if route_b dominates route_a
                     if (route_b.get('total_cost', float('inf')) <= route_a.get('total_cost', float('inf')) and
                         route_b.get('total_time_hours', float('inf')) <= route_a.get('total_time_hours', float('inf')) and
-                        (route_b.get('total_cost') < route_a.get('total_cost') or 
+                        (route_b.get('total_cost') < route_a.get('total_cost') or
                          route_b.get('total_time_hours') < route_a.get('total_time_hours'))):
                         is_dominated = True
                         self.pruning_stats['pruned_dominated'] += 1
                         break
-                
                 if not is_dominated:
                     non_dominated.append(route_a)
-        
+
         return non_dominated
     
     async def _generate_direct_routes(
@@ -384,37 +376,30 @@ class HPCLRouteGenerator:
             cargo_split = self._calculate_cargo_split(vessel.capacity_mt, discharge_ports, route_type)
             total_cargo_mt = sum(cargo_split.values())
             
-            # Calculate cost using EXACT trip time
-            # Cost = (trip_days × charter_rate) + port_charges + fuel
+            # ─── HPCL Challenge 7.1 Cost Formula ────────────────────────────
+            # Cost = Charter Hire Rate (Rs Cr/day) × Trip Duration (days)
+            # No port charges, no fuel surcharges — only charter cost per PS.
+            # ─────────────────────────────────────────────────────────────────
             charter_cost = total_time_days * vessel.daily_charter_rate
-            
-            # Calculate port charges (simplified)
-            port_charges = loading_port.port_charges_per_visit or 100000
-            for discharge_port in discharge_ports:
-                port_charges += (discharge_port.port_charges_per_visit or 80000)
-            
-            # Calculate fuel cost (based on actual sailing time, not including service time)
-            sailing_time_days = calculate_trip_time_from_tables(
-                loading_port_id=loading_port.id,
-                discharge_port_ids=discharge_port_ids,
-                include_service_time=False,  # Only sailing time for fuel
-                include_return_trip=False
-            )
+            total_cost = charter_cost  # PS-correct: charter cost only
+
+            # Informational breakdown (not included in total_cost)
+            # Kept for data richness but NOT used by optimizer objective.
+            sailing_time_days = total_time_days  # PS tables give full trip time
             fuel_consumption_mt = vessel.fuel_consumption_mt_per_day * sailing_time_days
             fuel_cost = fuel_consumption_mt * fuel_price_per_mt
-            
-            # Total cost composition
-            total_cost = charter_cost + port_charges + fuel_cost
+            port_charges = (loading_port.port_charges_per_visit or 100000) + sum(
+                (dp.port_charges_per_visit or 80000) for dp in discharge_ports
+            )
             
             cost_breakdown = {
                 'charter_cost': charter_cost,
-                'port_charges': port_charges,
-                'fuel_cost': fuel_cost,
-                'total_cost': total_cost,
+                'port_charges_informational': port_charges,
+                'fuel_cost_informational': fuel_cost,
+                'total_cost': total_cost,  # PS-correct: charter cost only
                 'fuel_consumption_mt': fuel_consumption_mt,
                 'trip_time_days': total_time_days,
-                'sailing_time_days': sailing_time_days,
-                'service_time_days': total_time_days - sailing_time_days
+                'charter_rate_cr_per_day': vessel.daily_charter_rate / 10_000_000  # in Rs Cr
             }
             
             # Get route coordinates for visualization
@@ -428,37 +413,42 @@ class HPCLRouteGenerator:
                 'route_id': route_id,
                 'vessel_id': vessel.id,
                 'vessel_name': vessel.name,
+                'vessel_capacity_mt': vessel.capacity_mt,  # Fix Bug 6: explicit per-vessel capacity
                 'route_type': route_type,
-                
+
                 # Route structure
                 'loading_port': loading_port.id,
                 'discharge_ports': [port.id for port in discharge_ports],
                 'route_segments': route_segments,
-                
-                # EXACT metrics from trip time tables
+
+                # EXACT metrics from PS trip time tables
                 'total_time_hours': round(total_time_hours, 2),
                 'total_time_days': round(total_time_days, 3),
                 'total_distance_nm': round(total_distance_nm, 2),
+
+                # PS-correct cost: charter rate × trip days only
                 'total_cost': round(total_cost, 2),
-                'cargo_quantity': total_cargo_mt,
-                'cargo_split': cargo_split,
-                
-                # Cost breakdown
+                'total_cost_cr': round(total_cost / 10_000_000, 6),  # In Rs Crore for display
+                'charter_rate_cr_per_day': vessel.daily_charter_rate / 10_000_000,
+
+                # Cargo (capacity is the upper bound; actual allocation decided by optimizer)
+                'cargo_quantity': vessel.capacity_mt,  # vessel capacity (full load)
+                'cargo_split': cargo_split,  # informational; optimizer decides actual split
+
+                # Cost breakdown (informational)
                 'cost_breakdown': cost_breakdown,
-                
+
                 # Visualization data
                 'route_coordinates': route_coordinates,
-                
+
                 # Operational data
-                'sailing_time_hours': round(sailing_time_days * 24, 2),
-                'port_time_hours': round((total_time_days - sailing_time_days) * 24, 2),
                 'fuel_consumption_mt': round(fuel_consumption_mt, 2),
-                
+
                 # Performance indicators
                 'cost_per_nm': round(total_cost / total_distance_nm, 2) if total_distance_nm > 0 else 0,
-                'cost_per_mt': round(total_cost / total_cargo_mt, 2) if total_cargo_mt > 0 else 0,
+                'cost_per_mt': round(total_cost / vessel.capacity_mt, 2) if vessel.capacity_mt > 0 else 0,
                 'cost_per_day': round(total_cost / total_time_days, 2) if total_time_days > 0 else 0,
-                
+
                 # Metadata
                 'generated_at': datetime.now().isoformat(),
                 'fuel_price_used': fuel_price_per_mt
@@ -524,25 +514,26 @@ class HPCLRouteGenerator:
         return loading_time + total_unloading_time + waiting_time
     
     def _calculate_cargo_split(
-        self, 
-        vessel_capacity: float, 
-        discharge_ports: List[HPCLPort], 
+        self,
+        vessel_capacity: float,
+        discharge_ports: List[HPCLPort],
         route_type: str
     ) -> Dict[str, float]:
         """
-        Calculate how cargo is split among discharge ports
+        Return cargo capacity upper bounds per discharge port.
+
+        For direct routes: full vessel capacity to single port.
+        For 2-port routes: each port gets up to full vessel capacity as upper
+        bound — the CP-SAT optimizer decides actual cargo amounts, subject to
+        the constraint that total cargo <= vessel capacity.
+
+        The old 50/50 equal-split assumption has been removed because the PS
+        does NOT require equal splits. The optimizer freely allocates cargo
+        to minimize cost while meeting each port's exact demand.
         """
         cargo_split = {}
-        
-        if route_type == "direct":
-            # Single discharge port gets all cargo
-            cargo_split[discharge_ports[0].id] = vessel_capacity
-        else:
-            # Split cargo equally among discharge ports (can be optimized later)
-            cargo_per_port = vessel_capacity / len(discharge_ports)
-            for port in discharge_ports:
-                cargo_split[port.id] = cargo_per_port
-        
+        for port in discharge_ports:
+            cargo_split[port.id] = vessel_capacity  # Upper bound only
         return cargo_split
     
     async def _get_route_coordinates_chain(
@@ -688,66 +679,28 @@ class HPCLRouteOptimizer:
     
     def _filter_by_cost_efficiency(self, routes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Filter routes by cost efficiency (cost per MT)
+        Return all routes sorted by cost efficiency — no routes are dropped.
+
+        Previous 50% culling was removed because it could eliminate the only
+        route serving a low-demand port (e.g. U3=5,000 MT) causing artificial
+        infeasibility. The CP-SAT solver is better positioned to select
+        cost-efficient routes among all feasible options.
         """
-        # Sort by cost per MT and keep top performers per vessel-port combination
-        route_groups = {}
-        
-        for route in routes:
-            key = f"{route['vessel_id']}_{route['loading_port']}"
-            if key not in route_groups:
-                route_groups[key] = []
-            route_groups[key].append(route)
-        
-        filtered_routes = []
-        for group in route_groups.values():
-            # Sort by cost per MT and keep top 50%
-            group.sort(key=lambda r: r.get('cost_per_mt', float('inf')))
-            keep_count = max(1, len(group) // 2)
-            filtered_routes.extend(group[:keep_count])
-        
-        return filtered_routes
+        return sorted(routes, key=lambda r: r.get('cost_per_mt', float('inf')))
     
     def _filter_by_time_efficiency(self, routes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Filter routes by time efficiency
+        Return all routes sorted by time efficiency — no routes are dropped.
+        Same reasoning as _filter_by_cost_efficiency: no culling.
         """
-        # Similar filtering logic but based on total_time_hours
-        route_groups = {}
-        
-        for route in routes:
-            key = f"{route['vessel_id']}_{route['loading_port']}"
-            if key not in route_groups:
-                route_groups[key] = []
-            route_groups[key].append(route)
-        
-        filtered_routes = []
-        for group in route_groups.values():
-            group.sort(key=lambda r: r.get('total_time_hours', float('inf')))
-            keep_count = max(1, len(group) // 2)
-            filtered_routes.extend(group[:keep_count])
-        
-        return filtered_routes
+        return sorted(routes, key=lambda r: r.get('total_time_hours', float('inf')))
     
     def _filter_by_distance_efficiency(self, routes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Filter routes by distance efficiency
+        Return all routes sorted by distance — no routes are dropped.
+        Same reasoning as _filter_by_cost_efficiency: no culling.
         """
-        route_groups = {}
-        
-        for route in routes:
-            key = f"{route['vessel_id']}_{route['loading_port']}"
-            if key not in route_groups:
-                route_groups[key] = []
-            route_groups[key].append(route)
-        
-        filtered_routes = []
-        for group in route_groups.values():
-            group.sort(key=lambda r: r.get('total_distance_nm', float('inf')))
-            keep_count = max(1, len(group) // 2)
-            filtered_routes.extend(group[:keep_count])
-        
-        return filtered_routes
+        return sorted(routes, key=lambda r: r.get('total_distance_nm', float('inf')))
 
 
 # Initialize global route generator

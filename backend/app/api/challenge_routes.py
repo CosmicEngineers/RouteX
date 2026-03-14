@@ -84,8 +84,16 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
         # Convert simplified vessel data to full HPCLVessel model with defaults
         vessels = []
         for v in vessels_data:
+            vessel_id = v.get("id", f"T{len(vessels)+1}")
+            # Bug 13 fix: use vessel-specific fuel consumption per PS
+            # T8 and T9 are 25,000 MT vessels with lower fuel consumption (15 MT/day)
+            # T1-T7 are 50,000 MT vessels (25 MT/day)
+            if vessel_id in ("T8", "T9"):
+                default_fuel = 15.0
+            else:
+                default_fuel = 25.0
             vessel_dict = {
-                "id": v.get("id", f"T{len(vessels)+1}"),
+                "id": vessel_id,
                 "name": v.get("id", f"Tanker {len(vessels)+1}"),
                 "imo_number": f"IMO{9000000 + len(vessels)}",
                 "capacity_mt": v.get("capacity_mt", 50000),
@@ -94,7 +102,7 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
                 "beam_m": 32.0,
                 "draft_m": 12.0,
                 "speed_knots": 14.0,
-                "fuel_consumption_mt_per_day": 35.0,
+                "fuel_consumption_mt_per_day": v.get("fuel_consumption_mt_per_day", default_fuel),
                 "daily_charter_rate": v.get("charter_rate_cr_per_day", 0.5) * 10000000,  # Convert Cr to Rs
                 "crew_size": 25,
                 "status": "available",
@@ -106,21 +114,9 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
         unloading_ports = [HPCLPort(**p) for p in unloading_ports_data]
         monthly_demands = [MonthlyDemand(**d) for d in demands_data]
         
-        # Pre-flight validation
-        total_demand = sum(d.demand_mt for d in monthly_demands)
-        total_capacity = sum(v.capacity_mt for v in vessels) * 10  # Assume max 10 trips/vessel/month
-        
-        if total_demand > total_capacity:
-            return {
-                "status": "infeasible",
-                "error": f"Total demand ({total_demand:,.0f} MT) exceeds fleet capacity ({total_capacity:,.0f} MT)",
-                "suggestions": [
-                    f"Charter additional capacity: {total_demand - total_capacity:,.0f} MT needed",
-                    "Reduce demand or increase trips per vessel"
-                ],
-                "timestamp": datetime.now().isoformat()
-            }
-        
+        # No pre-flight capacity check with magic-number multiplier.
+        # Let the CP-SAT solver determine feasibility via hard demand constraints.
+
         # Initialize CP-SAT optimizer with quick profile for web UI
         optimizer = HPCLCPSATOptimizer(solver_profile="quick")
         
@@ -129,7 +125,8 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
         if input_data and input_data.optimization_objective:
             optimization_objective = input_data.optimization_objective
         
-        # Run CP-SAT optimization with 15 second timeout for quick web response
+        # Run CP-SAT optimization.
+        # Increase solve time for better solution quality (was 15s — often too short for complex problems).
         optimization_result = await optimizer.optimize_hpcl_fleet(
             vessels=vessels,
             loading_ports=loading_ports,
@@ -137,7 +134,7 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
             monthly_demands=monthly_demands,
             fuel_price_per_mt=45000.0,
             optimization_objective=optimization_objective,
-            max_solve_time_seconds=15  # Quick timeout for web UI
+            max_solve_time_seconds=60  # 60s for better solution quality
         )
         
         # Check if optimization was successful
@@ -199,21 +196,23 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
                     "cargo_deliveries": []
                 }
                 
-                # Create entry for each discharge port
+                # Bug 14 fix: each output row shows the FULL trip cost (charter × days).
+                # The PS output format shows the complete trip cost, not a fractional split.
+                # For 2-port trips, both rows show the same full trip cost.
                 for discharge_port in discharge_ports:
-                    volume = cargo_split.get(discharge_port, cargo_quantity / len(discharge_ports))
-                    # Proportional cost allocation for output table
-                    proportional_cost_cr = (volume / cargo_quantity * hpcl_trip_cost_cr) if cargo_quantity > 0 else 0
-                    
+                    # Actual cargo for this port from solver (via cargo_per_port)
+                    cargo_per_port = route.cargo_per_port if hasattr(route, 'cargo_per_port') and route.cargo_per_port else {}
+                    volume = cargo_per_port.get(discharge_port, int(cargo_quantity / len(discharge_ports)))
+
                     output_table.append({
                         "Source": loading_port,
                         "Destination": discharge_port,
                         "Tanker": vessel_id,
                         "Volume (MT)": int(volume),
-                        "Trip Cost (Rs Cr)": round(proportional_cost_cr, 4),
+                        "Trip Cost (Rs Cr)": round(hpcl_trip_cost_cr, 4),  # Full trip cost per PS
                         "Trip ID": trip_obj["trip_id"]
                     })
-                    
+
                     trip_obj["cargo_deliveries"].append({
                         "port": discharge_port,
                         "volume_mt": int(volume)
@@ -225,7 +224,8 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
         # Calculate summary statistics (no post-processing needed - solver satisfies demand exactly)
         total_volume = sum(row["Volume (MT)"] for row in output_table)
         total_hpcl_cost_cr = total_hpcl_cost_cr  # Already calculated above
-        
+        total_demand = sum(d.demand_mt for d in monthly_demands)  # Compute inline (pre-flight check removed)
+
         return {
             "status": "success",
             "solution_id": optimization_result.request_id,

@@ -123,15 +123,15 @@ class HPCLVessel(BaseModel):
     
     @validator('monthly_available_hours')
     def validate_monthly_hours(cls, v):
-        if v > 720:  # Standard month = 30 days * 24 hours
-            raise ValueError('Monthly hours cannot exceed 720 (operational constraint)')
+        # Bug 10 fix: allow up to 744 hours (31-day month) to match le=744 Field constraint.
+        # The old cap of 720 was inconsistent with the Field's own le=744 annotation.
+        if v > 744:
+            raise ValueError('Monthly hours cannot exceed 744 (31-day month: 31 × 24 = 744 hours)')
         if v < 100:
             raise ValueError('Monthly available hours too low (< 100 hours)')
         return v
-    def validate_capacity(cls, v):
-        if v <= 0:
-            raise ValueError('Vessel capacity must be positive')
-        return v
+    # Bug 15 fix: removed duplicate (undecorated) validate_capacity that was silently
+    # overwriting the real @validator above.
     
     @validator('id')
     def validate_hpcl_fleet_size(cls, v):
