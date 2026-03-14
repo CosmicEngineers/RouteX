@@ -19,8 +19,8 @@ def get_challenge_vessels() -> List[Dict[str, Any]]:
             "name": "Tanker T1",
             "imo_number": "IMO1000001",
             "capacity_mt": 50000,
-            "charter_rate_cr_per_day": 0.63,  # Rs Cr/day
-            "daily_charter_rate": 6300000,  # Rs per day (0.63 Cr)
+            "charter_rate_display_cr_per_day": 0.63,  # Display only (Rs Cr/day). DO NOT use in cost calculations.
+            "daily_charter_rate": 6300000,  # Rs per day — the ONLY field used in cost = rate × days
             "grt": 25000,
             "length_m": 200,
             "beam_m": 32,
@@ -36,7 +36,7 @@ def get_challenge_vessels() -> List[Dict[str, Any]]:
             "name": "Tanker T2",
             "imo_number": "IMO1000002",
             "capacity_mt": 50000,
-            "charter_rate_cr_per_day": 0.49,
+            "charter_rate_display_cr_per_day": 0.49,
             "daily_charter_rate": 4900000,
             "grt": 25000,
             "length_m": 200,
@@ -53,7 +53,7 @@ def get_challenge_vessels() -> List[Dict[str, Any]]:
             "name": "Tanker T3",
             "imo_number": "IMO1000003",
             "capacity_mt": 50000,
-            "charter_rate_cr_per_day": 0.51,
+            "charter_rate_display_cr_per_day": 0.51,
             "daily_charter_rate": 5100000,
             "grt": 25000,
             "length_m": 200,
@@ -70,7 +70,7 @@ def get_challenge_vessels() -> List[Dict[str, Any]]:
             "name": "Tanker T4",
             "imo_number": "IMO1000004",
             "capacity_mt": 50000,
-            "charter_rate_cr_per_day": 0.51,
+            "charter_rate_display_cr_per_day": 0.51,
             "daily_charter_rate": 5100000,
             "grt": 25000,
             "length_m": 200,
@@ -87,7 +87,7 @@ def get_challenge_vessels() -> List[Dict[str, Any]]:
             "name": "Tanker T5",
             "imo_number": "IMO1000005",
             "capacity_mt": 50000,
-            "charter_rate_cr_per_day": 0.53,
+            "charter_rate_display_cr_per_day": 0.53,
             "daily_charter_rate": 5300000,
             "grt": 25000,
             "length_m": 200,
@@ -104,7 +104,7 @@ def get_challenge_vessels() -> List[Dict[str, Any]]:
             "name": "Tanker T6",
             "imo_number": "IMO1000006",
             "capacity_mt": 50000,
-            "charter_rate_cr_per_day": 0.57,
+            "charter_rate_display_cr_per_day": 0.57,
             "daily_charter_rate": 5700000,
             "grt": 25000,
             "length_m": 200,
@@ -121,7 +121,7 @@ def get_challenge_vessels() -> List[Dict[str, Any]]:
             "name": "Tanker T7",
             "imo_number": "IMO1000007",
             "capacity_mt": 50000,
-            "charter_rate_cr_per_day": 0.65,
+            "charter_rate_display_cr_per_day": 0.65,
             "daily_charter_rate": 6500000,
             "grt": 25000,
             "length_m": 200,
@@ -138,7 +138,7 @@ def get_challenge_vessels() -> List[Dict[str, Any]]:
             "name": "Tanker T8",
             "imo_number": "IMO1000008",
             "capacity_mt": 25000,
-            "charter_rate_cr_per_day": 0.39,
+            "charter_rate_display_cr_per_day": 0.39,
             "daily_charter_rate": 3900000,
             "grt": 12500,
             "length_m": 150,
@@ -155,7 +155,7 @@ def get_challenge_vessels() -> List[Dict[str, Any]]:
             "name": "Tanker T9",
             "imo_number": "IMO1000009",
             "capacity_mt": 25000,
-            "charter_rate_cr_per_day": 0.38,
+            "charter_rate_display_cr_per_day": 0.38,
             "daily_charter_rate": 3800000,
             "grt": 12500,
             "length_m": 150,
@@ -326,6 +326,7 @@ def get_monthly_demands() -> List[Dict[str, Any]]:
 
 def get_challenge_configuration() -> Dict[str, Any]:
     """Complete challenge configuration"""
+    monthly_demands = get_monthly_demands()
     return {
         "fleet_size": 9,
         "loading_ports": 6,
@@ -333,7 +334,8 @@ def get_challenge_configuration() -> Dict[str, Any]:
         "max_discharge_ports": 2,
         "single_loading_constraint": True,
         "unlimited_supply": True,
-        "total_monthly_demand_mt": 440000,
+        # BUG-M5 fix: computed dynamically so it stays in sync if demands change
+        "total_monthly_demand_mt": sum(d["demand_mt"] for d in monthly_demands),
         "vessels": get_challenge_vessels(),
         "loading_ports_data": get_challenge_loading_ports(),
         "unloading_ports_data": get_challenge_unloading_ports(),

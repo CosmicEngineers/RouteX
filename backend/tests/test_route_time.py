@@ -84,16 +84,23 @@ def test_trip_time_tables_coverage():
             assert time < 10, f"Trip time too high for {l_port} -> {u_port}: {time} days"
 
 
-def test_symmetry_assumption():
-    """Test that return trip time is approximately same as forward trip"""
-
+def test_return_trip_is_symmetric_approximation():
+    """
+    BUG-m4 fix: The PS does NOT provide U→L (discharge-to-loading) trip times.
+    The return trip is approximated by reusing the L→U forward table value.
+    This test documents that approximation — it does NOT assert PS correctness.
+    The return time equals the forward time by construction (same table lookup),
+    so the 2x round-trip estimate is valid as an approximation only.
+    """
     forward_time = calculate_trip_time_from_tables("L1", ["U1"], include_service_time=False, include_return_trip=False)
     with_return = calculate_trip_time_from_tables("L1", ["U1"], include_service_time=False, include_return_trip=True)
 
-    # Return should approximately double sailing time
+    # The approximation: return time = forward L→U time (PS has no U→L table)
     return_time = with_return - forward_time
-    assert abs(return_time - forward_time) < 0.1, (
-        f"Return trip time asymmetric: {return_time} vs {forward_time}"
+    # Since we reuse the same forward lookup, return_time == forward_time exactly
+    assert abs(return_time - forward_time) < 1e-9, (
+        f"Return approximation changed unexpectedly: {return_time} vs {forward_time}. "
+        f"Note: this is NOT a PS value — it is an approximation using the L→U table."
     )
 
 

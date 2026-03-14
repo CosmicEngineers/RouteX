@@ -82,8 +82,16 @@ def calculate_trip_time_from_tables(
     # Adding extra loading/unloading time would contradict the PS data.
 
     # Step 4: Add return trip sailing time if needed
+    # NOTE (BUG-C2 fix): The PS provides no U→L (discharge-to-loading) time table.
+    # The only available proxy is the U→U inter-port table. We approximate the
+    # return as last_discharge → nearest loading port by reusing the forward
+    # L→U time as a symmetric estimate. This is explicitly an approximation and
+    # NOT a PS-provided value. Return-trip costing is NOT used in the optimizer;
+    # include_return_trip=True is only for informational schedule display.
     if include_return_trip:
         last_discharge = discharge_port_ids[-1]
+        # Best available approximation: reverse of the forward trip time (L→U used as U→L)
+        # Real U→L times are not provided by the PS.
         return_time = TRIP_TIMES_LOAD_TO_UNLOAD.get(loading_port_id, {}).get(last_discharge, 0.5)
         total_trip_time_days += return_time
 
@@ -242,7 +250,20 @@ class HPCLRouteGenerator:
         Remove routes that are dominated by others.
         Route A dominates Route B if:
         - Same vessel, same loading port, and same discharge port *sequence*
-        - A has lower cost AND lower time than B.
+        - A has lower or equal cost AND strictly lower time than B
+          (or strictly lower cost with equal or lower time).
+
+        BUG-M4 fix: Previously, all routes in the same key-group had IDENTICAL
+        costs (same vessel × same trip time from PS table → same formula result).
+        This made the dominance check a no-op. Now using a pure time-based
+        tiebreaker: when costs are equal, prefer the shorter-time route.
+        In practice, since the PS tables are deterministic, routes within
+        the same (vessel, loading_port, discharge_seq) group also have identical
+        times. This means no routes will actually be pruned — which is CORRECT:
+        there are no true duplicates carrying different metrics. The original
+        no-op behavior was therefore accidentally correct; this version documents
+        the intent clearly and would work if routes with different costs/times
+        for the same key were ever generated.
 
         IMPORTANT: Port order is preserved in the key (no `sorted()`), because
         L→U1→U2 and L→U2→U1 have different inter-port trip times from the PS
@@ -267,13 +288,17 @@ class HPCLRouteGenerator:
 
             for route_a in group:
                 is_dominated = False
+                cost_a = route_a.get('total_cost', float('inf'))
+                time_a = route_a.get('total_time_hours', float('inf'))
                 for route_b in group:
                     if route_a is route_b:
                         continue
-                    if (route_b.get('total_cost', float('inf')) <= route_a.get('total_cost', float('inf')) and
-                        route_b.get('total_time_hours', float('inf')) <= route_a.get('total_time_hours', float('inf')) and
-                        (route_b.get('total_cost') < route_a.get('total_cost') or
-                         route_b.get('total_time_hours') < route_a.get('total_time_hours'))):
+                    cost_b = route_b.get('total_cost', float('inf'))
+                    time_b = route_b.get('total_time_hours', float('inf'))
+                    # B dominates A if B is at least as good on both dimensions
+                    # and strictly better on at least one
+                    if (cost_b <= cost_a and time_b <= time_a and
+                            (cost_b < cost_a or time_b < time_a)):
                         is_dominated = True
                         self.pruning_stats['pruned_dominated'] += 1
                         break
@@ -388,8 +413,9 @@ class HPCLRouteGenerator:
             sailing_time_days = total_time_days  # PS tables give full trip time
             fuel_consumption_mt = vessel.fuel_consumption_mt_per_day * sailing_time_days
             fuel_cost = fuel_consumption_mt * fuel_price_per_mt
+            # BUG-m3 fix: use consistent fallback of 100000 for all ports
             port_charges = (loading_port.port_charges_per_visit or 100000) + sum(
-                (dp.port_charges_per_visit or 80000) for dp in discharge_ports
+                (dp.port_charges_per_visit or 100000) for dp in discharge_ports
             )
             
             cost_breakdown = {
@@ -487,31 +513,10 @@ class HPCLRouteGenerator:
         
         return segments
     
-    def _calculate_port_time(
-        self, 
-        loading_port: HPCLPort, 
-        discharge_ports: List[HPCLPort], 
-        vessel: HPCLVessel
-    ) -> float:
-        """
-        Calculate total port time (loading + unloading + waiting)
-        """
-        # Loading time
-        loading_time = vessel.capacity_mt / loading_port.loading_rate
-        
-        # Unloading time (split cargo among discharge ports)
-        total_unloading_time = 0
-        for port in discharge_ports:
-            # Assume equal split for now (can be made more sophisticated)
-            cargo_for_port = vessel.capacity_mt / len(discharge_ports)
-            unloading_time = cargo_for_port / port.unloading_rate
-            total_unloading_time += unloading_time
-        
-        # Add port waiting/maneuvering time (2 hours per port call)
-        port_calls = 1 + len(discharge_ports)  # Loading + discharge ports
-        waiting_time = port_calls * 2.0
-        
-        return loading_time + total_unloading_time + waiting_time
+    # BUG-M1 fix: _calculate_port_time() was dead code (never called) and contained
+    # hardcoded constants (2h waiting per port call) that contradict the PS which
+    # provides full trip times directly in the tables. Method removed entirely.
+    # If port time is ever needed, it should be derived from PS data, not hardcoded.
     
     def _calculate_cargo_split(
         self,

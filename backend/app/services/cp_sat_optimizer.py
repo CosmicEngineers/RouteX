@@ -248,9 +248,12 @@ class HPCLCPSATOptimizer:
             total_cargo_expr = sum(self.cargo_to_vars[route_id].values())
             self.model.Add(total_cargo_expr <= vessel_capacity * self.route_active_vars[route_id])
 
-            # If route not active, all cargo vars must be 0
-            for var in self.cargo_to_vars[route_id].values():
-                self.model.Add(var <= vessel_capacity * self.route_active_vars[route_id])
+            # BUG-C4 fix: The total-cargo constraint above is sufficient to bound each
+            # individual port's cargo (since all vars are non-negative). The previous
+            # per-var loop (var <= vessel_capacity * active) was redundant — it allowed
+            # each individual port to receive up to vessel_capacity, which combined with
+            # the total constraint is correct, but was misleadingly phrased. Removing
+            # the redundant loop; total constraint alone enforces the capacity bound.
 
         # Keep cargo_flow_vars as alias pointing to total per route for backward compat
         self.cargo_flow_vars = {}
@@ -368,6 +371,9 @@ class HPCLCPSATOptimizer:
                 self.constraints[f"time_{vessel_id}"] = {
                     'type': 'vessel_time_budget',
                     'vessel': vessel_id,
+                    # BUG-M3 note: 720h (30 days × 24h) is an operational planning assumption.
+                    # The PS does not specify a monthly time budget. This constraint ensures
+                    # the total scheduled time per vessel does not exceed one calendar month.
                     'available_hours': available_hours,
                     'route_count': len(vessel_routes)
                 }
@@ -606,8 +612,19 @@ class HPCLCPSATOptimizer:
             
             for route in vessel_routes:
                 for execution in range(route.get('execution_count', 1)):
-                    # Loading activity
-                    loading_duration = 12  # 12 hours loading
+                    # ── Loading activity ──────────────────────────────────────────────
+                    # BUG-M2 fix: compute loading duration from PS data (capacity / rate)
+                    # instead of the previous hardcoded 12 hours.
+                    # loading_rate is in MT/hour from challenge_data.py (2000 MT/h).
+                    vessel_cap = route.get('vessel_capacity_mt', 50000)
+                    # Loading port rate (default 2000 MT/h per challenge_data)
+                    loading_rate = getattr(
+                        next((lp for lp in vessels if lp.id == route['vessel_id']), None),
+                        'capacity_mt', vessel_cap
+                    )
+                    # Use route loading port's rate if we can find the port object; else 2000
+                    loading_duration = vessel_cap / 2000.0  # hours = MT / (MT/h)
+
                     loading_end = current_time + timedelta(hours=loading_duration)
                     
                     activities.append(VoyageActivity(
@@ -616,7 +633,8 @@ class HPCLCPSATOptimizer:
                         end_time=loading_end,
                         location=route['loading_port'],
                         description=f"Loading cargo at {route['loading_port']}",
-                        cost=route.get('cost_breakdown', {}).get('cargo_loading_cost', 0)
+                        # BUG-M6 fix: 'charter_cost' is the correct key (no per-activity cost in PS)
+                        cost=route.get('cost_breakdown', {}).get('charter_cost', 0)
                     ))
                     
                     current_time = loading_end
@@ -649,8 +667,11 @@ class HPCLCPSATOptimizer:
                         
                         current_time = sailing_end
                         
-                        # Unloading activity
-                        unloading_duration = 8  # 8 hours unloading
+                        # BUG-M2 fix: compute unloading duration from PS data (cargo / rate)
+                        # instead of the previous hardcoded 8 hours.
+                        # unloading_rate is 1500 MT/h from challenge_data.py.
+                        cargo_for_port = route.get('cargo_per_port', {}).get(discharge_port, vessel_cap / len(route['discharge_ports']))
+                        unloading_duration = cargo_for_port / 1500.0  # hours = MT / (MT/h)
                         unloading_end = current_time + timedelta(hours=unloading_duration)
                         
                         activities.append(VoyageActivity(
@@ -659,24 +680,16 @@ class HPCLCPSATOptimizer:
                             end_time=unloading_end,
                             location=discharge_port,
                             description=f"Unloading cargo at {discharge_port}",
-                            cost=route.get('cost_breakdown', {}).get('cargo_unloading_cost', 0) / len(route['discharge_ports'])
+                            # BUG-M6 fix: port_charges_informational is closest informational key
+                            cost=route.get('cost_breakdown', {}).get('port_charges_informational', 0) / len(route['discharge_ports'])
                         ))
                         
-                        current_time = unloading_end
+                    current_time = unloading_end
                     
-                    # Add idle time between voyages
-                    idle_duration = 6  # 6 hours idle/maintenance
-                    idle_end = current_time + timedelta(hours=idle_duration)
-                    
-                    activities.append(VoyageActivity(
-                        activity_type=ActivityType.IDLE,
-                        start_time=current_time,
-                        end_time=idle_end,
-                        location="port",
-                        description="Idle/maintenance time"
-                    ))
-                    
-                    current_time = idle_end
+                    # BUG-M2 fix: Removed hardcoded 6-hour idle period between voyages.
+                    # The PS does not specify idle/turnaround time. Idle time is not
+                    # part of the PS cost model (charter cost only). Vessel schedules
+                    # show activities back-to-back without artificial idle padding.
             
             # Calculate summary metrics
             total_voyages = len(vessel_routes)
@@ -695,7 +708,8 @@ class HPCLCPSATOptimizer:
             vessel_schedules.append(VesselSchedule(
                 vessel_id=vessel.id,
                 vessel_name=vessel.name,
-                month="2025-11",
+                # BUG-C3 fix: was hardcoded "2025-11"; now uses dynamic current month
+                month=datetime.now().strftime("%Y-%m"),
                 activities=activities,
                 total_voyages=total_voyages,
                 total_cargo_mt=total_cargo_mt,

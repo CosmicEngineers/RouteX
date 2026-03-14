@@ -178,9 +178,13 @@ async def test_infeasible_case():
         HPCLPort(id="U1", name="Unloading Port", type="unloading", latitude=18.5, longitude=73.0, state="Maharashtra")
     ]
     
-    # Huge demand that cannot be met
+    # BUG-m5 fix: Original 500,000 MT demand was actually feasible because
+    # a 10k MT vessel can complete ~75 trips/month (720h / ~9.6h per trip),
+    # giving ~750k MT capacity — more than enough for 500k MT demand.
+    # Using 1,000,000 MT (Pydantic validator max): needs 100 trips but vessel
+    # can only complete ~75 trips in 720h — truly infeasible via time budget.
     monthly_demands = [
-        MonthlyDemand(port_id="U1", demand_mt=500000)  # 500k MT - impossible with 10k vessel
+        MonthlyDemand(port_id="U1", demand_mt=1000000)  # 1M MT: 100 trips needed, only ~75 possible
     ]
     
     optimizer = HPCLCPSATOptimizer()

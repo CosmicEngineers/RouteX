@@ -59,7 +59,7 @@ def test_no_integer_truncation():
     calculated_cost = charter_rate * trip_days
     expected_cost_exact = 6713000.0
 
-    assert abs(calculated_cost - expected_cost_exact) < 100, (
+    assert abs(calculated_cost - expected_cost_exact) < 1, (
         f"Cost precision lost: {calculated_cost} vs {expected_cost_exact}"
     )
 
