@@ -11,7 +11,7 @@ import json
 from datetime import datetime, timedelta
 
 from ..models.schemas import HPCLVessel, HPCLPort, HPCLRoute, MonthlyDemand, OptimizationResult, VesselSchedule, VoyageActivity, ActivityType
-from .route_generator import HPCLRouteOptimizer
+from .route_generator import HPCLRouteOptimizer, TRIP_TIMES_LOAD_TO_UNLOAD, TRIP_TIMES_UNLOAD_TO_UNLOAD
 from .infeasibility_analyzer import analyze_infeasibility
 from ..core.config import get_settings
 
@@ -484,6 +484,8 @@ class HPCLCPSATOptimizer:
         total_distance = 0.0
         total_cargo = 0.0
 
+        # ── Pass 1: collect all active routes with solver cargo values ──────────
+        active_routes_raw = []
         for route in feasible_routes:
             route_id = route['route_id']
             route_active = self.solver.Value(self.route_active_vars[route_id])
@@ -498,17 +500,48 @@ class HPCLCPSATOptimizer:
 
                 route_copy = route.copy()
                 route_copy['cargo_flow_mt'] = total_route_cargo
-                route_copy['cargo_per_port'] = cargo_per_port   # actual allocation per port
-                route_copy['execution_count'] = 1
+                route_copy['cargo_per_port'] = cargo_per_port
+                route_copy['execution_count'] = 1  # will be aggregated below
                 route_copy['scaled_cost'] = route['total_cost']
                 route_copy['scaled_distance'] = route['total_distance_nm']
                 route_copy['scaled_cargo'] = total_route_cargo
+                active_routes_raw.append(route_copy)
 
-                selected_routes.append(route_copy)
+        # ── Pass 2: aggregate identical voyage patterns per vessel ─────────────
+        # Two routes are the "same trip pattern" if they share vessel, loading port,
+        # and discharge port sequence. Grouping them lets us report the correct
+        # trip count per tanker as required by the PS output.
+        pattern_map: Dict[str, Dict[str, Any]] = {}
+        for route_copy in active_routes_raw:
+            discharge_seq = '→'.join(route_copy['discharge_ports'])
+            pattern_key = f"{route_copy['vessel_id']}|{route_copy['loading_port']}|{discharge_seq}"
+            if pattern_key not in pattern_map:
+                # First occurrence — seed the aggregated entry
+                agg = route_copy.copy()
+                agg['execution_count'] = 1
+                agg['cargo_per_port'] = dict(route_copy['cargo_per_port'])  # deep copy
+                agg['cargo_flow_mt'] = route_copy['cargo_flow_mt']
+                agg['scaled_cost'] = route_copy['scaled_cost']
+                agg['scaled_distance'] = route_copy['scaled_distance']
+                agg['scaled_cargo'] = route_copy['scaled_cargo']
+                pattern_map[pattern_key] = agg
+            else:
+                # Additional occurrence — accumulate cargo and cost
+                agg = pattern_map[pattern_key]
+                agg['execution_count'] += 1
+                for p, c in route_copy['cargo_per_port'].items():
+                    agg['cargo_per_port'][p] = agg['cargo_per_port'].get(p, 0) + c
+                agg['cargo_flow_mt'] += route_copy['cargo_flow_mt']
+                agg['scaled_cost'] += route_copy['scaled_cost']
+                agg['scaled_distance'] += route_copy['scaled_distance']
+                agg['scaled_cargo'] += route_copy['scaled_cargo']
 
-                total_cost += route_copy['scaled_cost']
-                total_distance += route_copy['scaled_distance']
-                total_cargo += total_route_cargo
+        selected_routes = list(pattern_map.values())
+
+        for route_copy in selected_routes:
+            total_cost += route_copy['scaled_cost']
+            total_distance += route_copy['scaled_distance']
+            total_cargo += route_copy['scaled_cargo']
 
         # Calculate demand satisfaction using actual per-port solver values
         demands_met = {}
@@ -561,15 +594,27 @@ class HPCLCPSATOptimizer:
             selected_routes, demands_met, unmet_demand, fleet_utilization
         )
         
-        current_month = datetime.now().strftime("%Y-%m")  # Dynamic month (Bug: was hardcoded)
+        current_month = datetime.now().strftime("%Y-%m")  # Dynamic month
+
+        # Populate cost_breakdown: PS defines cost = charter_rate × trip_days only.
+        # Aggregate across all selected (aggregated) routes.
+        total_charter_cost = sum(r['scaled_cost'] for r in selected_routes)
+        result_cost_breakdown = {
+            "charter_cost": round(total_charter_cost, 2),
+            "fuel_cost": 0.0,       # not part of PS cost model
+            "port_charges": 0.0,    # not part of PS cost model
+            "cargo_handling": 0.0,  # not part of PS cost model
+            "demurrage_provision": 0.0,
+        }
 
         return OptimizationResult(
             request_id=f"hpcl_opt_{int(time.time())}",
             month=current_month,
             optimization_status=opt_status,
             solve_time_seconds=solve_time,
-            # BUG-M2 FIX: Build HPCLRoute objects instead of raw dicts so Pydantic
-            # type validation is satisfied for OptimizationResult.selected_routes.
+            # Build HPCLRoute objects for Pydantic type validation.
+            # execution_count > 1 means this voyage pattern was repeated that many
+            # times by the same tanker — satisfying PS requirement: "number of trips"
             selected_routes=[
                 HPCLRoute(
                     route_id=route['route_id'],
@@ -578,8 +623,8 @@ class HPCLCPSATOptimizer:
                     discharge_ports=route['discharge_ports'],
                     total_distance_nm=route['total_distance_nm'],
                     total_time_hours=route['total_time_hours'],
-                    total_cost=route['total_cost'],
-                    hpcl_charter_cost=route['total_cost'],  # identical per PS
+                    total_cost=route['scaled_cost'],   # aggregated cost for all executions
+                    hpcl_charter_cost=route['scaled_cost'],
                     cargo_quantity=route['cargo_flow_mt'],
                     cargo_split=route.get('cargo_per_port', {}),
                     route_coordinates=route.get('route_coordinates', []),
@@ -595,6 +640,7 @@ class HPCLCPSATOptimizer:
             demands_met=demands_met,
             unmet_demand=unmet_demand,
             demand_satisfaction_rate=demand_satisfaction_rate,
+            cost_breakdown=result_cost_breakdown,
             recommendations=recommendations
         )
     
@@ -646,15 +692,10 @@ class HPCLCPSATOptimizer:
                     current_time = loading_end
                     
                     # Sailing activities to each discharge port
-                    # BUG-M5 FIX: Use module-level trip-time constants (already imported at top of
-                    # route_generator.py) instead of re-calling the factory functions inside the loop.
-                    # Re-calling them on every iteration of a nested loop recreates the full dict each time.
-                    from ..data.challenge_data import (
-                        get_challenge_trip_times_load_to_unload as _get_ltu,
-                        get_challenge_trip_times_unload_to_unload as _get_utu,
-                    )
-                    _ltu = _get_ltu()  # called once per voyage, not per discharge port
-                    _utu = _get_utu()
+                    # Use module-level constants imported from route_generator at top of file.
+                    # Avoids recreating the full dict on every voyage in the schedule loop.
+                    _ltu = TRIP_TIMES_LOAD_TO_UNLOAD
+                    _utu = TRIP_TIMES_UNLOAD_TO_UNLOAD
                     # BUG-M6 FIX: Guard against UnboundLocalError if route has 0 discharge ports.
                     # unloading_end is defined inside the loop; initialise before the loop
                     # so the outer `current_time = unloading_end` below is always safe.
@@ -674,7 +715,8 @@ class HPCLCPSATOptimizer:
                             end_time=sailing_end,
                             location="at_sea",
                             description=f"Sailing to {discharge_port}",
-                            cost=route.get('cost_breakdown', {}).get('fuel_cost', 0) / len(route['discharge_ports'])
+                            # 'fuel_cost_informational' is the correct key in route cost_breakdown
+                            cost=route.get('cost_breakdown', {}).get('fuel_cost_informational', 0) / max(1, len(route['discharge_ports']))
                         ))
                         
                         current_time = sailing_end
@@ -805,13 +847,14 @@ class HPCLCPSATOptimizer:
         capacity_gap = total_demand - total_capacity
         
         recommendations = [
-            f"⚠️ INFEASIBLE: Total demand ({total_demand:,.0f} MT) exceeds available fleet capacity ({total_capacity:,.0f} MT)",
-            f"Capacity gap: {capacity_gap:,.0f} MT shortage",
+            f"⚠️ INFEASIBLE: Total demand ({total_demand:,.0f} MT) cannot be met within the monthly time budget.",
+            f"Fleet can deliver at most {total_capacity:,.0f} MT given the 720-hour/month constraint and PS trip times.",
+            f"Shortfall: {capacity_gap:,.0f} MT",
             f"Suggested solutions:",
-            f"  1. Charter additional vessel(s) with minimum {capacity_gap:,.0f} MT capacity",
-            f"  2. Allow vessels to make additional trips (currently limited to ~10/month)",
-            f"  3. Consider multi-loading port operations (currently restricted to single loading)",
-            f"  4. Reduce demand at high-demand ports: " + ", ".join(
+            f"  1. Charter additional vessel(s) — minimum additional capacity needed: {capacity_gap:,.0f} MT over the month",
+            f"  2. The 720 h/month time budget (not a voyage count) is the binding constraint — shorter routes help",
+            f"  3. Multi-loading port operations are already restricted to single loading port per voyage (PS constraint)",
+            f"  4. Reduce demand at highest-demand ports: " + ", ".join(
                 f"{port_id} ({demand:,.0f} MT)" 
                 for port_id, demand in sorted(demand_dict.items(), key=lambda x: -x[1])[:3]
             )

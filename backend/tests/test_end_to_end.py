@@ -181,13 +181,35 @@ async def test_infeasible_case():
         HPCLPort(id="U1", name="Unloading Port", type="unloading", latitude=18.5, longitude=73.0, state="Maharashtra")
     ]
     
-    # BUG-m5 fix: Original 500,000 MT demand was actually feasible because
-    # a 10k MT vessel can complete ~75 trips/month (720h / ~9.6h per trip),
-    # giving ~750k MT capacity — more than enough for 500k MT demand.
-    # Using 1,000,000 MT (Pydantic validator max): needs 100 trips but vessel
-    # can only complete ~75 trips in 720h — truly infeasible via time budget.
+    # Use a demand that is unambiguously beyond the time budget:
+    # Vessel: 10,000 MT capacity; fastest trip L1→U9 = 0.3 days = 7.2 h.
+    # Max trips in 720 h = floor(720 / 7.2) = 100 trips → max deliverable = 1,000,000 MT.
+    # Demanding 1,000,001 MT exceeds the theoretical maximum by just 1 MT,
+    # guaranteeing infeasibility without relying on any particular solver behaviour.
+    # (Pydantic cap is 1,000,000 MT, so we use a vessel-capacity trick: lower the
+    #  vessel capacity so that 1M MT demand exceeds what the fleet can physically
+    #  deliver even if it runs every minute of the month.)
+    #
+    # Simpler approach: keep the vessel at 10k MT capacity but reduce monthly hours
+    # so max deliverable = 10k * floor(360/7.2) = 10k * 50 = 500k MT < 1M MT demand.
+    # We override monthly_available_hours below (set to 360 h = 15 days).
+    vessels[0] = HPCLVessel(
+        id="T1",
+        name="Small Vessel",
+        imo_number="IMO1000001",
+        capacity_mt=10000,
+        grt=5000,
+        length_m=100,
+        beam_m=20,
+        draft_m=8,
+        speed_knots=12,
+        fuel_consumption_mt_per_day=10,
+        daily_charter_rate=2000000,
+        crew_size=15,
+        monthly_available_hours=360,  # 15-day budget: max 50 trips → 500k MT < 1M MT demand
+    )
     monthly_demands = [
-        MonthlyDemand(port_id="U1", demand_mt=1000000)  # 1M MT: 100 trips needed, only ~75 possible
+        MonthlyDemand(port_id="U1", demand_mt=1000000)  # 1M MT: needs 100 trips, only 50 possible
     ]
     
     optimizer = HPCLCPSATOptimizer()
