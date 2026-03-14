@@ -266,7 +266,7 @@ export function MaritimeMap({
           { label: 'Trips Scheduled', value: String(challengeTrips.length),       accent: '#facc15' },
           { label: 'Total Cost',       value: `₹${totalCost.toFixed(2)} Cr`,      accent: '#4ade80' },
           { label: 'Cargo Delivered',  value: `${(totalCargo / 1000).toFixed(0)}K MT`, accent: '#22d3ee' },
-          { label: 'Vessels Active',   value: String(uniqueVessels.size),          accent: HP_BLUE   },
+          { label: 'Vessels Active',   value: String(uniqueVessels.size),          accent: '#60a5fa' },
           { label: 'Ports Served',     value: String(uniqueDischarge.size),        accent: HP_RED    },
           { label: 'Co-loads',         value: String(coLoads),                     accent: '#a78bfa' },
         ],
@@ -275,7 +275,7 @@ export function MaritimeMap({
     return {
       mode: 'idle' as const,
       items: [
-        { label: 'Loading Terminals',  value: String(enhancedPorts.filter(p => p.type === 'loading').length),   accent: HP_BLUE   },
+        { label: 'Loading Terminals',  value: String(enhancedPorts.filter(p => p.type === 'loading').length),   accent: '#60a5fa' },
         { label: 'Unloading Ports',    value: String(enhancedPorts.filter(p => p.type === 'unloading').length), accent: HP_RED    },
         { label: 'Fleet Size',         value: String(enhancedVessels.length),                                    accent: '#22d3ee' },
         { label: '50K MT Tankers',     value: String(enhancedVessels.filter(v => v.capacity_mt === 50000).length), accent: '#60a5fa' },
@@ -527,8 +527,8 @@ export function MaritimeMap({
         title: vessel.name,
         icon: {
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(tankerSvgString(statusColor, vessel.id)),
-          scaledSize: new google.maps.Size(28, 28),
-          anchor: new google.maps.Point(14, 14)
+          scaledSize: new google.maps.Size(22, 22),
+          anchor: new google.maps.Point(11, 11)
         }
       });
 
@@ -690,11 +690,11 @@ export function MaritimeMap({
                 <span>Cargo: {formatNumber(currentRoute.cargo)} MT</span>
               </div>
             )}
-            <div className="flex items-center space-x-1">
-              <div className="w-3 h-3 rounded-full" style={{background: HP_BLUE}}></div>
+            <div className="flex items-center space-x-1 text-white">
+              <div className="w-3 h-3 rounded-full" style={{background: '#60a5fa'}}></div>
               <span>Loading Ports</span>
             </div>
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center space-x-1 text-white">
               <div className="w-3 h-3 rounded-full" style={{background: HP_RED}}></div>
               <span>Unloading Ports</span>
             </div>
@@ -704,7 +704,7 @@ export function MaritimeMap({
               title="Toggle tanker visibility"
             >
               <span className="text-white/80 text-xs font-medium flex items-center gap-1.5">
-                <TankerIcon size={13} color="#94a3b8" />
+                <TankerIcon size={11} color="#facc15" />
                 Vessels
               </span>
               <div className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${showVessels ? 'bg-cyan-400' : 'bg-white/20'}`}>
@@ -837,7 +837,7 @@ export function MaritimeMap({
                 >
                   {stat.value}
                 </span>
-                <span className="text-[10px] text-slate-500 mt-0.5 leading-tight text-center">
+                <span className="text-[10px] text-slate-300 mt-0.5 leading-tight text-center">
                   {stat.label}
                 </span>
               </div>

@@ -11,27 +11,25 @@ interface TankerIconProps {
 
 /**
  * Pure SVG string for use in Google Maps data URL markers.
- * Renders a white outline ring with the vessel ID centered inside.
+ * Renders a small yellow filled circle with the vessel ID centered inside.
  */
-export function tankerSvgString(color: string, vesselId?: string): string {
+export function tankerSvgString(_color: string, vesselId?: string): string {
   const idLabel = vesselId
-    ? `<text x="14" y="14" font-size="6.5" font-family="monospace" font-weight="bold" fill="rgba(255,255,255,0.92)" text-anchor="middle" dominant-baseline="middle">${vesselId}</text>`
+    ? `<text x="11" y="11" font-size="6" font-family="monospace" font-weight="bold" fill="#1a1a1a" text-anchor="middle" dominant-baseline="middle">${vesselId}</text>`
     : '';
-  return `<svg width="28" height="28" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="14" cy="14" r="12" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.88)" stroke-width="2"/>
+  return `<svg width="22" height="22" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="11" cy="11" r="9" fill="#facc15" stroke="#a16207" stroke-width="1.5"/>
   ${idLabel}
 </svg>`;
 }
 
 /**
- * React component rendering a vessel as a white outline ring.
- * ring stroke uses the color prop; vessel ID shown when size ≥ 20.
+ * React component rendering a vessel as a small yellow filled circle.
  */
-export function TankerIcon({ size = 24, color = '#94a3b8', vesselId, className }: TankerIconProps) {
-  const showId = !!vesselId && size >= 20;
+export function TankerIcon({ size = 14, color = '#facc15', vesselId, className }: TankerIconProps) {
   const cx = size / 2;
   const cy = size / 2;
-  const r = size / 2 - 2;
+  const r = size / 2 - 1;
 
   return (
     <svg
@@ -42,21 +40,7 @@ export function TankerIcon({ size = 24, color = '#94a3b8', vesselId, className }
       className={className}
       style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}
     >
-      <circle cx={cx} cy={cy} r={r} fill="rgba(255,255,255,0.05)" stroke={color} strokeWidth="1.8" />
-      {showId && (
-        <text
-          x={cx}
-          y={cy}
-          fontSize={Math.max(5, size * 0.27)}
-          fontFamily="monospace"
-          fontWeight="bold"
-          fill={color}
-          textAnchor="middle"
-          dominantBaseline="middle"
-        >
-          {vesselId}
-        </text>
-      )}
+      <circle cx={cx} cy={cy} r={r} fill={color} stroke="#a16207" strokeWidth="1" />
     </svg>
   );
 }
