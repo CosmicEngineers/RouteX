@@ -343,3 +343,62 @@ def get_challenge_configuration() -> Dict[str, Any]:
         "trip_times_unload_unload": get_challenge_trip_times_unload_to_unload(),
         "monthly_demands": get_monthly_demands()
     }
+
+
+def validate_challenge_data() -> None:
+    """
+    mn2 fix: Assert structural correctness of all PS tables at import time.
+    Raises AssertionError with a clear message if any invariant is violated,
+    catching copy-paste errors that would otherwise silently corrupt results.
+    """
+    vessels = get_challenge_vessels()
+    loading_ports = get_challenge_loading_ports()
+    unloading_ports = get_challenge_unloading_ports()
+    ltu = get_challenge_trip_times_load_to_unload()
+    utu = get_challenge_trip_times_unload_to_unload()
+    demands = get_monthly_demands()
+
+    # ── Fleet ──────────────────────────────────────────────────────────────
+    assert len(vessels) == 9, f"Expected 9 vessels, got {len(vessels)}"
+    t1_to_t7 = [v for v in vessels if v["id"] in {f"T{i}" for i in range(1, 8)}]
+    t8_t9 = [v for v in vessels if v["id"] in {"T8", "T9"}]
+    assert len(t1_to_t7) == 7, "Expected 7 vessels (T1–T7) with 50,000 MT capacity"
+    assert len(t8_t9) == 2, "Expected 2 vessels (T8–T9) with 25,000 MT capacity"
+    for v in t1_to_t7:
+        assert v["capacity_mt"] == 50000, f"{v['id']} should be 50,000 MT, got {v['capacity_mt']}"
+    for v in t8_t9:
+        assert v["capacity_mt"] == 25000, f"{v['id']} should be 25,000 MT, got {v['capacity_mt']}"
+
+    # ── Ports ───────────────────────────────────────────────────────────────
+    lp_ids = {p["id"] for p in loading_ports}
+    up_ids = {p["id"] for p in unloading_ports}
+    assert len(lp_ids) == 6, f"Expected 6 loading ports, got {len(lp_ids)}"
+    assert len(up_ids) == 11, f"Expected 11 unloading ports, got {len(up_ids)}"
+
+    # ── L→U trip time table (6 × 11 = 66 entries) ──────────────────────────
+    for lp in lp_ids:
+        assert lp in ltu, f"Loading port {lp!r} missing from L→U trip time table"
+        for up in up_ids:
+            t = ltu[lp].get(up)
+            assert t is not None, f"Missing L→U time: {lp} → {up}"
+            assert t > 0, f"Non-positive L→U time for {lp} → {up}: {t}"
+            assert t < 10, f"Suspiciously large L→U time for {lp} → {up}: {t} days"
+
+    # ── U→U trip time table (11 × 11, diagonal = 0) ────────────────────────
+    for up in up_ids:
+        assert up in utu, f"Unloading port {up!r} missing from U→U trip time table"
+        assert utu[up].get(up, -1) == 0.0, f"U→U diagonal must be 0 for {up}, got {utu[up].get(up)}"
+        for up2 in up_ids:
+            if up == up2:
+                continue
+            t = utu[up].get(up2)
+            assert t is not None, f"Missing U→U time: {up} → {up2}"
+            assert t > 0, f"Non-positive U→U time for {up} → {up2}: {t}"
+
+    # ── Demands ─────────────────────────────────────────────────────────────
+    demand_port_ids = {d["port_id"] for d in demands}
+    unknown = demand_port_ids - up_ids
+    assert not unknown, f"Demands reference unknown unloading ports: {unknown}"
+    for d in demands:
+        assert d["demand_mt"] > 0, f"Non-positive demand for {d['port_id']}: {d['demand_mt']}"
+

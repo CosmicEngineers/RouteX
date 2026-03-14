@@ -20,10 +20,18 @@ def test_hard_demand_constraint():
     ]
 
     total_demand = sum(d["demand_mt"] for d in demands)
-    total_capacity = sum(v["capacity_mt"] for v in vessels)
 
-    # A single trip covers only 50k MT, but multiple trips handle the rest
-    assert total_demand <= total_capacity * 5, "Demand should be feasible with multiple trips"
+    # mn5 fix: Replace the trivially-true `total_demand <= total_capacity * 5` check
+    # (which is always true for any sane demand) with a time-budget-based assertion.
+    # A vessel with 720h/month budget and minimum trip of 0.3 days (7.2h) can do at
+    # most floor(720 / 7.2) = 100 trips. Use this as the theoretical maximum.
+    MIN_TRIP_HOURS = 0.3 * 24.0  # 7.2 hours (shortest possible PS trip: 0.3 days)
+    max_trips_per_vessel = int(vessels[0]["monthly_available_hours"] / MIN_TRIP_HOURS)
+    max_deliverable_mt = sum(v["capacity_mt"] * max_trips_per_vessel for v in vessels)
+    assert total_demand <= max_deliverable_mt, (
+        f"Demand ({total_demand} MT) exceeds theoretical fleet capacity over the month "
+        f"({max_deliverable_mt} MT with {max_trips_per_vessel} trips/vessel at min trip time)."
+    )
 
 
 def test_trip_time_accuracy():

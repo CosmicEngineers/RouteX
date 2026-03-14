@@ -53,13 +53,14 @@ class HPCLPort(BaseModel):
     draft_limitation: Optional[float] = Field(default=12.0, description="Maximum vessel draft (meters)")
     berth_capacity: Optional[int] = Field(default=2, description="Number of berths")
     storage_capacity: Optional[float] = Field(default=300000.0, description="Storage capacity (MT)")
-    loading_rate: Optional[float] = Field(default=1000.0, description="Loading rate (MT/hour)")
-    unloading_rate: Optional[float] = Field(default=800.0, description="Unloading rate (MT/hour)")
+    # Defaults match challenge_data.py (challenge 7.1 exact values)
+    loading_rate: Optional[float] = Field(default=2000.0, description="Loading rate (MT/hour)")
+    unloading_rate: Optional[float] = Field(default=1500.0, description="Unloading rate (MT/hour)")
     
-    # Cost Components
-    port_charges_per_visit: Optional[float] = Field(default=60000.0, description="Fixed port charges (₹)")
-    grt_charge: Optional[float] = Field(default=2.5, description="Charge per GRT (₹/GRT)")
-    cargo_handling_rate: Optional[float] = Field(default=300.0, description="Cargo handling (₹/MT)")
+    # Cost Components — defaults match challenge_data.py
+    port_charges_per_visit: Optional[float] = Field(default=100000.0, description="Fixed port charges (₹)")
+    grt_charge: Optional[float] = Field(default=2.0, description="Charge per GRT (₹/GRT)")
+    cargo_handling_rate: Optional[float] = Field(default=250.0, description="Cargo handling (₹/MT)")
     
     @validator('type')
     def validate_port_type(cls, v):
@@ -179,11 +180,11 @@ class HPCLRoute(BaseModel):
     total_distance_nm: float = Field(..., description="Total nautical miles")
     total_time_hours: float = Field(..., description="Total voyage time")
     
-    # HPCL Cost (charter-based per problem statement)
-    hpcl_charter_cost: float = Field(default=0.0, description="Charter hire × duration (HPCL definition)")
-    
-    # Extended costs (optional for real-world analysis)
-    total_cost: float = Field(..., description="Total voyage cost (₹) - extended model")
+    # HPCL Cost (Challenge 7.1): cost = charter_rate_Rs_per_day × trip_days
+    # hpcl_charter_cost == total_cost — both equal charter hire × duration.
+    # total_cost is required by the optimizer; hpcl_charter_cost is an alias for display.
+    hpcl_charter_cost: float = Field(default=0.0, description="Charter hire × trip_days (identical to total_cost per PS)")
+    total_cost: float = Field(..., description="Total voyage cost (₹) = charter_rate × trip_days (PS-correct)")
     
     cargo_quantity: float = Field(..., description="Total cargo quantity (MT)")
     
@@ -230,9 +231,9 @@ class OptimizationRequest(BaseModel):
     )
     
     # Optimization Parameters
-    optimize_for: Literal["cost", "emissions", "balanced"] = Field(
+    optimize_for: Literal["cost", "time", "emissions", "balanced"] = Field(
         default="cost",
-        description="Optimization objective"
+        description="Optimization objective ('cost' minimizes charter cost, 'time' minimizes trip duration)"
     )
     max_solve_time_seconds: int = Field(
         default=300,

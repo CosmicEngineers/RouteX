@@ -129,7 +129,10 @@ async def test_small_2x2_optimization():
     
     # Check cost is positive and reasonable
     assert result.total_cost > 0, "Total cost should be positive"
-    assert result.total_cost < 100000000, "Total cost seems unreasonably high (> ₹10 Cr)"
+    # mn4 fix: upper bound scales with fleet × charter rates.
+    # For this 2-vessel test: max trips ≈ 720h / 9.6h ≈ 75/vessel;
+    # cost ceiling ≈ 2 × 75 × 0.4days × 0.63Cr/day ≈ 37.8 Cr → use 50 Cr as safe margin.
+    assert result.total_cost < 500000000, "Total cost seems unreasonably high (> ₹50 Cr) for a 2-vessel test"
     
     # Check fleet utilization
     assert 0 <= result.fleet_utilization <= 100, "Fleet utilization should be 0-100%"

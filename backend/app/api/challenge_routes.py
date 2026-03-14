@@ -201,7 +201,9 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
                 # For 2-port trips, both rows show the same full trip cost.
                 for discharge_port in discharge_ports:
                     # Actual cargo for this port from solver (via cargo_per_port)
-                    cargo_per_port = route.cargo_per_port if hasattr(route, 'cargo_per_port') and route.cargo_per_port else {}
+                    # M2 follow-up: selected_routes are now HPCLRoute objects; per-port cargo
+                    # is in cargo_split (renamed from the old raw-dict key cargo_per_port).
+                    cargo_per_port = route.cargo_split if route.cargo_split else {}
                     volume = cargo_per_port.get(discharge_port, int(cargo_quantity / len(discharge_ports)))
 
                     output_table.append({

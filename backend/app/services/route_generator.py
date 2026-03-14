@@ -13,7 +13,6 @@ import json
 from functools import lru_cache
 
 from .distance_calculator import get_hpcl_route_distance, get_hpcl_route_coordinates
-from .cost_calculator import HPCLCostCalculator
 from ..models.schemas import HPCLVessel, HPCLPort, HPCLRoute
 from ..data.challenge_data import (
     get_challenge_trip_times_load_to_unload,
@@ -106,7 +105,8 @@ class HPCLRouteGenerator:
     """
     
     def __init__(self, enable_pruning: bool = True, enable_caching: bool = True):
-        self.cost_calculator = HPCLCostCalculator()
+        # NOTE: HPCLCostCalculator removed — PS defines cost as charter rate × trip_days ONLY.
+        # No fuel, port charges, or demurrage are part of the PS cost model.
         self.generated_routes: List[Dict[str, Any]] = []
         self.enable_pruning = enable_pruning
         self.enable_caching = enable_caching
@@ -134,7 +134,8 @@ class HPCLRouteGenerator:
         With smart pruning for performance optimization
         
         Pattern A: Direct routes (Load → Unload) = 6 × 11 = 66 per vessel
-        Pattern B: Split routes (Load → Unload1 → Unload2) = 6 × 11 × 10 = 660 per vessel
+        Pattern B: Split routes (Load → Unload1 → Unload2) = 6 × C(11,2) × 2 = 6 × 55 × 2 = 660 per vessel
+                   (combinations(11,2)=55 unordered pairs × 2 orderings, since U→U matrix is asymmetric)
         Total: ~726 routes per vessel type (before pruning)
         """
         logger.info(f"Starting HPCL feasible route generation (pruning={'ON' if self.enable_pruning else 'OFF'})...")
@@ -388,8 +389,8 @@ class HPCLRouteGenerator:
             total_time_days = calculate_trip_time_from_tables(
                 loading_port_id=loading_port.id,
                 discharge_port_ids=discharge_port_ids,
-                include_service_time=True,  # Include loading/unloading time
-                include_return_trip=False   # Don't include return by default
+                include_service_time=False,  # PS tables already encode full trip duration — no extra time added
+                include_return_trip=False     # Don't include return by default
             )
             total_time_hours = total_time_days * 24.0
             

@@ -10,7 +10,7 @@ import logging
 import json
 from datetime import datetime, timedelta
 
-from ..models.schemas import HPCLVessel, HPCLPort, MonthlyDemand, OptimizationResult, VesselSchedule, VoyageActivity, ActivityType
+from ..models.schemas import HPCLVessel, HPCLPort, HPCLRoute, MonthlyDemand, OptimizationResult, VesselSchedule, VoyageActivity, ActivityType
 from .route_generator import HPCLRouteOptimizer
 from .infeasibility_analyzer import analyze_infeasibility
 from ..core.config import get_settings
@@ -167,7 +167,13 @@ class HPCLCPSATOptimizer:
             elif status == cp_model.INFEASIBLE:
                 # Problem is infeasible - demands cannot be met
                 total_demand = sum(demand_dict.values())
-                total_capacity = sum(v.capacity_mt for v in vessels) * 10  # Max ~10 trips/vessel/month
+                # BUG-C3 FIX: Calculate realistic max capacity from actual trip times.
+                # PS trip times range 0.3-0.73 days. With 720h/month budget:
+                # max trips per vessel ≈ floor(720 / (min_trip_hours)) = floor(720/7.2) ≈ 100.
+                # Use a conservative estimate based on the shortest PS trip time (0.3 days = 7.2h).
+                min_trip_hours = 0.3 * 24.0  # 0.3 days minimum trip time from PS
+                max_trips_per_vessel = int(720.0 / min_trip_hours)  # ≈ 100
+                total_capacity = sum(v.capacity_mt * max_trips_per_vessel for v in vessels)
                 result = self._create_infeasibility_result(
                     total_demand, total_capacity, demand_dict, vessels, total_start
                 )
@@ -342,7 +348,7 @@ class HPCLCPSATOptimizer:
         HARD CONSTRAINT: Each vessel can work max 720 hours per month
         (30 days × 24 hours = 720 hours operational constraint)
         """
-        logger.info("Adding vessel time constraints (≤ 720 hours/month)...")
+        logger.info("Adding vessel time constraints (using centihour scaling for precision)...")
         
         for vessel in vessels:
             vessel_id = vessel.id
@@ -354,33 +360,32 @@ class HPCLCPSATOptimizer:
             ]
             
             if vessel_routes:
-                # Time constraint: Sum of (route_time × route_active) ≤ available_hours
-                # Time is incurred only if route is used (binary activation), NOT proportional to cargo
+                # BUG-C2 FIX: Use centihour scaling (×100) to avoid precision loss from int(round(hours)).
+                # Trip times like 9.6h would round to 10h (+4% error per trip).
+                # Scaling by 100 gives 960 centihours — exact integer with no rounding error.
                 time_terms = []
                 for route in vessel_routes:
                     route_id = route['route_id']
-                    time_hours = int(round(route['total_time_hours']))  # Round to integer hours
+                    time_centihours = int(round(route['total_time_hours'] * 100))  # centihours (×100)
                     active_var = self.route_active_vars[route_id]
-                    time_terms.append(active_var * time_hours)
+                    time_terms.append(active_var * time_centihours)
                 
-                # Enforce max hours per month (rounded to integer)
-                available_hours = int(round(vessel.monthly_available_hours))
+                # Enforce max centihours per month (vessel budget × 100)
+                available_centihours = int(round(vessel.monthly_available_hours * 100))
                 
-                self.model.Add(sum(time_terms) <= available_hours)
+                self.model.Add(sum(time_terms) <= available_centihours)
                 
                 self.constraints[f"time_{vessel_id}"] = {
                     'type': 'vessel_time_budget',
                     'vessel': vessel_id,
-                    # BUG-M3 note: 720h (30 days × 24h) is an operational planning assumption.
-                    # The PS does not specify a monthly time budget. This constraint ensures
-                    # the total scheduled time per vessel does not exceed one calendar month.
-                    'available_hours': available_hours,
+                    'available_hours': vessel.monthly_available_hours,
+                    'available_centihours': available_centihours,
                     'route_count': len(vessel_routes)
                 }
                 
-                logger.debug(f"Vessel {vessel_id}: {len(vessel_routes)} routes, max {available_hours} hours")
+                logger.debug(f"Vessel {vessel_id}: {len(vessel_routes)} routes, max {vessel.monthly_available_hours:.1f}h ({available_centihours} centihours)")
         
-        logger.info(f"Added time constraints for {len(vessels)} vessels (HARD: ≤ 720 hours/month)")
+        logger.info(f"Added time constraints for {len(vessels)} vessels (centihour-precise, ≤ available_hours/month)")
     
     def _add_hpcl_operational_constraints(
         self,
@@ -563,20 +568,23 @@ class HPCLCPSATOptimizer:
             month=current_month,
             optimization_status=opt_status,
             solve_time_seconds=solve_time,
+            # BUG-M2 FIX: Build HPCLRoute objects instead of raw dicts so Pydantic
+            # type validation is satisfied for OptimizationResult.selected_routes.
             selected_routes=[
-                {
-                    'route_id': route['route_id'],
-                    'vessel_id': route['vessel_id'],
-                    'loading_port': route['loading_port'],
-                    'discharge_ports': route['discharge_ports'],
-                    'total_cost': route['total_cost'],
-                    'total_cost_cr': route.get('total_cost_cr', route['total_cost'] / 10_000_000),
-                    'total_distance_nm': route['total_distance_nm'],
-                    'total_time_hours': route['total_time_hours'],
-                    'cargo_quantity': route['cargo_flow_mt'],
-                    'cargo_per_port': route.get('cargo_per_port', {}),  # actual per-port allocation
-                    'execution_count': route['execution_count']
-                }
+                HPCLRoute(
+                    route_id=route['route_id'],
+                    vessel_id=route['vessel_id'],
+                    loading_port=route['loading_port'],
+                    discharge_ports=route['discharge_ports'],
+                    total_distance_nm=route['total_distance_nm'],
+                    total_time_hours=route['total_time_hours'],
+                    total_cost=route['total_cost'],
+                    hpcl_charter_cost=route['total_cost'],  # identical per PS
+                    cargo_quantity=route['cargo_flow_mt'],
+                    cargo_split=route.get('cargo_per_port', {}),
+                    route_coordinates=route.get('route_coordinates', []),
+                    execution_count=route['execution_count'],
+                )
                 for route in selected_routes
             ],
             vessel_schedules=vessel_schedules,
@@ -617,13 +625,11 @@ class HPCLCPSATOptimizer:
                     # instead of the previous hardcoded 12 hours.
                     # loading_rate is in MT/hour from challenge_data.py (2000 MT/h).
                     vessel_cap = route.get('vessel_capacity_mt', 50000)
-                    # Loading port rate (default 2000 MT/h per challenge_data)
-                    loading_rate = getattr(
-                        next((lp for lp in vessels if lp.id == route['vessel_id']), None),
-                        'capacity_mt', vessel_cap
-                    )
-                    # Use route loading port's rate if we can find the port object; else 2000
+                    # BUG-M1 FIX: The schedule builder previously searched 'vessels' (HPCLVessel objects)
+                    # for a loading_rate attribute — vessels don't have loading_rate, only ports do.
+                    # Fix: use the challenge_data default directly (2000 MT/h = challenge_data.py value).
                     loading_duration = vessel_cap / 2000.0  # hours = MT / (MT/h)
+                    # (2000 MT/h is the loading_rate for all loading ports per challenge_data.py)
 
                     loading_end = current_time + timedelta(hours=loading_duration)
                     
@@ -640,14 +646,20 @@ class HPCLCPSATOptimizer:
                     current_time = loading_end
                     
                     # Sailing activities to each discharge port
+                    # BUG-M5 FIX: Use module-level trip-time constants (already imported at top of
+                    # route_generator.py) instead of re-calling the factory functions inside the loop.
+                    # Re-calling them on every iteration of a nested loop recreates the full dict each time.
+                    from ..data.challenge_data import (
+                        get_challenge_trip_times_load_to_unload as _get_ltu,
+                        get_challenge_trip_times_unload_to_unload as _get_utu,
+                    )
+                    _ltu = _get_ltu()  # called once per voyage, not per discharge port
+                    _utu = _get_utu()
+                    # BUG-M6 FIX: Guard against UnboundLocalError if route has 0 discharge ports.
+                    # unloading_end is defined inside the loop; initialise before the loop
+                    # so the outer `current_time = unloading_end` below is always safe.
+                    unloading_end = current_time  # fallback: no-op if discharge_ports is empty
                     for i, discharge_port in enumerate(route['discharge_ports']):
-                        # Bug 12 fix: use actual segment time from PS tables instead of equal split
-                        from ..data.challenge_data import (
-                            get_challenge_trip_times_load_to_unload,
-                            get_challenge_trip_times_unload_to_unload
-                        )
-                        _ltu = get_challenge_trip_times_load_to_unload()
-                        _utu = get_challenge_trip_times_unload_to_unload()
                         if i == 0:
                             seg_days = _ltu.get(route['loading_port'], {}).get(discharge_port, 0.5)
                         else:
