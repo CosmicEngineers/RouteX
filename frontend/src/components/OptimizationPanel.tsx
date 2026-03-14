@@ -205,36 +205,39 @@ export function OptimizationPanel({ vessels, ports, onStartOptimization, isOptim
         </div>
       </div>
 
-      {/* Vessel Selection */}
-      <div className="glass-card rounded-xl border border-slate-700/50 p-8">
-        <h3 className="text-xl font-semibold text-slate-100 mb-6">
-          Select Vessels ({selectedVessels.length || availableVessels.length}/{vessels.length})
-        </h3>
-
-        <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
-          {availableVessels.map((vessel) => (
-            <label key={vessel.id} className="flex items-center space-x-3 p-4 hover:bg-slate-800/30 rounded-lg transition-colors">
-              <input
-                type="checkbox"
-                checked={selectedVessels.length === 0 || selectedVessels.includes(vessel.id)}
-                onChange={(e) => handleVesselSelection(vessel.id, e.target.checked)}
-                className="h-5 w-5 text-cyan-500 focus:ring-cyan-500 border-slate-600 rounded bg-slate-800"
-              />
-              <div className="flex-1 min-w-0">
-                <div className="text-base font-medium text-slate-100">{vessel.name}</div>
-                <div className="text-sm text-slate-400">
-                  {(vessel.capacity_mt / 1000).toFixed(0)}K MT • {vessel.current_port}
-                </div>
-              </div>
-            </label>
+      {/* Fleet Health Summary — replaces individual vessel checkboxes */}
+      <div className="glass-card rounded-xl border border-green-500/30 p-6">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          <h3 className="text-base font-bold text-green-400 uppercase tracking-wide">Fleet Health</h3>
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xl font-bold text-slate-100">{vessels.length}/{vessels.length} Tankers Ready</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {vessels.filter(v => v.capacity_mt >= 50000).length}×50K MT
+              {' · '}
+              {vessels.filter(v => v.capacity_mt < 50000).length}×25K MT
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-slate-500 mb-0.5">Total Fleet</p>
+            <p className="text-lg font-bold text-cyan-300">
+              {(vessels.reduce((s, v) => s + v.capacity_mt, 0) / 1000).toFixed(0)}K MT
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+          {vessels.slice(0, 3).map(v => (
+            <div key={v.id} className="px-2 py-1 rounded bg-green-900/20 border border-green-800/30 text-center">
+              <p className="font-bold text-green-300">{v.id}</p>
+              <p className="text-slate-500">{(v.capacity_mt / 1000).toFixed(0)}K MT</p>
+            </div>
           ))}
         </div>
-
-        {availableVessels.length === 0 && (
-          <div className="text-center py-6 text-slate-400 text-base">
-            No available vessels for optimization
-          </div>
-        )}
+        <p className="text-[10px] text-slate-600 mt-2 text-center">
+          Full fleet committed to optimization — T1–T9
+        </p>
       </div>
 
       {/* Demand Summary */}

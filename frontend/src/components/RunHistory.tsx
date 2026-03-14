@@ -131,8 +131,8 @@ export function RunHistory({ onRevertToRun, onDeleteRun }: RunHistoryProps) {
 
               {run.params && (
                 <div className="mt-3 pt-3 border-t border-slate-700/50 text-xs text-slate-400">
-                  Objective: {run.params.optimize_for || 'cost'} | 
-                  Vessels: {run.params.available_vessels?.length || 'all'}
+                  Objective: {(run.params.optimize_for as string) || 'cost'} |
+                  Vessels: {(run.params.available_vessels as any[]|undefined)?.length || 'all'}
                 </div>
               )}
             </div>

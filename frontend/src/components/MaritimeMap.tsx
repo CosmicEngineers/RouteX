@@ -4,6 +4,33 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { HPCLVessel, HPCLPort } from './HPCLDashboard';
 import { calculateMaritimeRoute } from '../utils/jps-pathfinding';
 import { formatNumber } from '../utils/formatters';
+import type { Trip } from './ChallengeOutput';
+
+// Real-world HPCL terminal anchors for Challenge 7.1 ports
+// Coordinates sourced from official HPCL location data — mapped to PS abstract IDs L1-L6, U1-U11
+// "Sea-dock" offsets applied: admin coords shifted to the nearest harbour/channel water so
+// markers sit in the blue area of the map and JPS pathfinding starts/ends at sea.
+export const COASTAL_COORD_MAP: Record<string, { lat: number; lng: number; name: string; state: string; locationCode?: string }> = {
+  // ── Loading Ports (Refineries / Major Supply Terminals) ──────────────────
+  L1: { lat: 18.955, lng: 72.835, name: 'MR-II Terminal, Mumbai',          state: 'Maharashtra',    locationCode: '1554' }, // Mumbai Harbour (Mahul jetty water)
+  L2: { lat: 22.990, lng: 70.090, name: 'Kandla Terminal',                  state: 'Gujarat',        locationCode: '1583' }, // Gulf of Kutch anchorage
+  L3: { lat: 21.090, lng: 72.635, name: 'Hazira Depot, Surat',              state: 'Gujarat',        locationCode: '1412' }, // Hazira Sea Inlet, Gulf of Khambhat
+  L4: { lat: 13.225, lng: 80.340, name: 'Chennai Terminal',                 state: 'Tamil Nadu',     locationCode: '1991' }, // Ennore offshore channel
+  L5: { lat: 17.698, lng: 83.295, name: 'Visakh White Oil Terminal',        state: 'Andhra Pradesh', locationCode: '1992' }, // Vizag outer harbour
+  L6: { lat: 22.050, lng: 88.170, name: 'Haldia Terminal',                  state: 'West Bengal',    locationCode: '1650' }, // Haldia jetty, Hooghly River
+  // ── Unloading Ports (IRDs / Coastal Distribution Hubs) ───────────────────
+  U1:  { lat: 19.055, lng: 72.975, name: 'Vashi White Oil Terminal',        state: 'Maharashtra',    locationCode: '1588' }, // Thane Creek channel
+  U2:  { lat: 15.405, lng: 73.880, name: 'Vasco Terminal, Goa',             state: 'Goa',            locationCode: '1552' }, // Mormugão harbour entrance
+  U3:  { lat: 19.835, lng: 72.730, name: 'Dahanu — North Maharashtra Coast', state: 'Maharashtra' },                          // Dahanu coastal waters
+  U4:  { lat: 16.985, lng: 73.250, name: 'Ratnagiri — South Maharashtra Coast', state: 'Maharashtra' },                       // Ratnagiri harbour waters
+  U5:  { lat: 17.005, lng: 73.245, name: 'Jaigad — Maharashtra Coast',       state: 'Maharashtra' },                          // Jaigad harbour waters
+  U6:  { lat: 14.815, lng: 74.075, name: 'Karwar — North Karnataka Coast',   state: 'Karnataka' },                            // Karwar harbour
+  U7:  { lat:  9.958, lng: 76.245, name: 'Irumpanam Terminal, Kochi',        state: 'Kerala',         locationCode: '1845' }, // Kochi/Willingdon Island channel
+  U8:  { lat: 22.478, lng: 88.155, name: 'Kolkata-I Terminal',               state: 'West Bengal',    locationCode: '1644' }, // Hooghly River at Budge Budge
+  U9:  { lat:  8.780, lng: 78.210, name: 'V.O. Chidambaranar Port, Tuticorin', state: 'Tamil Nadu' },                        // Tuticorin outer harbour
+  U10: { lat: 20.265, lng: 86.685, name: 'Paradeep Terminal',                state: 'Odisha',         locationCode: '1630' }, // Paradeep outer harbour
+  U11: { lat: 12.915, lng: 74.790, name: 'Mangalore Terminal',               state: 'Karnataka',      locationCode: '1895' }, // Mangalore harbour waters
+};
 
 // Google Maps API Key
 const GOOGLE_MAPS_API_KEY = 'AIzaSyCPRoWBNwsGeC6TTl0149U1xKPBwq3QsLs';
@@ -44,19 +71,22 @@ interface MaritimeMapProps {
   onGoToRoute?: (index: number) => void;
   totalRoutes?: number;
   selectedRoutes?: any[];
+  /** Real trips from the CP-SAT optimizer — drives route visualization */
+  challengeTrips?: Trip[];
 }
 
-export function MaritimeMap({ 
-  vessels, 
-  ports, 
-  optimizationRoutes = [], 
-  currentRouteIndex = -1, 
+export function MaritimeMap({
+  vessels,
+  ports,
+  optimizationRoutes = [],
+  currentRouteIndex = -1,
   showLiveStatus = false,
   onNextRoute,
   onPrevRoute,
   onGoToRoute,
   totalRoutes = 0,
-  selectedRoutes = [] 
+  selectedRoutes = [],
+  challengeTrips = [],
 }: MaritimeMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
@@ -134,85 +164,76 @@ export function MaritimeMap({
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [showLiveStatus, onNextRoute, onPrevRoute, onGoToRoute, totalRoutes]);
 
-  // Enhanced HPCL Port Data - Challenge 7.1 Specifications
+  // Enhanced HPCL Port Data — derived from COASTAL_COORD_MAP (real Indian maritime anchors)
   const enhancedPorts = useMemo(() => {
-    const hpclPortData = [
-      // Loading Ports (L1-L6)
-      { id: 'L1', name: 'Loading Port L1', type: 'loading', latitude: 19.0, longitude: 72.8, state: 'Maharashtra', capacity: 999999, status: 'active' },
-      { id: 'L2', name: 'Loading Port L2', type: 'loading', latitude: 21.0, longitude: 72.0, state: 'Gujarat', capacity: 999999, status: 'active' },
-      { id: 'L3', name: 'Loading Port L3', type: 'loading', latitude: 20.5, longitude: 71.5, state: 'Gujarat', capacity: 999999, status: 'active' },
-      { id: 'L4', name: 'Loading Port L4', type: 'loading', latitude: 13.1, longitude: 80.3, state: 'Tamil Nadu', capacity: 999999, status: 'active' },
-      { id: 'L5', name: 'Loading Port L5', type: 'loading', latitude: 17.7, longitude: 83.3, state: 'Andhra Pradesh', capacity: 999999, status: 'active' },
-      { id: 'L6', name: 'Loading Port L6', type: 'loading', latitude: 22.5, longitude: 88.3, state: 'West Bengal', capacity: 999999, status: 'active' },
-      
-      // Unloading Ports (U1-U11) with Demands
-      { id: 'U1', name: 'Unloading Port U1 (40K MT)', type: 'unloading', latitude: 18.5, longitude: 73.0, state: 'Maharashtra', capacity: 40000, status: 'active' },
-      { id: 'U2', name: 'Unloading Port U2 (135K MT)', type: 'unloading', latitude: 15.5, longitude: 73.8, state: 'Goa', capacity: 135000, status: 'active' },
-      { id: 'U3', name: 'Unloading Port U3 (5K MT)', type: 'unloading', latitude: 19.5, longitude: 72.5, state: 'Maharashtra', capacity: 5000, status: 'active' },
-      { id: 'U4', name: 'Unloading Port U4 (20K MT)', type: 'unloading', latitude: 18.0, longitude: 73.5, state: 'Maharashtra', capacity: 20000, status: 'active' },
-      { id: 'U5', name: 'Unloading Port U5 (20K MT)', type: 'unloading', latitude: 17.5, longitude: 73.0, state: 'Maharashtra', capacity: 20000, status: 'active' },
-      { id: 'U6', name: 'Unloading Port U6 (20K MT)', type: 'unloading', latitude: 16.0, longitude: 74.0, state: 'Karnataka', capacity: 20000, status: 'active' },
-      { id: 'U7', name: 'Unloading Port U7 (110K MT)', type: 'unloading', latitude: 10.0, longitude: 76.3, state: 'Kerala', capacity: 110000, status: 'active' },
-      { id: 'U8', name: 'Unloading Port U8 (30K MT)', type: 'unloading', latitude: 19.0, longitude: 72.5, state: 'Maharashtra', capacity: 30000, status: 'active' },
-      { id: 'U9', name: 'Unloading Port U9 (20K MT)', type: 'unloading', latitude: 18.2, longitude: 73.2, state: 'Maharashtra', capacity: 20000, status: 'active' },
-      { id: 'U10', name: 'Unloading Port U10 (20K MT)', type: 'unloading', latitude: 18.8, longitude: 72.9, state: 'Maharashtra', capacity: 20000, status: 'active' },
-      { id: 'U11', name: 'Unloading Port U11 (20K MT)', type: 'unloading', latitude: 15.0, longitude: 74.5, state: 'Karnataka', capacity: 20000, status: 'active' }
-    ];
-    return hpclPortData;
+    return Object.entries(COASTAL_COORD_MAP).map(([id, info]) => ({
+      id,
+      name: info.name,
+      officialName: info.name.split(' — ')[1] ?? info.name,
+      locCode: info.locationCode ?? '—',
+      type: id.startsWith('L') ? 'loading' : 'unloading',
+      latitude: info.lat,
+      longitude: info.lng,
+      state: info.state,
+      capacity: id.startsWith('L') ? 999999 : 50000,
+      status: 'active',
+    }));
   }, []);
 
   // Enhanced HPCL Vessel Fleet - Challenge 7.1 Specifications
+  // Docked vessels use sea-dock coords from COASTAL_COORD_MAP; sailing vessels animate in open ocean.
   const enhancedVessels = useMemo(() => {
+    const c = COASTAL_COORD_MAP;
     return [
-      { 
-        id: 'T1', name: 'Tanker T1 (50K MT)', capacity_mt: 50000, status: 'available', 
-        current_port: 'Loading Port L1', lat: 19.0, lon: 72.8, heading: 0,
+      {
+        id: 'T1', name: 'Tanker T1 (50K MT)', capacity_mt: 50000, status: 'available',
+        current_port: 'Loading Port L1', lat: c.L1.lat, lon: c.L1.lng, heading: 0,
         speed: 0, fuel: 85, crew: 20, route: null, charter_rate: '₹0.63 Cr/day'
       },
-      { 
-        id: 'T2', name: 'Tanker T2 (50K MT)', capacity_mt: 50000, status: 'available', 
-        current_port: 'Loading Port L2', lat: 21.0, lon: 72.0, heading: 0,
+      {
+        id: 'T2', name: 'Tanker T2 (50K MT)', capacity_mt: 50000, status: 'available',
+        current_port: 'Loading Port L2', lat: c.L2.lat, lon: c.L2.lng, heading: 0,
         speed: 0, fuel: 90, crew: 20, route: null, charter_rate: '₹0.49 Cr/day'
       },
-      { 
-        id: 'T3', name: 'Tanker T3 (50K MT)', capacity_mt: 50000, status: 'available', 
-        current_port: 'Loading Port L3', lat: 20.5, lon: 71.5, heading: 0,
+      {
+        id: 'T3', name: 'Tanker T3 (50K MT)', capacity_mt: 50000, status: 'available',
+        current_port: 'Loading Port L3', lat: c.L3.lat, lon: c.L3.lng, heading: 0,
         speed: 0, fuel: 88, crew: 20, route: null, charter_rate: '₹0.51 Cr/day'
       },
-      { 
-        id: 'T4', name: 'Tanker T4 (50K MT)', capacity_mt: 50000, status: 'sailing', 
-        current_port: 'En Route', 
-        lat: 16.0 + Math.sin(time * 0.3) * 0.1, 
-        lon: 75.0 + Math.cos(time * 0.4) * 0.15, 
+      {
+        id: 'T4', name: 'Tanker T4 (50K MT)', capacity_mt: 50000, status: 'sailing',
+        current_port: 'En Route',
+        lat: 14.0 + Math.sin(time * 0.3) * 0.4,   // open Arabian Sea between L1 and U7
+        lon: 74.0 + Math.cos(time * 0.4) * 0.5,
         heading: 180 + time * 2,
         speed: 14.0, fuel: 75, crew: 20, route: 'L1 → U7', charter_rate: '₹0.51 Cr/day'
       },
-      { 
-        id: 'T5', name: 'Tanker T5 (50K MT)', capacity_mt: 50000, status: 'available', 
-        current_port: 'Loading Port L5', lat: 17.7, lon: 83.3, heading: 0,
+      {
+        id: 'T5', name: 'Tanker T5 (50K MT)', capacity_mt: 50000, status: 'available',
+        current_port: 'Loading Port L5', lat: c.L5.lat, lon: c.L5.lng, heading: 0,
         speed: 0, fuel: 82, crew: 20, route: null, charter_rate: '₹0.53 Cr/day'
       },
-      { 
-        id: 'T6', name: 'Tanker T6 (50K MT)', capacity_mt: 50000, status: 'loading', 
-        current_port: 'Loading Port L6', lat: 22.5, lon: 88.3, heading: 0,
+      {
+        id: 'T6', name: 'Tanker T6 (50K MT)', capacity_mt: 50000, status: 'loading',
+        current_port: 'Loading Port L6', lat: c.L6.lat, lon: c.L6.lng, heading: 0,
         speed: 0, fuel: 78, crew: 20, route: null, charter_rate: '₹0.57 Cr/day'
       },
-      { 
-        id: 'T7', name: 'Tanker T7 (50K MT)', capacity_mt: 50000, status: 'available', 
-        current_port: 'Loading Port L4', lat: 13.1, lon: 80.3, heading: 0,
+      {
+        id: 'T7', name: 'Tanker T7 (50K MT)', capacity_mt: 50000, status: 'available',
+        current_port: 'Loading Port L4', lat: c.L4.lat, lon: c.L4.lng, heading: 0,
         speed: 0, fuel: 70, crew: 20, route: null, charter_rate: '₹0.65 Cr/day'
       },
-      { 
-        id: 'T8', name: 'Tanker T8 (25K MT)', capacity_mt: 25000, status: 'sailing', 
-        current_port: 'En Route', 
-        lat: 18.5 + Math.sin(time * 0.5) * 0.08, 
-        lon: 73.5 + Math.cos(time * 0.6) * 0.12, 
+      {
+        id: 'T8', name: 'Tanker T8 (25K MT)', capacity_mt: 25000, status: 'sailing',
+        current_port: 'En Route',
+        lat: 19.2 + Math.sin(time * 0.5) * 0.3,   // open Arabian Sea between L2 and U2
+        lon: 72.0 + Math.cos(time * 0.6) * 0.4,
         heading: 90 + time * 1.5,
         speed: 13.0, fuel: 65, crew: 18, route: 'L2 → U2', charter_rate: '₹0.39 Cr/day'
       },
-      { 
-        id: 'T9', name: 'Tanker T9 (25K MT)', capacity_mt: 25000, status: 'unloading', 
-        current_port: 'Unloading Port U7', lat: 10.0, lon: 76.3, heading: 0,
+      {
+        id: 'T9', name: 'Tanker T9 (25K MT)', capacity_mt: 25000, status: 'unloading',
+        current_port: 'Unloading Port U7', lat: c.U7.lat, lon: c.U7.lng, heading: 0,
         speed: 0, fuel: 60, crew: 18, route: null, charter_rate: '₹0.38 Cr/day'
       }
     ];
@@ -351,43 +372,88 @@ export function MaritimeMap({
 
     const map = googleMapRef.current;
 
-    // Add port markers
+    // Add port markers — differentiated SVG icons per port type
     enhancedPorts.forEach(port => {
-      const isInRoute = currentRoute && !showLiveStatus && 
+      const isLoading = port.type === 'loading';
+      const isInRoute = currentRoute && !showLiveStatus &&
         currentRoute.route.some((step: any) => step.port === port.name);
-      
+
+      // Loading ports: HPCL-blue hexagon with pulse ring (supply source)
+      // Unloading ports: Cyan teardrop pin (distribution hub)
+      const markerSvg = isLoading
+        ? `<svg width="44" height="44" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="22" cy="22" r="20" fill="#0B5ED7" fill-opacity="0.20"/>
+            <circle cx="22" cy="22" r="14" fill="#0B5ED7" stroke="#93c5fd" stroke-width="2"/>
+            <text x="22" y="27" fill="#ffffff" font-size="8.5" font-weight="700"
+                  font-family="Arial,sans-serif" text-anchor="middle">${port.id}</text>
+          </svg>`
+        : `<svg width="34" height="40" viewBox="0 0 34 40" xmlns="http://www.w3.org/2000/svg">
+            <path d="M17 2C9.3 2 3 8.3 3 16c0 10.2 14 24 14 24s14-13.8 14-24C31 8.3 24.7 2 17 2z"
+                  fill="${isInRoute ? '#FCD34D' : '#22d3ee'}" stroke="#001529" stroke-width="1.5"/>
+            <text x="17" y="19" fill="#001529" font-size="${port.id.length > 3 ? '6.5' : '7.5'}" font-weight="700"
+                  font-family="Arial,sans-serif" text-anchor="middle">${port.id}</text>
+          </svg>`;
+
       const marker = new google.maps.Marker({
         position: { lat: port.latitude, lng: port.longitude },
         map: map,
         title: port.name,
         icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: isInRoute ? 10 : 7,
-          fillColor: isInRoute ? '#FCD34D' : (port.type === 'loading' ? '#22c55e' : '#3b82f6'),
-          fillOpacity: 1,
-          strokeColor: '#FFFFFF',
-          strokeWeight: 2
-        }
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(markerSvg),
+          scaledSize: isLoading
+            ? new google.maps.Size(44, 44)
+            : new google.maps.Size(34, 40),
+          anchor: isLoading
+            ? new google.maps.Point(22, 22)
+            : new google.maps.Point(17, 38),
+        },
+        zIndex: isLoading ? 20 : 10,
       });
+
+      // Industrial tooltip with official HPCL details
+      const coordInfo = COASTAL_COORD_MAP[port.id];
+      const locCodeRow = coordInfo?.locationCode
+        ? `<p style="margin:3px 0;font-size:11px;">
+             <span style="color:#64748b;">Location Code:</span>
+             <span style="color:#fbbf24;font-weight:700;margin-left:5px;">Loc ${coordInfo.locationCode}</span>
+           </p>`
+        : '';
+      const demandRow = isLoading
+        ? `<span style="color:#10b981;font-weight:600;">Unlimited Supply</span>`
+        : `<span style="color:#22d3ee;font-weight:600;">${formatNumber(port.capacity)} MT&thinsp;/&thinsp;month</span>`;
 
       const infoWindow = new google.maps.InfoWindow({
         content: `
-          <div style="padding: 8px;">
-            <h3 style="margin: 0 0 8px 0; font-weight: bold; color: #1e40af;">
-              ${port.name.replace(' (HPCL)', '').replace(' Terminal', '')}
-            </h3>
-            <p style="margin: 4px 0; font-size: 13px;"><strong>Type:</strong> ${port.type === 'loading' ? 'Loading Port' : 'Unloading Port'}</p>
-            <p style="margin: 4px 0; font-size: 13px;"><strong>State:</strong> ${port.state}</p>
-            <p style="margin: 4px 0; font-size: 13px;"><strong>Capacity:</strong> ${formatNumber(port.capacity)} MT</p>
-            <p style="margin: 4px 0; font-size: 13px;"><strong>Status:</strong> <span style="color: #059669;">${port.status}</span></p>
+          <div style="font-family:Arial,sans-serif;padding:10px 12px;min-width:230px;
+                      background:#0f172a;border-radius:8px;border:1px solid #1e293b;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <span style="background:${isLoading ? '#0B5ED7' : '#22d3ee'};
+                           color:${isLoading ? '#fff' : '#001529'};
+                           font-weight:700;font-size:11px;padding:2px 8px;border-radius:4px;">
+                ${port.id}
+              </span>
+              <span style="color:#f1f5f9;font-weight:700;font-size:13px;">${port.officialName}</span>
+            </div>
+            ${locCodeRow}
+            <p style="margin:3px 0;font-size:11px;">
+              <span style="color:#64748b;">Type:</span>
+              <span style="color:${isLoading ? '#60a5fa' : '#22d3ee'};margin-left:5px;">
+                ${isLoading ? '⛽ Loading Port (Supply Source)' : '🏭 IRD / Distribution Terminal'}
+              </span>
+            </p>
+            <p style="margin:3px 0;font-size:11px;">
+              <span style="color:#64748b;">State:</span>
+              <span style="color:#e2e8f0;margin-left:5px;">${port.state}</span>
+            </p>
+            <p style="margin:3px 0;font-size:11px;">
+              <span style="color:#64748b;">${isLoading ? 'Supply:' : 'Monthly Demand:'}</span>
+              <span style="margin-left:5px;">${demandRow}</span>
+            </p>
           </div>
-        `
+        `,
       });
 
-      marker.addListener('click', () => {
-        infoWindow.open(map, marker);
-      });
-
+      marker.addListener('click', () => infoWindow.open(map, marker));
       markersRef.current.push(marker);
     });
 
@@ -449,7 +515,7 @@ export function MaritimeMap({
       for (let i = 0; i < currentRoute.route.length - 1; i++) {
         const start = currentRoute.route[i];
         const end = currentRoute.route[i + 1];
-        
+
         // Calculate intermediate coastal waypoints to avoid land
         const waypoints = calculateCoastalRoute(
           { lat: start.lat, lng: start.lon },
@@ -478,7 +544,61 @@ export function MaritimeMap({
       }
     }
 
-  }, [enhancedPorts, currentRoute, showLiveStatus, isMapLoaded, currentRouteIndex]);
+    // Draw challenge trip routes from real optimizer output + auto-zoom to fit all routes
+    if (challengeTrips.length > 0) {
+      const TRIP_COLORS = ['#22d3ee', '#34d399', '#a78bfa', '#fb923c', '#f472b6', '#60a5fa', '#facc15', '#4ade80', '#f87171'];
+      const bounds = new google.maps.LatLngBounds();
+      let boundsHasPoints = false;
+
+      challengeTrips.forEach((trip, tripIdx) => {
+        const loadCoord = COASTAL_COORD_MAP[trip.loading_port];
+        if (!loadCoord) return;
+        const color = TRIP_COLORS[tripIdx % TRIP_COLORS.length];
+
+        bounds.extend({ lat: loadCoord.lat, lng: loadCoord.lng });
+        boundsHasPoints = true;
+
+        trip.discharge_ports.forEach((dischPort) => {
+          const dischCoord = COASTAL_COORD_MAP[dischPort];
+          if (!dischCoord) return;
+
+          bounds.extend({ lat: dischCoord.lat, lng: dischCoord.lng });
+          boundsHasPoints = true;
+
+          const waypoints = calculateCoastalRoute(
+            { lat: loadCoord.lat, lng: loadCoord.lng },
+            { lat: dischCoord.lat, lng: dischCoord.lng }
+          );
+
+          const polyline = new google.maps.Polyline({
+            path: waypoints,
+            geodesic: true,
+            strokeColor: color,
+            strokeOpacity: 0.7,
+            strokeWeight: 3,
+            icons: [{
+              icon: {
+                path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                scale: 2.5,
+                strokeColor: color,
+              },
+              offset: '100%',
+              repeat: '120px',
+            }],
+          });
+
+          polyline.setMap(map);
+          polylinesRef.current.push(polyline);
+        });
+      });
+
+      // Auto-zoom to fit all active route endpoints with generous padding
+      if (boundsHasPoints) {
+        map.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60 });
+      }
+    }
+
+  }, [enhancedPorts, currentRoute, showLiveStatus, isMapLoaded, currentRouteIndex, challengeTrips]);
 
   // Separate effect to update vessel positions without recreating markers
   useEffect(() => {

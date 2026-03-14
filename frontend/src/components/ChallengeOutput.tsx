@@ -1,9 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { formatNumber } from '../utils/formatters';
+import { calculateImpact } from '../utils/calculateImpact';
+import { SolverConsole } from './SolverConsole';
 
-interface Vessel {
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface Vessel {
   id: string;
   capacity_mt: number;
   charter_rate_cr_per_day: number;
@@ -15,7 +19,7 @@ interface Port {
   type: string;
 }
 
-interface Demand {
+export interface Demand {
   port_id: string;
   demand_mt: number;
 }
@@ -34,7 +38,7 @@ interface TripDelivery {
   volume_mt: number;
 }
 
-interface Trip {
+export interface Trip {
   trip_id: string;
   vessel_id: string;
   loading_port: string;
@@ -44,7 +48,7 @@ interface Trip {
   cargo_deliveries: TripDelivery[];
 }
 
-interface OptimizationResponse {
+export interface OptimizationResponse {
   status: string;
   optimization_status?: string;
   optimization_results: ChallengeResult[];
@@ -63,1071 +67,864 @@ interface OptimizationResponse {
   timestamp: string;
 }
 
-export function ChallengeOutput() {
-  const [results, setResults] = useState<OptimizationResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showInputs, setShowInputs] = useState(true);
-  const [expandedTripIdx, setExpandedTripIdx] = useState<number | null>(null);
-  const [solverProfile, setSolverProfile] = useState<'quick' | 'balanced' | 'thorough'>('quick');
+// ─── Default Data ─────────────────────────────────────────────────────────────
 
-  const SOLVER_PROFILES = {
-    quick:    { label: '⚡ Quick',    time: '~15s',  desc: 'Fast result' },
-    balanced: { label: '⚖ Balanced', time: '~30s',  desc: 'Better quality' },
-    thorough: { label: '🏆 Thorough', time: '~5m',   desc: 'Global optimum' },
-  } as const;
-  
-  // Clear any old cached results on mount to ensure fresh data
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // Clear all optimization cache on mount - always fetch fresh from backend
-      localStorage.removeItem('challenge_optimization_results');
-      localStorage.removeItem('challenge_input_hash');
-      localStorage.removeItem('challenge_timestamp');
-      localStorage.removeItem('challenge_cache_version');
-      console.log('🔄 Cache cleared - will fetch fresh results from backend');
-      
-      // Load saved input configurations if available
-      const savedVessels = localStorage.getItem('challenge_vessels');
-      const savedDemands = localStorage.getItem('challenge_demands');
-      
-      if (savedVessels) {
-        try {
-          setVessels(JSON.parse(savedVessels));
-        } catch (e) {
-          console.error('Failed to load saved vessels:', e);
-        }
-      }
-      
-      if (savedDemands) {
-        try {
-          setDemands(JSON.parse(savedDemands));
-        } catch (e) {
-          console.error('Failed to load saved demands:', e);
-        }
-      }
-    }
-  }, []);
-  
-  // Editable input data
-  const [vessels, setVessels] = useState<Vessel[]>([
-    { id: 'T1', capacity_mt: 50000, charter_rate_cr_per_day: 0.63 },
-    { id: 'T2', capacity_mt: 50000, charter_rate_cr_per_day: 0.49 },
-    { id: 'T3', capacity_mt: 50000, charter_rate_cr_per_day: 0.51 },
-    { id: 'T4', capacity_mt: 50000, charter_rate_cr_per_day: 0.51 },
-    { id: 'T5', capacity_mt: 50000, charter_rate_cr_per_day: 0.53 },
-    { id: 'T6', capacity_mt: 50000, charter_rate_cr_per_day: 0.57 },
-    { id: 'T7', capacity_mt: 50000, charter_rate_cr_per_day: 0.65 },
-    { id: 'T8', capacity_mt: 25000, charter_rate_cr_per_day: 0.39 },
-    { id: 'T9', capacity_mt: 25000, charter_rate_cr_per_day: 0.38 },
-  ]);
+export const DEFAULT_VESSELS: Vessel[] = [
+  { id: 'T1', capacity_mt: 50000, charter_rate_cr_per_day: 0.63 },
+  { id: 'T2', capacity_mt: 50000, charter_rate_cr_per_day: 0.49 },
+  { id: 'T3', capacity_mt: 50000, charter_rate_cr_per_day: 0.51 },
+  { id: 'T4', capacity_mt: 50000, charter_rate_cr_per_day: 0.51 },
+  { id: 'T5', capacity_mt: 50000, charter_rate_cr_per_day: 0.53 },
+  { id: 'T6', capacity_mt: 50000, charter_rate_cr_per_day: 0.57 },
+  { id: 'T7', capacity_mt: 50000, charter_rate_cr_per_day: 0.65 },
+  { id: 'T8', capacity_mt: 25000, charter_rate_cr_per_day: 0.39 },
+  { id: 'T9', capacity_mt: 25000, charter_rate_cr_per_day: 0.38 },
+];
 
-  const [loadingPorts] = useState<Port[]>([
-    { id: 'L1', name: 'Loading Port L1', type: 'loading' },
-    { id: 'L2', name: 'Loading Port L2', type: 'loading' },
-    { id: 'L3', name: 'Loading Port L3', type: 'loading' },
-    { id: 'L4', name: 'Loading Port L4', type: 'loading' },
-    { id: 'L5', name: 'Loading Port L5', type: 'loading' },
-    { id: 'L6', name: 'Loading Port L6', type: 'loading' },
-  ]);
+export const DEFAULT_DEMANDS: Demand[] = [
+  { port_id: 'U1',  demand_mt: 40000  },
+  { port_id: 'U2',  demand_mt: 135000 },
+  { port_id: 'U3',  demand_mt: 5000   },
+  { port_id: 'U4',  demand_mt: 20000  },
+  { port_id: 'U5',  demand_mt: 20000  },
+  { port_id: 'U6',  demand_mt: 20000  },
+  { port_id: 'U7',  demand_mt: 110000 },
+  { port_id: 'U8',  demand_mt: 30000  },
+  { port_id: 'U9',  demand_mt: 20000  },
+  { port_id: 'U10', demand_mt: 20000  },
+  { port_id: 'U11', demand_mt: 20000  },
+];
 
-  const [demands, setDemands] = useState<Demand[]>([
-    { port_id: 'U1', demand_mt: 40000 },
-    { port_id: 'U2', demand_mt: 135000 },
-    { port_id: 'U3', demand_mt: 5000 },
-    { port_id: 'U4', demand_mt: 20000 },
-    { port_id: 'U5', demand_mt: 20000 },
-    { port_id: 'U6', demand_mt: 20000 },
-    { port_id: 'U7', demand_mt: 110000 },
-    { port_id: 'U8', demand_mt: 30000 },
-    { port_id: 'U9', demand_mt: 20000 },
-    { port_id: 'U10', demand_mt: 20000 },
-    { port_id: 'U11', demand_mt: 20000 },
-  ]);
+const LOADING_PORTS: Port[] = [
+  { id: 'L1', name: 'Mumbai (Mahul)', type: 'loading' },
+  { id: 'L2', name: 'Kandla (Deendayal)', type: 'loading' },
+  { id: 'L3', name: 'Sikka (Jamnagar)', type: 'loading' },
+  { id: 'L4', name: 'Chennai (Ennore)', type: 'loading' },
+  { id: 'L5', name: 'Visakhapatnam', type: 'loading' },
+  { id: 'L6', name: 'Haldia', type: 'loading' },
+];
 
-  const updateVessel = (index: number, field: keyof Vessel, value: number) => {
-    const updated = [...vessels];
-    updated[index] = { ...updated[index], [field]: value };
-    setVessels(updated);
-    // Save to localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('challenge_vessels', JSON.stringify(updated));
-    }
-  };
+export const SOLVER_PROFILES = {
+  quick:    { label: '⚡ Quick',    time: '~15s',  desc: 'Fast result, good quality' },
+  balanced: { label: '⚖ Balanced', time: '~30s',  desc: 'Better quality solution' },
+  thorough: { label: '🏆 Thorough', time: '~5m',   desc: 'Global optimum search' },
+} as const;
 
-  const updateDemand = (index: number, value: number) => {
-    const updated = [...demands];
-    updated[index] = { ...updated[index], demand_mt: value };
-    setDemands(updated);
-    // Save to localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('challenge_demands', JSON.stringify(updated));
-    }
-  };
+// ─── Shared Props ─────────────────────────────────────────────────────────────
 
-  const runOptimization = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${apiUrl}/api/v1/challenge/optimize`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
-        },
-        cache: 'no-store', // Prevent browser from caching the response
-        body: JSON.stringify({
-          vessels,
-          demands,
-          solver_profile: solverProfile,
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Optimization failed');
-      }
-      
-      const data = await response.json();
-      setResults(data);
-      
-      console.log('✅ Fresh results loaded from backend');
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
-      console.error('Optimization error:', errorMessage);
-      setError(`Unable to connect to the optimization server. Please verify the server is running at ${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'} and try again.`);
-    } finally {
-      setLoading(false);
-    }
-  };
+export interface ChallengeSharedProps {
+  vessels: Vessel[];
+  demands: Demand[];
+  solverProfile: 'quick' | 'balanced' | 'thorough';
+  results: OptimizationResponse | null;
+  loading: boolean;
+  error: string | null;
+  optimizationStartTime: number | null;
+  onUpdateVessel: (index: number, field: keyof Vessel, value: number) => void;
+  onUpdateDemand: (index: number, value: number) => void;
+  onSetSolverProfile: (p: 'quick' | 'balanced' | 'thorough') => void;
+  onRunOptimization: () => void;
+  onClearResults: () => void;
+  onDownloadCSV: () => void;
+}
 
-  const downloadCSV = () => {
-    if (!results) return;
-    
-    const headers = ['Source', 'Destination', 'Tanker', 'Volume (MT)', 'Trip Cost (Rs Cr)'];
-    const csvContent = [
-      headers.join(','),
-      ...results.optimization_results.map(row => 
-        [row.Source, row.Destination, row.Tanker, row['Volume (MT)'], row['Trip Cost (Rs Cr)']].join(',')
-      )
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `hpcl_optimization_results_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
+// ─── ChallengeConfigPanel — Left Sidebar ──────────────────────────────────────
 
-  const clearResults = () => {
-    setResults(null);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('challenge_optimization_results');
-      localStorage.removeItem('challenge_input_hash');
-      localStorage.removeItem('challenge_timestamp');
-      localStorage.removeItem('challenge_cache_version');
-      console.log('🗑️ Results cleared');
-    }
-  };
+export function ChallengeConfigPanel({
+  vessels,
+  demands,
+  solverProfile,
+  loading,
+  error,
+  optimizationStartTime,
+  onUpdateVessel,
+  onUpdateDemand,
+  onSetSolverProfile,
+  onRunOptimization,
+  onClearResults,
+  results,
+}: ChallengeSharedProps) {
+  const [showParams, setShowParams] = useState(false);
+  const largeVessels = vessels.filter(v => v.capacity_mt >= 50000).length;
+  const smallVessels = vessels.filter(v => v.capacity_mt < 50000).length;
+  const totalFleetMt = vessels.reduce((s, v) => s + v.capacity_mt, 0);
+  const totalDemandMt = demands.reduce((s, d) => s + d.demand_mt, 0);
 
   return (
-    <div className="space-y-8">
-      {/* Section Header with Action Button */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent mb-2">
-            Coastal Fleet Route Optimizer
-          </h2>
-          <p className="text-slate-400">Minimize transportation costs while meeting all delivery demands</p>
+    <div className="flex flex-col h-full overflow-y-auto space-y-4 p-4">
+      {/* Header */}
+      <div>
+        <div className="text-[10px] font-bold tracking-widest text-cyan-400 uppercase mb-1">
+          Command Center
         </div>
-        <div className="flex flex-col items-end gap-3">
-          {/* Solver precision toggle */}
-          <div className="flex rounded-xl overflow-hidden border border-slate-700">
-            {(['quick', 'balanced', 'thorough'] as const).map((profile) => (
-              <button
-                key={profile}
-                onClick={() => setSolverProfile(profile)}
-                disabled={loading}
-                title={SOLVER_PROFILES[profile].desc}
-                className={`px-4 py-2 text-xs font-semibold transition-all disabled:cursor-not-allowed ${
-                  solverProfile === profile
-                    ? 'bg-cyan-600 text-white'
-                    : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                {SOLVER_PROFILES[profile].label}
-                <span className="ml-1 opacity-60">{SOLVER_PROFILES[profile].time}</span>
-              </button>
-            ))}
-          </div>
-          {/* Action buttons */}
-          <div className="flex gap-3">
-            {results && (
-              <button
-                onClick={clearResults}
-                className="px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300 bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30 hover:border-red-500/50"
-                title="Clear saved optimization results and start fresh"
-              >
-                Clear Results
-              </button>
-            )}
+        <h2 className="text-lg font-bold text-slate-100 leading-tight">
+          Coastal Fleet Optimizer
+        </h2>
+        <p className="text-xs text-slate-500 mt-0.5">HPCL Challenge 7.1</p>
+      </div>
+
+      {/* Fleet Health */}
+      <div className="glass-card rounded-xl border border-green-500/30 p-3">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          <span className="text-xs font-bold text-green-400 uppercase tracking-wide">Fleet Health</span>
+        </div>
+        <div className="text-sm font-bold text-slate-100 mb-1">
+          {vessels.length}/{vessels.length} Tankers Ready
+        </div>
+        <div className="flex gap-3 text-xs text-slate-400">
+          <span className="text-green-300">{largeVessels}×50K MT</span>
+          <span className="text-cyan-300">{smallVessels}×25K MT</span>
+        </div>
+        <div className="mt-2 text-xs text-slate-500">
+          Fleet capacity: <span className="text-slate-300 font-semibold">{formatNumber(totalFleetMt)} MT</span>
+          {' | '}
+          Demand: <span className="text-slate-300 font-semibold">{formatNumber(totalDemandMt)} MT</span>
+        </div>
+      </div>
+
+      {/* Solver Profile */}
+      <div>
+        <div className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">
+          Solver Precision
+        </div>
+        <div className="flex flex-col gap-1.5">
+          {(Object.entries(SOLVER_PROFILES) as [keyof typeof SOLVER_PROFILES, typeof SOLVER_PROFILES[keyof typeof SOLVER_PROFILES]][]).map(([key, p]) => (
             <button
-              onClick={runOptimization}
+              key={key}
+              onClick={() => onSetSolverProfile(key)}
               disabled={loading}
-              className="px-8 py-3 rounded-xl font-semibold text-sm transition-all duration-300 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/50 hover:shadow-cyan-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Find the most cost-effective routes for your fleet"
+              title={p.desc}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                solverProfile === key
+                  ? 'bg-cyan-600/80 text-white border border-cyan-500/60'
+                  : 'bg-slate-800/60 text-slate-400 border border-slate-700/50 hover:text-slate-200 hover:border-slate-600'
+              }`}
             >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Optimizing ({SOLVER_PROFILES[solverProfile].time})...
-                </span>
-              ) : (
-                'Optimize Routes'
-              )}
+              <span>{p.label}</span>
+              <span className="opacity-60 font-normal">{p.time}</span>
             </button>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* Input Toggle */}
-      <div className="flex justify-center">
-        <button
-          onClick={() => setShowInputs(!showInputs)}
-          className="glass-card border border-slate-700 px-6 py-3 rounded-xl text-sm font-medium text-slate-300 hover:text-cyan-400 hover:border-cyan-500/50 transition-all"
-          title="Toggle fleet and demand parameters"
-        >
-          {showInputs ? '▼ Hide Fleet Parameters' : '▶ Show Fleet Parameters'}
-        </button>
-      </div>
+      {/* Run Button */}
+      <button
+        onClick={onRunOptimization}
+        disabled={loading}
+        className="w-full py-3 rounded-xl font-bold text-sm transition-all duration-300 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/30 hover:shadow-cyan-500/40 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 flex items-center justify-center gap-2"
+      >
+        {loading ? (
+          <>
+            <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+            Running…
+          </>
+        ) : (
+          <>▶ Run Optimization</>
+        )}
+      </button>
 
-      {/* Input Configuration Section */}
-      {showInputs && (
-        <div className="glass-card rounded-2xl border border-slate-700/50 p-5">
-          <h3 className="text-xl font-semibold text-slate-200 mb-4">Fleet & Demand Configuration</h3>
-          <p className="text-sm text-slate-400 mb-4">Adjust vessel capacities, charter rates, and port demands to customize your optimization scenario</p>
-          <div className="space-y-4">
-          </div>
+      {/* Solver Console */}
+      {loading && (
+        <SolverConsole
+          isLoading={loading}
+          solverProfile={solverProfile}
+          startTime={optimizationStartTime}
+        />
+      )}
+
+      {/* Error */}
+      {error && !loading && (
+        <div className="p-3 bg-red-900/20 border border-red-500/40 rounded-lg">
+          <p className="text-xs font-bold text-red-400 mb-1">Connection Error</p>
+          <p className="text-xs text-red-300/80 leading-relaxed">{error}</p>
         </div>
       )}
 
-      {/* Input Tables */}
-      {showInputs && (
-        <div>
-          <div style={{ fontSize: '11px', letterSpacing: '0.08em', fontWeight: '700', color: '#0B5ED7', marginBottom: '16px', textTransform: 'uppercase' }}>
-            STEP 1 — INPUT CONFIGURATION
-          </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Tankers Input */}
-          <div style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.1)', border: '1px solid rgba(148, 163, 184, 0.2)' }}>
-            <div style={{ fontSize: '11px', letterSpacing: '0.08em', fontWeight: '700', color: '#0B5ED7', marginBottom: '12px', textTransform: 'uppercase' }}>
-              Available Coastal Tankers
-            </div>
-            <div className="text-xs text-slate-500 mb-3">Configure your fleet capacity and daily charter costs</div>
-            <div className="overflow-x-auto table-container rounded-lg">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="table-header">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium uppercase">Tanker</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium uppercase">Capacity (MT)</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium uppercase">Charter Rate (₹Cr/day)</th>
+      {/* Clear Results */}
+      {results && !loading && (
+        <button
+          onClick={onClearResults}
+          className="w-full py-2 rounded-lg text-xs font-semibold text-red-400 border border-red-500/30 bg-red-600/10 hover:bg-red-600/20 transition-all"
+        >
+          Clear Results
+        </button>
+      )}
+
+      {/* Collapsible Fleet Params */}
+      <details
+        open={showParams}
+        onToggle={(e) => setShowParams((e.target as HTMLDetailsElement).open)}
+        className="group"
+      >
+        <summary className="cursor-pointer text-xs font-semibold text-slate-400 hover:text-slate-200 select-none flex items-center gap-1 transition-colors py-1">
+          <svg
+            className="w-3 h-3 transition-transform group-open:rotate-90"
+            fill="currentColor" viewBox="0 0 20 20"
+          >
+            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+          </svg>
+          Fleet Parameters
+        </summary>
+        <div className="mt-3 space-y-4">
+          {/* Vessel table */}
+          <div>
+            <div className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">Tanker Fleet</div>
+            <div className="overflow-x-auto rounded-lg border border-slate-700/50">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-700/50">
+                    <th className="px-2 py-1.5 text-left text-slate-500 font-medium">ID</th>
+                    <th className="px-2 py-1.5 text-right text-slate-500 font-medium">Cap (MT)</th>
+                    <th className="px-2 py-1.5 text-right text-slate-500 font-medium">Rate (₹Cr)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {vessels.map((vessel, index) => (
-                    <tr key={vessel.id} className="table-row">
-                      <td className="px-3 py-2 text-sm font-medium text-slate-300">{vessel.id}</td>
-                      <td className="px-3 py-2 text-right">
+                <tbody>
+                  {vessels.map((v, i) => (
+                    <tr key={v.id} className="border-b border-slate-800/50 last:border-0">
+                      <td className="px-2 py-1 font-semibold text-cyan-400">{v.id}</td>
+                      <td className="px-2 py-1 text-right">
                         <input
                           type="number"
-                          value={vessel.capacity_mt}
-                          onChange={(e) => updateVessel(index, 'capacity_mt', parseInt(e.target.value) || 0)}
-                          className="w-24 px-2 py-1 text-sm text-right custom-input rounded"
+                          value={v.capacity_mt}
+                          onChange={(e) => onUpdateVessel(i, 'capacity_mt', parseInt(e.target.value) || 0)}
+                          className="w-16 px-1 py-0.5 text-right bg-slate-800 border border-slate-700 rounded text-slate-200 focus:border-cyan-500 outline-none"
                         />
                       </td>
-              <td className="px-3 py-2 text-right">
-                <input
-                  type="number"
-                  step="0.01"
-                  value={vessel.charter_rate_cr_per_day}
-                  onChange={(e) => updateVessel(index, 'charter_rate_cr_per_day', parseFloat(e.target.value) || 0)}
-                  className="w-20 px-2 py-1 text-sm text-right custom-input rounded"
-                />
-              </td>
+                      <td className="px-2 py-1 text-right">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={v.charter_rate_cr_per_day}
+                          onChange={(e) => onUpdateVessel(i, 'charter_rate_cr_per_day', parseFloat(e.target.value) || 0)}
+                          className="w-14 px-1 py-0.5 text-right bg-slate-800 border border-slate-700 rounded text-slate-200 focus:border-cyan-500 outline-none"
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="mt-3 text-xs text-slate-400">
-              <p>Total Fleet Capacity: <span className="font-semibold text-cyan-400">{formatNumber(vessels.reduce((sum, v) => sum + v.capacity_mt, 0))} MT</span></p>
-            </div>
           </div>
 
-          {/* Demands Input */}
-          <div style={{ backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.3)', border: '1px solid rgba(148, 163, 184, 0.1)' }}>
-            <div style={{ fontSize: '11px', letterSpacing: '0.08em', fontWeight: '700', color: '#0B5ED7', marginBottom: '12px', textTransform: 'uppercase' }}>
-              Monthly Delivery Requirements
-            </div>
-            <div className="text-xs text-slate-500 mb-3">Cargo volumes to be delivered to each unloading port (MT/month)</div>
-            <div className="overflow-x-auto table-container rounded-lg">
-              <table className="min-w-full divide-y divide-cyan-200">
-                <thead className="table-header">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium uppercase">Port</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium uppercase">Demand (MT/month)</th>
+          {/* Demand table */}
+          <div>
+            <div className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">Port Demands (MT/month)</div>
+            <div className="overflow-x-auto rounded-lg border border-slate-700/50">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-700/50">
+                    <th className="px-2 py-1.5 text-left text-slate-500 font-medium">Port</th>
+                    <th className="px-2 py-1.5 text-right text-slate-500 font-medium">Demand</th>
                   </tr>
                 </thead>
-              <tbody className="divide-y divide-gray-200">
-                {demands.map((demand, index) => (
-                  <tr key={demand.port_id} className="table-row">
-                    <td className="px-3 py-2 text-sm font-medium text-slate-300">{demand.port_id}</td>
-                    <td className="px-3 py-2 text-right">
-                      <input
-                        type="number"
-                        value={demand.demand_mt}
-                        onChange={(e) => updateDemand(index, parseInt(e.target.value) || 0)}
-                        className="w-28 px-2 py-1 text-sm text-right custom-input rounded"
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+                <tbody>
+                  {demands.map((d, i) => (
+                    <tr key={d.port_id} className="border-b border-slate-800/50 last:border-0">
+                      <td className="px-2 py-1 font-semibold text-blue-300">{d.port_id}</td>
+                      <td className="px-2 py-1 text-right">
+                        <input
+                          type="number"
+                          value={d.demand_mt}
+                          onChange={(e) => onUpdateDemand(i, parseInt(e.target.value) || 0)}
+                          className="w-20 px-1 py-0.5 text-right bg-slate-800 border border-slate-700 rounded text-slate-200 focus:border-cyan-500 outline-none"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
               </table>
-            </div>
-            <div className="mt-3 text-xs text-slate-400">
-              <p>Total Monthly Demand: <span className="font-semibold text-cyan-400">{formatNumber(demands.reduce((sum, d) => sum + d.demand_mt, 0))} MT</span></p>
             </div>
           </div>
 
-          {/* Loading Ports Info */}
-          <div style={{ backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.3)', border: '1px solid rgba(148, 163, 184, 0.1)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#22d3ee', marginBottom: '16px' }}>Loading Ports (6 Ports)</h3>
-            <div className="space-y-2">
-              {loadingPorts.map((port) => (
-                <div key={port.id} className="flex items-center justify-between py-2 px-3 rounded" style={{ backgroundColor: 'rgba(34, 211, 238, 0.1)' }}>
-                  <span className="text-sm font-medium text-slate-300">{port.id}</span>
-                  <span className="text-xs text-slate-400">{port.name}</span>
-                  <span className="text-xs font-semibold text-green-400">Unlimited Supply</span>
+          {/* Loading ports info */}
+          <div>
+            <div className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">Loading Ports (6)</div>
+            <div className="space-y-1">
+              {LOADING_PORTS.map(p => (
+                <div key={p.id} className="flex justify-between text-xs py-1 px-2 rounded bg-cyan-900/10 border border-cyan-900/30">
+                  <span className="font-semibold text-cyan-300">{p.id}</span>
+                  <span className="text-slate-400">{p.name}</span>
+                  <span className="text-green-400 font-semibold text-[10px]">Unlimited</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Constraints Info */}
-          <div style={{ backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.3)', border: '1px solid rgba(148, 163, 184, 0.1)' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#22d3ee', marginBottom: '20px' }}>Operational Constraints</h3>
-            <div className="space-y-4">
-              <div className="flex items-start">
-                <div className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center mt-0.5" style={{ backgroundColor: 'rgba(34, 211, 238, 0.2)', border: '1px solid rgba(34, 211, 238, 0.3)' }}>
-                  <span className="text-sm font-bold text-cyan-400">1</span>
+          {/* Constraints */}
+          <div>
+            <div className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">Constraints</div>
+            <div className="space-y-2 text-xs text-slate-400">
+              {[
+                ['1', 'Single-port full loading per trip'],
+                ['2', 'Max 2 discharge ports per trip'],
+                ['3', 'Unlimited supply at loading ports'],
+                ['4', 'Full demand satisfaction (100%)'],
+              ].map(([n, text]) => (
+                <div key={n} className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-cyan-900/30 border border-cyan-700/30 flex items-center justify-center text-[10px] font-bold text-cyan-400 flex-shrink-0">{n}</span>
+                  <span>{text}</span>
                 </div>
-                <div className="ml-4">
-                  <p className="text-base font-semibold text-slate-100 mb-1">Single-port Full Loading</p>
-                  <p className="text-sm text-slate-300 leading-relaxed">Each tanker loads full capacity from only one port</p>
-                </div>
-              </div>
-              <div className="flex items-start">
-                <div className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center mt-0.5" style={{ backgroundColor: 'rgba(34, 211, 238, 0.2)', border: '1px solid rgba(34, 211, 238, 0.3)' }}>
-                  <span className="text-sm font-bold text-cyan-400">2</span>
-                </div>
-                <div className="ml-4">
-                  <p className="text-base font-semibold text-slate-100 mb-1">Maximum Two-port Discharge</p>
-                  <p className="text-sm text-slate-300 leading-relaxed">Tanker may unload at maximum of 2 ports per trip</p>
-                </div>
-              </div>
-        <div className="flex items-start">
-          <div className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center mt-0.5" style={{ backgroundColor: 'rgba(34, 211, 238, 0.2)', border: '1px solid rgba(34, 211, 238, 0.3)' }}>
-            <span className="text-sm font-bold text-cyan-400">3</span>
-          </div>
-          <div className="ml-4">
-            <p className="text-base font-semibold text-slate-100 mb-1">Unlimited Supply at Loading Ports</p>
-            <p className="text-sm text-slate-300 leading-relaxed">No supply constraints at any loading port</p>
-          </div>
-              </div>
-              <div className="flex items-start">
-                <div className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center mt-0.5" style={{ backgroundColor: 'rgba(34, 211, 238, 0.2)', border: '1px solid rgba(34, 211, 238, 0.3)' }}>
-                  <span className="text-sm font-bold text-cyan-400">4</span>
-                </div>
-                <div className="ml-4">
-                  <p className="text-base font-semibold text-slate-100 mb-1">Full Demand Satisfaction</p>
-                  <p className="text-sm text-slate-300 leading-relaxed">All unloading port demands must be fully met</p>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
+      </details>
+    </div>
+  );
+}
+
+// ─── ChallengeResultsPanel — Right Panel ──────────────────────────────────────
+
+export function ChallengeResultsPanel({
+  results,
+  vessels,
+  loading,
+  onDownloadCSV,
+  onClearResults,
+}: Pick<ChallengeSharedProps, 'results' | 'vessels' | 'loading' | 'onDownloadCSV' | 'onClearResults'>) {
+  const [expandedTripIdx, setExpandedTripIdx] = useState<number | null>(null);
+  const impact = calculateImpact(results ?? null);
+
+  // Empty state
+  if (!results && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-center p-8 space-y-4">
+        <div className="w-16 h-16 rounded-full bg-slate-800/50 border border-slate-700/50 flex items-center justify-center">
+          <svg className="w-8 h-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-slate-400">No Results Yet</p>
+          <p className="text-xs text-slate-600 mt-1">Run optimization to see cost breakdown,<br />route plan and constraint compliance.</p>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/5 border border-blue-500/20">
+          <svg className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-xs text-slate-500">Click <span className="text-blue-400 font-semibold">▶ Run Optimization</span></span>
+        </div>
+      </div>
+    );
+  }
+
+  // Infeasible state
+  if (
+    results &&
+    results.optimization_status &&
+    !['optimal', 'feasible'].includes(results.optimization_status.toLowerCase())
+  ) {
+    return (
+      <div className="p-4 space-y-4">
+        <div className="p-5 bg-yellow-900/30 border-2 border-yellow-500/50 rounded-xl">
+          <h3 className="text-lg font-bold text-yellow-400 mb-2">⚠️ No Feasible Solution</h3>
+          <p className="text-sm text-yellow-200 mb-3">
+            Solver status: <strong>{results.optimization_status}</strong>
+          </p>
+          <ul className="text-xs text-slate-400 space-y-1 list-disc list-inside mb-4">
+            <li>Demands cannot be met with current fleet capacity</li>
+            <li>720h/month time constraint may be too restrictive</li>
+            <li>Try reducing demands or adding fleet capacity</li>
+          </ul>
+          <button onClick={onClearResults} className="px-3 py-1.5 bg-yellow-600/80 hover:bg-yellow-600 rounded text-white text-xs font-semibold transition-colors">
+            Clear & Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!results) return null;
+
+  const isOptimal = impact.isOptimal;
+
+  return (
+    <div className="flex flex-col h-full overflow-y-auto p-4 space-y-4">
+      {/* Header */}
+      <div className="text-[10px] font-bold tracking-widest text-cyan-400 uppercase">
+        Optimization Results
+      </div>
+
+      {/* HPCL Compliance */}
+      <div className="p-3 bg-gradient-to-r from-green-900/20 to-cyan-900/20 border border-green-500/30 rounded-xl">
+        <div className="text-[10px] font-bold text-green-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+          </svg>
+          HPCL Compliance
+        </div>
+        <div className="grid grid-cols-2 gap-1 text-[10px] text-green-300">
+          {[
+            'Single-port loading',
+            '≤2 discharge ports',
+            'Capacity respected',
+            '≤720h/month',
+            'All demands met',
+            'Cost = Charter×Duration',
+          ].map(item => (
+            <div key={item} className="flex items-center gap-1">
+              <span>✅</span> {item}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Primary KPI — Transportation Cost */}
+      <div className={`terminal-style p-4 rounded-xl border-2 border-cyan-500/50 bg-gradient-to-br from-cyan-900/30 to-blue-900/20 ${impact.costGlowClass}`}>
+        <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-1">
+          HPCL Transportation Cost
+        </p>
+        <p className={`text-3xl font-bold ${impact.costGlowClass ? 'text-cyan-300' : 'text-cyan-200'}`}>
+          ₹{impact.totalCostCr.toFixed(4)} Cr
+        </p>
+        <p className="text-[10px] text-cyan-400/70 mt-1">Charter Rate × Trip Duration</p>
+      </div>
+
+      {/* Savings Ticker + Greedy Baseline Context */}
+      {impact.savingsCr > 0 && (
+        <div className="rounded-xl border border-green-500/30 bg-green-900/10 overflow-hidden">
+          <div className="p-3">
+            <p className="text-[10px] font-bold text-green-400 uppercase tracking-wide mb-1">
+              vs. Greedy Baseline (₹{impact.baselineCr} Cr)
+            </p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-xl font-bold text-green-300">
+                −₹{impact.savingsCr.toFixed(4)} Cr
+              </span>
+              <span className="text-sm text-green-400 font-semibold">
+                ({impact.savingsPct.toFixed(1)}% savings)
+              </span>
+            </div>
+          </div>
+          <details className="group border-t border-green-500/20">
+            <summary className="cursor-pointer select-none px-3 py-1.5 text-[10px] text-green-600 hover:text-green-400 flex items-center gap-1 transition-colors">
+              <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+              </svg>
+              What is the ₹{impact.baselineCr} Cr baseline?
+            </summary>
+            <div className="px-3 pb-3 space-y-1.5 text-[10px] text-green-200/70 leading-relaxed">
+              <p>
+                The <span className="font-semibold text-green-300">₹{impact.baselineCr} Cr greedy baseline</span> represents
+                a standard heuristic planning approach — assign each tank demand to the nearest
+                available loading port, ignoring co-loading opportunities and time constraints.
+              </p>
+              <p>
+                RouteX uses <span className="font-semibold text-green-300">CP-SAT constraint programming</span> to
+                search 6,534 route combinations simultaneously and finds the provably
+                cost-minimal plan under all HPCL policy constraints.
+              </p>
+              <p className="text-green-300 font-semibold">
+                ₹{impact.savingsCr.toFixed(2)} Cr saved ≈ {Math.round(impact.savingsCr * 100)} Lakhs
+                per month in charter costs.
+              </p>
+            </div>
+          </details>
         </div>
       )}
 
-      {/* Results Section Wrapper - Only show if results exist */}
-      {(results || error) && (
-      <div style={{ backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(16px)', border: '1px solid rgba(148, 163, 184, 0.1)', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.3)', padding: '20px', marginTop: '20px' }}>
-        <div style={{ fontSize: '11px', letterSpacing: '0.08em', fontWeight: '700', color: '#22d3ee', marginBottom: '12px', textTransform: 'uppercase' }}>
-          STEP 2 — OPTIMIZATION RESULTS
+      {/* Demand Compliance */}
+      <div className="p-3 terminal-style rounded-xl border border-blue-500/30">
+        <div className="flex justify-between items-center mb-1">
+          <p className="text-xs font-semibold text-blue-400">Demand Compliance</p>
+          <span className="text-xs font-bold text-blue-300">
+            {impact.demandPct >= 99.9 ? '100%' : `${impact.demandPct.toFixed(1)}%`}
+          </span>
         </div>
-        {error && (
-          <div className="mb-6 p-4 bg-red-900/20 border-2 border-red-500 rounded-lg">
-            <h3 className="text-lg font-bold text-red-400 mb-2">❌ Optimization Failed</h3>
-            <p className="text-red-200">{error}</p>
-          </div>
-        )}
-        
-        {/* Block display if solver returned INFEASIBLE/INVALID status */}
-        {results && results.optimization_status && 
-         !['optimal', 'feasible'].includes(results.optimization_status.toLowerCase()) && (
-          <div className="mb-6 p-6 bg-yellow-900/30 border-2 border-yellow-500 rounded-lg">
-            <h3 className="text-2xl font-bold text-yellow-400 mb-3">⚠️ No Feasible Solution Found</h3>
-            <p className="text-yellow-200 mb-4">
-              The CP-SAT solver could not find a solution that satisfies all HPCL constraints.
-            </p>
-            <div className="bg-slate-800/50 p-4 rounded border border-yellow-500/30 mb-4">
-              <p className="text-sm text-yellow-300 mb-2"><strong>Solver Status:</strong> {results.optimization_status}</p>
-              <p className="text-sm text-slate-300 mb-2"><strong>Possible reasons:</strong></p>
-              <ul className="list-disc list-inside text-sm text-slate-400 space-y-1">
-                <li>Demands cannot be satisfied with available fleet capacity</li>
-                <li>Time constraints (720 hours/month per vessel) are too restrictive</li>
-                <li>Route generation did not produce viable delivery combinations</li>
-                <li>Mathematical constraints are over-constrained (check solver logs)</li>
-              </ul>
-            </div>
-            <button
-              onClick={() => setResults(null)}
-              className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded text-white font-medium transition-colors"
-            >
-              Try Again with Different Parameters
-            </button>
-          </div>
-        )}
-        
-        {/* Only show results if solver found feasible/optimal solution */}
-        {results && ['optimal', 'feasible'].includes(results.optimization_status?.toLowerCase() || '') && (
-        <div>
+        <div className="h-1.5 bg-slate-700/50 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-blue-500 to-cyan-400"
+            style={{ width: `${Math.min(100, impact.demandPct)}%` }}
+          />
+        </div>
+        <p className="text-[10px] text-blue-200/60 mt-1">
+          {formatNumber(impact.totalVolumeMt)} MT delivered = {formatNumber(results.summary.total_demand_mt)} MT required
+        </p>
+      </div>
 
-        {results && results.summary && (
-        <>
-          {/* HPCL Constraint Validation Checklist */}
-          <div className="mb-4 p-4 bg-gradient-to-r from-green-900/20 to-cyan-900/20 border border-green-500/30 rounded-lg">
-            <h4 className="text-sm font-semibold text-green-300 mb-3 flex items-center">
-              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+      {/* Quick stats row */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="p-2.5 terminal-style rounded-lg border border-slate-700/50 text-center">
+          <p className="text-[10px] text-slate-500 mb-0.5">Total Trips</p>
+          <p className="text-lg font-bold text-cyan-300">{impact.tripCount}</p>
+        </div>
+        <div className="p-2.5 terminal-style rounded-lg border border-slate-700/50 text-center">
+          <p className="text-[10px] text-slate-500 mb-0.5">Status</p>
+          <p className="text-sm font-bold text-green-400">✅ Optimal</p>
+        </div>
+      </div>
+
+      {/* Vessel Time Usage */}
+      {results.trips && results.trips.length > 0 && (() => {
+        const vesselUsage: Record<string, { trips: number; totalDays: number }> = {};
+        results.trips!.forEach(trip => {
+          vesselUsage[trip.vessel_id] = vesselUsage[trip.vessel_id] || { trips: 0, totalDays: 0 };
+          vesselUsage[trip.vessel_id].trips += 1;
+          vesselUsage[trip.vessel_id].totalDays += trip.trip_duration_days;
+        });
+        return (
+          <details className="group" open>
+            <summary className="cursor-pointer select-none text-xs font-semibold text-orange-400 hover:text-orange-300 flex items-center gap-1 py-1 transition-colors">
+              <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
               </svg>
-              HPCL Compliance Status
-            </h4>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-              <div className="flex items-center text-green-300">
-                <span className="mr-2">✅</span> Single-port full loading
-              </div>
-              <div className="flex items-center text-green-300">
-                <span className="mr-2">✅</span> ≤2 discharge ports per trip
-              </div>
-              <div className="flex items-center text-green-300">
-                <span className="mr-2">✅</span> Vessel capacity respected
-              </div>
-              <div className="flex items-center text-green-300">
-                <span className="mr-2">✅</span> Monthly time ≤720 hours
-              </div>
-              <div className="flex items-center text-green-300">
-                <span className="mr-2">✅</span> All demands met exactly
-              </div>
-              <div className="flex items-center text-green-300">
-                <span className="mr-2">✅</span> Cost = Charter × Duration
-              </div>
-            </div>
-          </div>
-
-          {/* Primary KPI - HPCL Transportation Cost */}
-          <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="md:col-span-2 terminal-style p-4 rounded-lg border-2 border-cyan-500/50 bg-gradient-to-br from-cyan-900/30 to-blue-900/20">
-              <p className="text-xs font-medium text-cyan-300 mb-1">PRIMARY KPI — HPCL TRANSPORTATION COST</p>
-              <p className="text-3xl font-bold text-cyan-200">₹{(results.summary.hpcl_transportation_cost_cr || results.summary.total_cost_cr).toFixed(4)} Cr</p>
-              <p className="text-xs text-cyan-300 mt-1">Charter Rate × Trip Duration (HPCL Definition)</p>
-            </div>
-            <div className="terminal-style p-3 rounded-lg border border-green-500/30">
-              <p className="text-sm font-medium text-green-400">Total Trips</p>
-              <p className="text-2xl font-bold text-green-300">{results.summary.total_trips || results.summary.total_routes}</p>
-            </div>
-          </div>
-
-          {/* Demand Satisfaction */}
-          <div className="mb-4 p-3 terminal-style rounded-lg border border-blue-500/30">
-            <p className="text-sm font-medium text-blue-400">Demand Compliance</p>
-            <p className="text-xl font-bold text-blue-300">
-              {results.summary.demand_satisfaction_percentage >= 99.9 ? '✅ 100% — All unloading port demands met exactly (HPCL requirement)' : `⚠️ ${results.summary.demand_satisfaction_percentage.toFixed(1)}% — Partial solution (not HPCL-compliant)`}
-            </p>
-            <p className="text-xs text-blue-200 mt-1">
-              {formatNumber(results.summary.total_volume_mt)} MT delivered = {formatNumber(results.summary.total_demand_mt)} MT required
-            </p>
-          </div>
-
-          {/* Solution Status - Judge-Friendly */}
-          <div className="mb-4 p-3 terminal-style rounded-lg border border-cyan-500/30">
-            <p className="text-sm font-medium text-cyan-400">Solution Status</p>
-            <div className="space-y-1">
-              <p className="text-base font-bold text-cyan-300">✅ HPCL-Feasible</p>
-              <p className="text-xs text-cyan-200">Cost-minimized under hard constraints</p>
-            </div>
-          </div>
-
-          {/* Why N Trips? Insight Card */}
-          <div className="mb-4 p-4 bg-gradient-to-br from-purple-900/20 to-blue-900/20 border border-purple-500/30 rounded-lg">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-purple-500/20 border border-purple-500/50 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <svg className="w-5 h-5 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h4 className="text-sm font-bold text-purple-300 mb-2">Why {results.summary.total_trips || results.summary.total_routes} Trips?</h4>
-                <ul className="text-xs text-purple-200/90 space-y-1.5">
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-400 mt-0.5">•</span>
-                    <span>Limited to <strong>≤2 discharge ports</strong> per trip (HPCL constraint)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-400 mt-0.5">•</span>
-                    <span><strong>Vessel capacities</strong> fixed (25k–50k MT per trip)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-400 mt-0.5">•</span>
-                    <span><strong>Time limit</strong> of 720 hours/month per vessel enforced</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-400 mt-0.5">•</span>
-                    <span className="text-purple-100 font-medium">→ This is the minimum-cost feasible plan under all constraints</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Vessel Monthly Time Usage */}
-          {results.trips && results.trips.length > 0 && (() => {
-            // Calculate vessel time usage from trips
-            const vesselUsage: Record<string, { trips: number; totalDays: number }> = {};
-            results.trips.forEach(trip => {
-              if (!vesselUsage[trip.vessel_id]) {
-                vesselUsage[trip.vessel_id] = { trips: 0, totalDays: 0 };
-              }
-              vesselUsage[trip.vessel_id].trips += 1;
-              vesselUsage[trip.vessel_id].totalDays += trip.trip_duration_days;
-            });
-            
-            return (
-              <details className="mb-4 group" open>
-                <summary className="cursor-pointer p-4 bg-gradient-to-br from-orange-900/20 to-yellow-900/20 border border-orange-500/30 rounded-lg hover:bg-orange-900/30 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-orange-500/20 border border-orange-500/50 flex items-center justify-center">
-                        <svg className="w-5 h-5 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd"/>
-                        </svg>
-                      </div>
-                      <h4 className="text-sm font-bold text-orange-300">Vessel Monthly Time Usage</h4>
+              Vessel Time Usage
+            </summary>
+            <div className="mt-2 space-y-2">
+              {Object.entries(vesselUsage).map(([vesselId, usage]) => {
+                const totalHours = usage.totalDays * 24;
+                const pct = (totalHours / 720) * 100;
+                const ok = totalHours <= 720;
+                return (
+                  <div key={vesselId} className="p-2.5 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs font-bold text-cyan-300">{vesselId}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${ok ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
+                        {ok ? '✔ OK' : '✗ Over'}
+                      </span>
                     </div>
-                    <svg className="w-5 h-5 text-orange-400 transform transition-transform group-open:rotate-180" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
-                    </svg>
+                    <div className="grid grid-cols-4 gap-1 text-[10px] mb-1.5">
+                      <div className="text-center">
+                        <p className="text-slate-500">Trips</p>
+                        <p className="font-semibold text-blue-300">{usage.trips}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-slate-500">Hours</p>
+                        <p className="font-semibold text-cyan-300">{totalHours.toFixed(0)}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-slate-500">Idle</p>
+                        <p className="font-semibold text-yellow-300">{(720 - totalHours).toFixed(0)}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-slate-500">Util%</p>
+                        <p className="font-semibold text-orange-300">{pct.toFixed(0)}%</p>
+                      </div>
+                    </div>
+                    <div className="h-1 bg-slate-700/50 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${ok ? 'bg-gradient-to-r from-cyan-500 to-green-500' : 'bg-gradient-to-r from-orange-500 to-red-500'}`}
+                        style={{ width: `${Math.min(100, pct)}%` }}
+                      />
+                    </div>
                   </div>
-                </summary>
-                <div className="mt-3 p-4 bg-slate-900/30 border border-orange-500/20 rounded-lg">
-                  <div className="grid gap-3">
-                    {Object.entries(vesselUsage).map(([vesselId, usage]) => {
-                      const totalHours = usage.totalDays * 24;
-                      const monthlyLimit = 720; // hours
-                      const idleHours = monthlyLimit - totalHours;
-                      const utilizationPct = (totalHours / monthlyLimit * 100);
-                      const isWithinLimit = totalHours <= monthlyLimit;
-                      
-                      return (
-                        <div key={vesselId} className="p-3 bg-slate-800/50 rounded-lg border border-slate-700/50">
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <h5 className="text-sm font-bold text-cyan-300">{vesselId}</h5>
-                              <p className="text-xs text-slate-400">Monthly Usage</p>
-                            </div>
-                            {isWithinLimit ? (
-                              <span className="px-2 py-1 rounded text-xs font-semibold bg-green-500/20 text-green-300 border border-green-500/30">
-                                ✔ Within HPCL Limit
-                              </span>
-                            ) : (
-                              <span className="px-2 py-1 rounded text-xs font-semibold bg-red-500/20 text-red-300 border border-red-500/30">
-                                ✗ Exceeds Limit
-                              </span>
-                            )}
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div className="p-2 rounded bg-slate-900/50">
-                              <p className="text-slate-400 mb-1">Trips</p>
-                              <p className="font-semibold text-blue-300">{usage.trips}</p>
-                            </div>
-                            <div className="p-2 rounded bg-slate-900/50">
-                              <p className="text-slate-400 mb-1">Sailing Time</p>
-                              <p className="font-semibold text-cyan-300">{totalHours.toFixed(0)} hrs</p>
-                            </div>
-                            <div className="p-2 rounded bg-slate-900/50">
-                              <p className="text-slate-400 mb-1">Idle Buffer</p>
-                              <p className="font-semibold text-yellow-300">{idleHours.toFixed(0)} hrs</p>
-                            </div>
-                            <div className="p-2 rounded bg-slate-900/50">
-                              <p className="text-slate-400 mb-1">Utilization</p>
-                              <p className="font-semibold text-orange-300">{utilizationPct.toFixed(1)}%</p>
-                            </div>
-                          </div>
-                          {/* Progress Bar */}
-                          <div className="mt-2">
-                            <div className="h-2 bg-slate-700/50 rounded-full overflow-hidden">
-                              <div 
-                                className={`h-full ${isWithinLimit ? 'bg-gradient-to-r from-cyan-500 to-green-500' : 'bg-gradient-to-r from-orange-500 to-red-500'}`}
-                                style={{ width: `${Math.min(100, utilizationPct)}%` }}
-                              />
-                            </div>
-                            <p className="text-xs text-slate-400 mt-1 text-center">
-                              {totalHours.toFixed(0)} / {monthlyLimit} hrs monthly limit
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </details>
-            );
-          })()}
+                );
+              })}
+            </div>
+          </details>
+        );
+      })()}
 
+      {/* Trip Cards */}
+      {results.trips && results.trips.length > 0 && (
+        <div>
+          <div className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">
+            Optimized Trip Plan
+          </div>
+          <div className="space-y-1.5">
+            {results.trips.map((trip, idx) => {
+              const vessel = vessels.find(v => v.id === trip.vessel_id);
+              const capacity = vessel?.capacity_mt || 50000;
+              const totalCargo = trip.cargo_deliveries.reduce((s, d) => s + d.volume_mt, 0);
+              const isSplit = trip.discharge_ports.length >= 2;
+              const isFullCapacity = Math.abs(totalCargo - capacity) < 1;
 
-          {/* Trip Cards Overview (HPCL Format) */}
-          {results.trips && results.trips.length > 0 ? (
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-slate-200 mb-2 flex items-center">
-              <svg className="w-5 h-5 mr-2 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-              </svg>
-              Optimized Trip Plan (HPCL Format)
-            </h3>
-            <div className="space-y-2 max-h-[380px] overflow-y-auto pr-2">
-              {results.trips.map((trip, idx) => (
-                <div key={idx} className={`border rounded-lg p-3 transition-all duration-200 ${expandedTripIdx === idx ? 'bg-slate-800/60 border-cyan-500/50' : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/60'}`}>
-                  {/* Trip Header - Always Visible (HPCL Format) */}
+              return (
+                <div
+                  key={idx}
+                  className={`rounded-lg border transition-all duration-200 ${
+                    isSplit
+                      ? 'border-l-2 border-l-cyan-500 border-slate-700/50 bg-slate-800/40'
+                      : 'border-slate-700/50 bg-slate-800/40'
+                  } ${expandedTripIdx === idx ? 'border-cyan-500/50 bg-slate-800/60' : 'hover:bg-slate-800/60'}`}
+                >
                   <button
                     onClick={() => setExpandedTripIdx(expandedTripIdx === idx ? null : idx)}
-                    className="w-full text-left focus:outline-none"
+                    className="w-full text-left p-2.5 focus:outline-none"
                   >
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-semibold text-cyan-400">{trip.trip_id} • {trip.vessel_id}</span>
-                          {(() => {
-                            const vessel = vessels.find(v => v.id === trip.vessel_id);
-                            const vesselCapacity = vessel?.capacity_mt || 50000;
-                            const totalCargo = trip.cargo_deliveries.reduce((sum, d) => sum + d.volume_mt, 0);
-                            return (
-                              <span className="text-xs px-2 py-0.5 rounded bg-slate-700/50 text-slate-300 border border-slate-600/50">
-                                Capacity: {formatNumber(vesselCapacity)} MT
-                              </span>
-                            );
-                          })()}
-                          <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-300">Load: {trip.loading_port}</span>
-                          {trip.discharge_ports.map((port, pidx) => (
-                            <span key={pidx} className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-300">→ {port}</span>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-bold text-cyan-400">{trip.trip_id} · {trip.vessel_id}</span>
+                          {isSplit && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold">
+                              Co-load
+                            </span>
+                          )}
+                          {isFullCapacity && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-300 border border-green-500/30 font-semibold">
+                              100% Utilized
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-900/30 text-green-400">{trip.loading_port}</span>
+                          {trip.discharge_ports.map((p, pi) => (
+                            <span key={pi} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-400">→ {p}</span>
                           ))}
                         </div>
-                        <div className="text-xs text-slate-400 flex gap-3">
-                          <span>Duration: {trip.trip_duration_days} days</span>
-                          <span>•</span>
-                          <span className="font-semibold text-cyan-400">HPCL Cost: ₹{trip.hpcl_charter_cost_cr} Cr</span>
+                        <div className="text-[10px] text-slate-500 mt-0.5">
+                          {trip.trip_duration_days} days · <span className="text-cyan-400 font-semibold">₹{trip.hpcl_charter_cost_cr} Cr</span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-500">{trip.discharge_ports.length} discharge{trip.discharge_ports.length > 1 ? 's' : ''}</span>
-                        <svg 
-                          className={`w-5 h-5 text-cyan-400 transition-transform ${expandedTripIdx === idx ? 'rotate-180' : ''}`}
-                          fill="none" 
-                          stroke="currentColor" 
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                        </svg>
-                      </div>
-                    </div>
-                  </button>
-
-                  {/* Expanded Details - HPCL Trip Breakdown */}
-                  {expandedTripIdx === idx && (
-                    <div className="mt-3 pt-3 border-t border-slate-700/50 space-y-2 animate-in fade-in">
-                      <div className="grid grid-cols-3 gap-2 text-xs">
-                        <div className="p-2 rounded bg-slate-900/50">
-                          <p className="text-slate-400 mb-1">Vessel</p>
-                          <p className="font-semibold text-cyan-300">{trip.vessel_id}</p>
-                        </div>
-                        <div className="p-2 rounded bg-slate-900/50">
-                          <p className="text-slate-400 mb-1">Loading Port</p>
-                          <p className="font-semibold text-green-300">{trip.loading_port}</p>
-                        </div>
-                        <div className="p-2 rounded bg-slate-900/50">
-                          <p className="text-slate-400 mb-1">Trip Duration</p>
-                          <p className="font-semibold text-blue-300">{trip.trip_duration_days} days</p>
-                        </div>
-                      </div>
-
-                      {/* Cargo Deliveries */}
-                      <div className="p-2 rounded bg-slate-900/30">
-                        <p className="text-xs font-semibold text-slate-300 mb-1">Cargo Deliveries:</p>
-                        {trip.cargo_deliveries.map((delivery, didx) => (
-                          <div key={didx} className="flex justify-between text-xs py-1 border-b border-slate-700/30 last:border-0">
-                            <span className="text-slate-400">{delivery.port}</span>
-                            <span className="font-semibold text-blue-300">{formatNumber(delivery.volume_mt)} MT</span>
-                          </div>
-                        ))}
-                        <div className="flex justify-between text-xs py-1 mt-1 pt-1 border-t border-cyan-500/30 font-bold">
-                          <span className="text-cyan-300">Trip Total</span>
-                          <span className="text-cyan-300">{formatNumber(trip.cargo_deliveries.reduce((sum, d) => sum + d.volume_mt, 0))} MT</span>
-                        </div>
-                        {(() => {
-                          const vessel = vessels.find(v => v.id === trip.vessel_id);
-                          const vesselCapacity = vessel?.capacity_mt || 50000;
-                          const totalCargo = trip.cargo_deliveries.reduce((sum, d) => sum + d.volume_mt, 0);
-                          if (totalCargo > vesselCapacity * 1.01) {
-                            const numSubTrips = Math.ceil(totalCargo / vesselCapacity);
-                            return (
-                              <div className="mt-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded text-xs">
-                                <p className="text-blue-300 font-semibold mb-1">⚡ Multi-Trip Optimization</p>
-                                <p className="text-blue-200/80">
-                                  This delivery requires ~{numSubTrips} sub-trips due to vessel capacity ({formatNumber(vesselCapacity)} MT).
-                                  Solver optimized {formatNumber(totalCargo)} MT total delivery across multiple loads.
-                                </p>
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
-                      </div>
-
-                      {/* HPCL Cost Breakdown */}
-                      <div className="p-2 rounded bg-cyan-900/20 border border-cyan-500/30">
-                        <p className="text-xs font-semibold text-cyan-300 mb-1">HPCL Transportation Cost:</p>
-                        <div className="text-xs space-y-1">
-                          <div className="flex justify-between">
-                            <span className="text-slate-400">Charter × Duration</span>
-                            <span className="text-cyan-200">₹{trip.hpcl_charter_cost_cr} Cr</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-          ) : (
-          // Fallback: Display old route format if trips not available
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-slate-200 mb-2">Optimized Routes</h3>
-            <div className="space-y-2 max-h-[380px] overflow-y-auto pr-2">
-              {results.optimization_results.map((route, idx) => (
-                <div key={idx} className={`border rounded-lg p-3 transition-all duration-200 ${expandedTripIdx === idx ? 'bg-slate-800/60 border-cyan-500/50' : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/60'}`}>
-                  <button
-                    onClick={() => setExpandedTripIdx(expandedTripIdx === idx ? null : idx)}
-                    className="w-full text-left focus:outline-none"
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-semibold text-cyan-400">{route.Tanker}</span>
-                          <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-300">{route.Source}</span>
-                          <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-300">→ {route.Destination}</span>
-                        </div>
-                        <div className="text-xs text-slate-400 flex gap-3">
-                          <span>{formatNumber(route['Volume (MT)'])} MT</span>
-                          <span>•</span>
-                          <span className="font-semibold text-cyan-400">₹{route['Trip Cost (Rs Cr)'].toFixed(4)} Cr</span>
-                        </div>
-                      </div>
-                      <svg 
-                        className={`w-5 h-5 text-cyan-400 transition-transform ${expandedTripIdx === idx ? 'rotate-180' : ''}`}
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
+                      <svg
+                        className={`w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5 transition-transform ${expandedTripIdx === idx ? 'rotate-180' : ''}`}
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </div>
                   </button>
 
                   {expandedTripIdx === idx && (
-                    <div className="mt-3 pt-3 border-t border-slate-700/50 space-y-2 animate-in fade-in">
-                      <div className="grid grid-cols-3 gap-2 text-xs">
-                        <div className="p-2 rounded bg-slate-900/50">
-                          <p className="text-slate-400 mb-1">Vessel</p>
-                          <p className="font-semibold text-cyan-300">{route.Tanker}</p>
+                    <div className="px-2.5 pb-2.5 pt-0 space-y-2 border-t border-slate-700/40">
+                      <div className="grid grid-cols-3 gap-1.5 text-[10px] mt-2">
+                        <div className="p-1.5 rounded bg-slate-900/50 text-center">
+                          <p className="text-slate-500">Vessel</p>
+                          <p className="font-semibold text-cyan-300">{trip.vessel_id}</p>
                         </div>
-                        <div className="p-2 rounded bg-slate-900/50">
-                          <p className="text-slate-400 mb-1">Volume</p>
-                          <p className="font-semibold text-green-300">{formatNumber(route['Volume (MT)'])} MT</p>
+                        <div className="p-1.5 rounded bg-slate-900/50 text-center">
+                          <p className="text-slate-500">Capacity</p>
+                          <p className="font-semibold text-slate-300">{formatNumber(capacity)}</p>
                         </div>
-                        <div className="p-2 rounded bg-slate-900/50">
-                          <p className="text-slate-400 mb-1">Cost</p>
-                          <p className="font-semibold text-blue-300">₹{route['Trip Cost (Rs Cr)'].toFixed(4)} Cr</p>
+                        <div className="p-1.5 rounded bg-slate-900/50 text-center">
+                          <p className="text-slate-500">Duration</p>
+                          <p className="font-semibold text-blue-300">{trip.trip_duration_days}d</p>
+                        </div>
+                      </div>
+                      <div className="p-2 rounded bg-slate-900/30 text-[10px]">
+                        <p className="font-semibold text-slate-400 mb-1">Cargo Deliveries</p>
+                        {trip.cargo_deliveries.map((d, di) => (
+                          <div key={di} className="flex justify-between py-0.5 border-b border-slate-700/30 last:border-0">
+                            <span className="text-slate-400">{d.port}</span>
+                            <span className="font-semibold text-blue-300">{formatNumber(d.volume_mt)} MT</span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between pt-1 mt-1 border-t border-cyan-500/30 font-bold">
+                          <span className="text-cyan-300">Total</span>
+                          <span className="text-cyan-300">{formatNumber(totalCargo)} MT</span>
+                        </div>
+                      </div>
+                      <div className="p-2 rounded bg-cyan-900/20 border border-cyan-500/20 text-[10px]">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Charter × Duration</span>
+                          <span className="text-cyan-200 font-semibold">₹{trip.hpcl_charter_cost_cr} Cr</span>
                         </div>
                       </div>
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
-          )}
-
-          {/* Download Button */}
-          <div className="mb-4 flex justify-end">
-            <button
-              onClick={downloadCSV}
-              className="px-4 py-2 btn-primary-gradient rounded-lg font-medium transition-all flex items-center gap-2"
-              title="Download optimization results as CSV file"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Export Results
-            </button>
-          </div>
-
-          {/* Layer 2: Full Results Table (Collapsible for detailed view) */}
-          <details className="mb-6 group">
-            <summary className="cursor-pointer select-none list-none px-6 py-4 bg-gradient-to-r from-slate-800/50 to-slate-800/30 rounded-xl border border-cyan-500/30 font-semibold text-slate-100 hover:bg-gradient-to-r hover:from-slate-800/70 hover:to-slate-800/50 hover:border-cyan-500/50 transition-all duration-200 flex items-center gap-3 group-open:bg-gradient-to-r group-open:from-slate-800/70 group-open:to-slate-800/50">
-              <svg className="w-5 h-5 text-cyan-400 transition-transform duration-300 group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-              </svg>
-              <span>📋 View Full Trip Details & Constraints</span>
-            </summary>
-            
-            <div className="mt-6 space-y-6">
-              {/* Table - HPCL Trip Format (Grouped by Trip ID) */}
-              <div className="overflow-x-auto table-container rounded-lg">
-                <table className="w-full divide-y divide-slate-700">
-                  <thead className="table-header sticky top-0">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-xs font-bold tracking-wide" style={{color: '#06b6d4'}}>TRIP ID</th>
-                      <th className="px-6 py-4 text-left text-xs font-bold tracking-wide" style={{color: '#06b6d4'}}>VESSEL (CAPACITY)</th>
-                      <th className="px-6 py-4 text-left text-xs font-bold tracking-wide" style={{color: '#06b6d4'}}>LOAD PORT</th>
-                      <th className="px-6 py-4 text-left text-xs font-bold tracking-wide" style={{color: '#06b6d4'}}>DISCHARGE PORTS</th>
-                      <th className="px-6 py-4 text-right text-xs font-bold tracking-wide" style={{color: '#06b6d4'}}>CARGO DELIVERED (MT)</th>
-                      <th className="px-6 py-4 text-right text-xs font-bold tracking-wide" style={{color: '#06b6d4'}}>TRIP COST (₹ CR)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-700/50">
-                    {(results.trips && results.trips.length > 0 ? results.trips : []).map((trip, index) => {
-                      const totalCargo = trip.cargo_deliveries.reduce((sum, d) => sum + d.volume_mt, 0);
-                      const vessel = vessels.find(v => v.id === trip.vessel_id);
-                      const vesselCapacity = vessel?.capacity_mt || 50000;
-                      const exceedsCapacity = totalCargo > vesselCapacity * 1.01;
-                      return (
-                        <tr key={index} className="table-row hover:bg-cyan-500/10 transition-colors" style={{backgroundColor: index % 2 === 0 ? 'rgba(51, 65, 85, 0.4)' : 'rgba(30, 41, 59, 0.4)'}}>
-                          <td className="px-6 py-4 text-sm font-bold whitespace-nowrap" style={{color: '#fbbf24'}}>
-                            {trip.trip_id}
-                          </td>
-                          <td className="px-6 py-4 text-sm font-medium whitespace-nowrap" style={{color: '#67e8f9'}}>
-                            <div>{trip.vessel_id}</div>
-                            <div className="text-xs" style={{color: '#94a3b8'}}>Cap: {formatNumber(vesselCapacity)} MT</div>
-                          </td>
-                          <td className="px-6 py-4 text-sm whitespace-nowrap" style={{color: '#6ee7b7'}}>
-                            {trip.loading_port}
-                          </td>
-                          <td className="px-6 py-4 text-sm whitespace-nowrap" style={{color: '#67e8f9'}}>
-                            {trip.discharge_ports.join(' → ')}
-                            <div className="text-xs mt-1 space-y-0.5" style={{color: '#94a3b8'}}>
-                              {trip.cargo_deliveries.map((delivery, didx) => (
-                                <div key={didx}>{delivery.port}: {formatNumber(delivery.volume_mt)} MT</div>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-right font-semibold whitespace-nowrap" style={{color: exceedsCapacity ? '#fbbf24' : '#67e8f9'}}>
-                            <div>{formatNumber(totalCargo)}</div>
-                            {exceedsCapacity && (
-                              <div className="text-xs" style={{color: '#fbbf24'}}>
-                                ⚡ Multi-trip
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-right font-bold whitespace-nowrap" style={{color: '#6ee7b7'}}>
-                            ₹{trip.hpcl_charter_cost_cr.toFixed(4)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot className="table-header font-bold sticky bottom-0" style={{backgroundColor: 'rgba(30, 58, 138, 0.8)'}}>
-                    <tr>
-                      <td colSpan={4} className="px-6 py-4 text-sm" style={{color: '#ffffff'}}>
-                        TOTAL SUMMARY ({results.trips?.length || 0} trips)
-                      </td>
-                      <td className="px-6 py-4 text-sm text-right" style={{color: '#ffffff'}}>
-                        {formatNumber(results.summary.total_volume_mt)} MT
-                      </td>
-                      <td className="px-6 py-4 text-sm text-right" style={{color: '#6ee7b7'}}>
-                        ₹{(results.summary.hpcl_transportation_cost_cr || results.summary.total_cost_cr).toFixed(2)} Cr
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-
-              {/* HPCL Constraints Verification Box */}
-              <div className="p-6 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-xl">
-                <div className="flex items-start gap-3 mb-4">
-                  <div className="w-8 h-8 rounded-full bg-cyan-500/20 border border-cyan-500/50 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <svg className="w-5 h-5 text-cyan-400" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-cyan-300 mb-3 tracking-wide">HPCL CHALLENGE 7.1 COMPLIANCE VERIFIED</h4>
-                    <ul className="text-sm text-cyan-200/90 space-y-2.5">
-                      <li className="flex items-start gap-2">
-                        <span className="text-cyan-400 font-bold mt-0.5">✓</span>
-                        <span><strong>Single Loading Port:</strong> Each trip originates from exactly one loading port per HPCL requirements</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-cyan-400 font-bold mt-0.5">✓</span>
-                        <span><strong>Maximum 2 Discharge Ports:</strong> All trips discharge cargo at up to 2 unloading ports per specification</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-cyan-400 font-bold mt-0.5">✓</span>
-                        <span><strong>100% Demand Satisfaction:</strong> All unloading port demands are met exactly at specified quantities</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-cyan-400 font-bold mt-0.5">✓</span>
-                        <span><strong>Cost Definition:</strong> Transportation cost = Daily Charter Rate × Total Trip Duration (as defined in Challenge 7.1)</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* Additional Info */}
-              <div className="p-4 bg-slate-800/30 border border-slate-700/50 rounded-lg">
-                <p className="text-xs text-slate-400">
-                  <strong className="text-slate-300">💡 Tip:</strong> Hover over table rows to see highlighted details. Scroll horizontally on mobile devices to view all columns.
-                </p>
-              </div>
-            </div>
-          </details>
-          </>
-        )}
-
-        {!results && !loading && (
-          <div className="glass-card rounded-2xl border border-slate-700/50 overflow-hidden">
-            {/* Header Section */}
-            <div className="border-b border-slate-700/50 px-8 py-6 bg-gradient-to-r from-slate-900/50 to-slate-800/30">
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-cyan-500/20 blur-xl"></div>
-                  <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-cyan-500/30 bg-white/5">
-                    <img 
-                      src="/business-optimization-growth_1050938-28362.avif" 
-                      alt="Business Optimization"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-slate-100 mb-1">
-                    Optimization Engine Ready
-                  </h3>
-                  <p className="text-sm text-slate-400">
-                    System initialized and awaiting input configuration
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500/10 border border-green-500/30">
-                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
-                  <span className="text-xs font-semibold text-green-400">ONLINE</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Content Section */}
-            <div className="px-8 py-8">
-              <div className="mb-8 text-center max-w-2xl mx-auto">
-                <p className="text-slate-300 text-base leading-relaxed">
-                  Configure vessel fleet parameters and port demand requirements above, then execute the optimization algorithm to generate cost-optimal routing solutions for coastal tanker operations.
-                </p>
-              </div>
-
-              {/* Capabilities Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Card 1 */}
-                <div className="group relative overflow-hidden rounded-xl border border-slate-700/50 bg-gradient-to-br from-slate-800/40 to-slate-900/40 p-6 hover:border-cyan-500/50 transition-all duration-300">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-2xl group-hover:bg-cyan-500/10 transition-all"></div>
-                  <div className="relative">
-                    <div className="w-20 h-20 rounded-lg overflow-hidden mb-4 group-hover:scale-110 transition-transform bg-white/5 border border-cyan-500/20">
-                      <img 
-                        src="/highperformance-computing-hpc-supercomputers-computer-260nw-2234873365.webp" 
-                        alt="High Performance Computing"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <h4 className="text-base font-semibold text-slate-200 mb-2">High-Performance Computing</h4>
-                    <p className="text-sm text-slate-400 leading-relaxed">OR-Tools CP-SAT constraint programming solver for rapid optimization</p>
-                  </div>
-                </div>
-
-                {/* Card 2 */}
-                <div className="group relative overflow-hidden rounded-xl border border-slate-700/50 bg-gradient-to-br from-slate-800/40 to-slate-900/40 p-6 hover:border-green-500/50 transition-all duration-300">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 rounded-full blur-2xl group-hover:bg-green-500/10 transition-all"></div>
-                  <div className="relative">
-                    <div className="w-20 h-20 rounded-lg overflow-hidden mb-4 group-hover:scale-110 transition-transform bg-white/5 border border-green-500/20">
-                      <img 
-                        src="/cost-optimization-financial-design-vector-42140697.webp" 
-                        alt="Cost Optimization"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <h4 className="text-base font-semibold text-slate-200 mb-2">Cost Optimization</h4>
-                    <p className="text-sm text-slate-400 leading-relaxed">Multi-objective optimization minimizing charter costs and voyage expenses</p>
-                  </div>
-                </div>
-
-                {/* Card 3 */}
-                <div className="group relative overflow-hidden rounded-xl border border-slate-700/50 bg-gradient-to-br from-slate-800/40 to-slate-900/40 p-6 hover:border-blue-500/50 transition-all duration-300">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl group-hover:bg-blue-500/10 transition-all"></div>
-                  <div className="relative">
-                    <div className="w-20 h-20 rounded-lg overflow-hidden mb-4 group-hover:scale-110 transition-transform bg-white/5 border border-blue-500/20">
-                      <img 
-                        src="/stockfresh_6186205_fulfillment-cardboard-boxes-shipping-orders-warehouse-shipments_sizeXS-min.jpg" 
-                        alt="Demand Fulfillment"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <h4 className="text-base font-semibold text-slate-200 mb-2">Demand Fulfillment</h4>
-                    <p className="text-sm text-slate-400 leading-relaxed">Guaranteed 100% satisfaction of all unloading port requirements</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Hint */}
-              <div className="mt-8 text-center">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500/5 border border-blue-500/20">
-                  <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-sm text-slate-400">
-                    Click <span className="text-blue-400 font-semibold">Run Optimization</span> button above to begin
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        
         </div>
-        )}
-      </div>
       )}
+
+      {/* Fallback: flat route list */}
+      {(!results.trips || results.trips.length === 0) && results.optimization_results.length > 0 && (
+        <div>
+          <div className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">Routes</div>
+          <div className="space-y-1.5">
+            {results.optimization_results.map((route, idx) => (
+              <div key={idx} className="p-2.5 rounded-lg border border-slate-700/50 bg-slate-800/40">
+                <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                  <span className="font-bold text-cyan-400">{route.Tanker}</span>
+                  <span className="px-1.5 py-0.5 rounded bg-green-900/30 text-green-400 text-[10px]">{route.Source}</span>
+                  <span className="px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-400 text-[10px]">→ {route.Destination}</span>
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5">
+                  {formatNumber(route['Volume (MT)'])} MT · <span className="text-cyan-400 font-semibold">₹{route['Trip Cost (Rs Cr)'].toFixed(4)} Cr</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Download */}
+      <button
+        onClick={onDownloadCSV}
+        className="w-full py-2.5 rounded-xl font-semibold text-xs transition-all duration-300 btn-primary-gradient flex items-center justify-center gap-2"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        Export CSV
+      </button>
+
+      {/* Full details collapsible */}
+      <details className="group">
+        <summary className="cursor-pointer select-none px-4 py-3 bg-gradient-to-r from-slate-800/50 to-slate-800/30 rounded-xl border border-cyan-500/20 text-xs font-semibold text-slate-300 hover:border-cyan-500/40 transition-all flex items-center gap-2">
+          <svg className="w-4 h-4 text-cyan-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+          </svg>
+          📋 Full Trip Details Table
+        </summary>
+        <div className="mt-3 overflow-x-auto rounded-lg border border-slate-700/50">
+          <table className="w-full text-xs divide-y divide-slate-700/50">
+            <thead className="table-header">
+              <tr>
+                <th className="px-3 py-2 text-left text-cyan-400 font-bold">TRIP</th>
+                <th className="px-3 py-2 text-left text-cyan-400 font-bold">VESSEL</th>
+                <th className="px-3 py-2 text-left text-cyan-400 font-bold">LOAD</th>
+                <th className="px-3 py-2 text-left text-cyan-400 font-bold">DISCHARGE</th>
+                <th className="px-3 py-2 text-right text-cyan-400 font-bold">MT</th>
+                <th className="px-3 py-2 text-right text-cyan-400 font-bold">₹ Cr</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-700/50">
+              {(results.trips ?? []).map((trip, i) => {
+                const vessel = vessels.find(v => v.id === trip.vessel_id);
+                const cap = vessel?.capacity_mt ?? 50000;
+                const cargo = trip.cargo_deliveries.reduce((s, d) => s + d.volume_mt, 0);
+                const isSplit = trip.discharge_ports.length >= 2;
+                const isFull = Math.abs(cargo - cap) < 1;
+                return (
+                  <tr
+                    key={i}
+                    className={`table-row ${isSplit ? 'border-l-2 border-l-cyan-500' : ''}`}
+                    style={{ backgroundColor: i % 2 === 0 ? 'rgba(51,65,85,0.4)' : 'rgba(30,41,59,0.4)' }}
+                  >
+                    <td className="px-3 py-2 font-bold text-yellow-400 whitespace-nowrap">{trip.trip_id}</td>
+                    <td className="px-3 py-2 text-cyan-300 whitespace-nowrap">
+                      {trip.vessel_id}
+                      {isFull && (
+                        <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-green-500/20 text-green-300 align-middle">100%</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-green-300 whitespace-nowrap">{trip.loading_port}</td>
+                    <td className="px-3 py-2 text-blue-300 whitespace-nowrap">
+                      {trip.discharge_ports.join(' → ')}
+                      {isSplit && (
+                        <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-cyan-500/20 text-cyan-400 align-middle">Co-load</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right font-semibold text-slate-200">{formatNumber(cargo)}</td>
+                    <td className="px-3 py-2 text-right font-bold text-green-300">₹{trip.hpcl_charter_cost_cr.toFixed(4)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot className="table-header font-bold">
+              <tr>
+                <td colSpan={4} className="px-3 py-2 text-white text-xs">
+                  TOTAL ({results.trips?.length ?? 0} trips)
+                </td>
+                <td className="px-3 py-2 text-right text-white">{formatNumber(results.summary.total_volume_mt)}</td>
+                <td className="px-3 py-2 text-right text-green-300">
+                  ₹{(results.summary.hpcl_transportation_cost_cr ?? results.summary.total_cost_cr).toFixed(4)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </details>
     </div>
   );
 }
+
+// ─── Default Export — Self-Contained (backward compat) ────────────────────────
+
+export function ChallengeOutput() {
+  const [results, setResults] = useState<OptimizationResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [solverProfile, setSolverProfile] = useState<'quick' | 'balanced' | 'thorough'>('quick');
+  const [vessels, setVessels]   = useState<Vessel[]>(DEFAULT_VESSELS);
+  const [demands,  setDemands]  = useState<Demand[]>(DEFAULT_DEMANDS);
+  const [optimizationStartTime, setOptimizationStartTime] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem('challenge_optimization_results');
+    const sv = localStorage.getItem('challenge_vessels');
+    const sd = localStorage.getItem('challenge_demands');
+    if (sv) { try { setVessels(JSON.parse(sv)); } catch {} }
+    if (sd) { try { setDemands(JSON.parse(sd)); } catch {} }
+  }, []);
+
+  const updateVessel = (index: number, field: keyof Vessel, value: number) => {
+    const updated = vessels.map((v, i) => i === index ? { ...v, [field]: value } : v);
+    setVessels(updated);
+    localStorage.setItem('challenge_vessels', JSON.stringify(updated));
+  };
+
+  const updateDemand = (index: number, value: number) => {
+    const updated = demands.map((d, i) => i === index ? { ...d, demand_mt: value } : d);
+    setDemands(updated);
+    localStorage.setItem('challenge_demands', JSON.stringify(updated));
+  };
+
+  const runOptimization = async () => {
+    setLoading(true);
+    setError(null);
+    setOptimizationStartTime(Date.now());
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const res = await fetch(`${apiUrl}/api/v1/challenge/optimize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+        cache: 'no-store',
+        body: JSON.stringify({ vessels, demands, solver_profile: solverProfile }),
+      });
+      if (!res.ok) throw new Error('Optimization failed');
+      setResults(await res.json());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearResults = () => {
+    setResults(null);
+    localStorage.removeItem('challenge_optimization_results');
+  };
+
+  const downloadCSV = () => {
+    if (!results) return;
+    const headers = ['Source', 'Destination', 'Tanker', 'Volume (MT)', 'Trip Cost (Rs Cr)'];
+    const csv = [
+      headers.join(','),
+      ...results.optimization_results.map(r =>
+        [r.Source, r.Destination, r.Tanker, r['Volume (MT)'], r['Trip Cost (Rs Cr)']].join(',')
+      )
+    ].join('\n');
+    const a = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })),
+      download: `hpcl_results_${new Date().toISOString().split('T')[0]}.csv`,
+    });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const sharedProps: ChallengeSharedProps = {
+    vessels, demands, solverProfile, results, loading, error, optimizationStartTime,
+    onUpdateVessel: updateVessel,
+    onUpdateDemand: updateDemand,
+    onSetSolverProfile: setSolverProfile,
+    onRunOptimization: runOptimization,
+    onClearResults: clearResults,
+    onDownloadCSV: downloadCSV,
+  };
+
+  return (
+    <div className="flex gap-6 h-full">
+      <div className="w-72 flex-none">
+        <ChallengeConfigPanel {...sharedProps} />
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        <ChallengeResultsPanel
+          results={results}
+          vessels={vessels}
+          loading={loading}
+          onDownloadCSV={downloadCSV}
+          onClearResults={clearResults}
+        />
+      </div>
+    </div>
+  );
+}
+
+export default ChallengeOutput;

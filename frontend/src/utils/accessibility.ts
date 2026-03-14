@@ -1,5 +1,6 @@
 // Accessibility utilities and helpers
 // WCAG AA compliance utilities
+import type * as React from 'react';
 
 export const accessibilityConfig = {
   // WCAG AA minimum contrast ratios
@@ -62,15 +63,8 @@ export const checkContrastRatio = (foreground: string, background: string): numb
   return (lighter + 0.05) / (darker + 0.05);
 };
 
-// Skip to content link for keyboard users
-export const SkipToContent = () => (
-  <a
-    href="#main-content"
-    className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-cyan-500 focus:text-white focus:rounded-lg focus:shadow-lg"
-  >
-    Skip to main content
-  </a>
-);
+// Skip to content link — implemented in accessibility.tsx (JSX version)
+export const SkipToContent: () => null = () => null;
 
 // Accessible tooltip component props
 export interface AccessibleTooltipProps {

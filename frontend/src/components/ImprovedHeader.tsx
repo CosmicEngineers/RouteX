@@ -72,8 +72,8 @@ export function ImprovedHeader() {
         {/* Stats Bar */}
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: 'Cost Savings', value: '25%', icon: TrendingUp, bgColor: '#E6F2FF', textColor: '#0B5ED7' },
-            { label: 'Fleet Efficiency', value: '87%', icon: Ship, bgColor: '#E9FFF3', textColor: '#198754' },
+            { label: 'Cost Savings', value: '25%', icon: TrendUp, bgColor: '#E6F2FF', textColor: '#0B5ED7' },
+            { label: 'Fleet Efficiency', value: '87%', icon: Boat, bgColor: '#E9FFF3', textColor: '#198754' },
             { label: 'Routes Optimized', value: '1,247', icon: Target, bgColor: '#F4EDFF', textColor: '#6F42C1' },
           ].map((stat, idx) => (
             <div key={idx} style={{ 
