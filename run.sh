@@ -16,6 +16,16 @@ NC='\033[0m' # No Color
 BACKEND_PORT=8000
 FRONTEND_PORT=3000
 REDIS_PORT=6379
+DOCKER_REDIS_CONTAINER="routex-redis"
+
+# Platform detection
+OS_NAME="$(uname -s)"
+IS_WINDOWS=false
+case "$OS_NAME" in
+    MINGW*|MSYS*|CYGWIN*)
+        IS_WINDOWS=true
+        ;;
+esac
 
 # PID tracking
 BACKEND_PID=""
@@ -23,6 +33,50 @@ FRONTEND_PID=""
 REDIS_PID=""
 CELERY_WORKER_PID=""
 CELERY_BEAT_PID=""
+REDIS_CONTAINER_STARTED=false
+
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+stop_pid() {
+    local pid="$1"
+    [ -z "$pid" ] && return 0
+    if kill -0 "$pid" 2>/dev/null; then
+        kill "$pid" 2>/dev/null || true
+    fi
+}
+
+port_in_use() {
+    local port="$1"
+    if command_exists lsof; then
+        lsof -Pi :"$port" -sTCP:LISTEN -t >/dev/null 2>&1
+        return $?
+    fi
+
+    if command_exists netstat; then
+        # netstat format differs by platform; this pattern matches both.
+        netstat -an 2>/dev/null | grep -E "[:.]${port}[[:space:]]" | grep -Ei "LISTEN|LISTENING" >/dev/null 2>&1
+        return $?
+    fi
+
+    echo -e "${YELLOW}⚠️  Could not check if port $port is in use (no lsof/netstat found)${NC}"
+    return 1
+}
+
+redis_ping() {
+    if command_exists redis-cli; then
+        redis-cli -p "$REDIS_PORT" ping >/dev/null 2>&1
+        return $?
+    fi
+
+    if [ "$REDIS_CONTAINER_STARTED" = true ] && command_exists docker; then
+        docker exec "$DOCKER_REDIS_CONTAINER" redis-cli -p 6379 ping >/dev/null 2>&1
+        return $?
+    fi
+
+    return 1
+}
 
 # Get project root directory
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -36,18 +90,31 @@ cleanup() {
     echo -e "${YELLOW}🛑 Stopping all services...${NC}"
     
     # Kill processes by PID
-    [ ! -z "$CELERY_BEAT_PID" ] && kill $CELERY_BEAT_PID 2>/dev/null || true
-    [ ! -z "$CELERY_WORKER_PID" ] && kill $CELERY_WORKER_PID 2>/dev/null || true
-    [ ! -z "$FRONTEND_PID" ] && kill $FRONTEND_PID 2>/dev/null || true
-    [ ! -z "$BACKEND_PID" ] && kill $BACKEND_PID 2>/dev/null || true
-    [ ! -z "$REDIS_PID" ] && kill $REDIS_PID 2>/dev/null || true
+    stop_pid "$CELERY_BEAT_PID"
+    stop_pid "$CELERY_WORKER_PID"
+    stop_pid "$FRONTEND_PID"
+    stop_pid "$BACKEND_PID"
+    stop_pid "$REDIS_PID"
+
+    if [ "$REDIS_CONTAINER_STARTED" = true ] && command_exists docker; then
+        docker rm -f "$DOCKER_REDIS_CONTAINER" >/dev/null 2>&1 || true
+    fi
     
     # Kill any remaining processes
-    pkill -f "celery.*worker" 2>/dev/null || true
-    pkill -f "celery.*beat" 2>/dev/null || true
-    pkill -f "uvicorn.*routex" 2>/dev/null || true
-    pkill -f "next dev" 2>/dev/null || true
-    pkill -f "redis-server.*$REDIS_PORT" 2>/dev/null || true
+    if command_exists pkill; then
+        pkill -f "celery.*worker" 2>/dev/null || true
+        pkill -f "celery.*beat" 2>/dev/null || true
+        pkill -f "uvicorn.*backend.app.main:app" 2>/dev/null || true
+        pkill -f "next dev" 2>/dev/null || true
+        pkill -f "redis-server.*$REDIS_PORT" 2>/dev/null || true
+    fi
+
+    if [ "$IS_WINDOWS" = true ] && command_exists taskkill; then
+        taskkill //F //IM redis-server.exe >/dev/null 2>&1 || true
+        taskkill //F //IM celery.exe >/dev/null 2>&1 || true
+        taskkill //F //IM node.exe >/dev/null 2>&1 || true
+        taskkill //F //IM python.exe >/dev/null 2>&1 || true
+    fi
     
     echo -e "${GREEN}✅ All services stopped${NC}"
     exit 0
@@ -61,7 +128,7 @@ echo ""
 echo -e "${BLUE}🔍 Checking system requirements...${NC}"
 
 # Check Python
-if ! command -v python3 &> /dev/null; then
+if ! command_exists python3; then
     echo -e "${RED}❌ Python 3 is required but not found${NC}"
     echo "   Please install Python 3.9 or higher"
     exit 1
@@ -70,7 +137,7 @@ PYTHON_VERSION=$(python3 --version)
 echo -e "${GREEN}✅ ${PYTHON_VERSION}${NC}"
 
 # Check Node.js
-if ! command -v node &> /dev/null; then
+if ! command_exists node; then
     echo -e "${RED}❌ Node.js is required but not found${NC}"
     echo "   Please install Node.js 18 or higher"
     exit 1
@@ -79,14 +146,25 @@ NODE_VERSION=$(node --version)
 echo -e "${GREEN}✅ Node.js ${NODE_VERSION}${NC}"
 
 # Check Redis
-if ! command -v redis-server &> /dev/null; then
-    echo -e "${YELLOW}⚠️  Redis not found - installing via Homebrew...${NC}"
-    if command -v brew &> /dev/null; then
-        brew install redis
+if ! command_exists redis-server; then
+    if [ "$IS_WINDOWS" = true ]; then
+        if command_exists docker; then
+            echo -e "${YELLOW}⚠️  Redis server not found. Will use Docker container redis:7-alpine${NC}"
+            REDIS_CONTAINER_STARTED=true
+        else
+            echo -e "${RED}❌ Redis not found on Windows and Docker is unavailable${NC}"
+            echo "   Install Docker Desktop (recommended) or Redis for Windows, then re-run."
+            exit 1
+        fi
     else
-        echo -e "${RED}❌ Homebrew not found. Please install Redis manually:${NC}"
-        echo "   brew install redis"
-        exit 1
+        echo -e "${YELLOW}⚠️  Redis not found - installing via Homebrew...${NC}"
+        if command_exists brew; then
+            brew install redis
+        else
+            echo -e "${RED}❌ Homebrew not found. Please install Redis manually:${NC}"
+            echo "   brew install redis"
+            exit 1
+        fi
     fi
 fi
 echo -e "${GREEN}✅ Redis available${NC}"
@@ -103,7 +181,12 @@ if [ ! -d "venv" ]; then
 fi
 
 # Activate virtual environment
-source venv/bin/activate
+if [ "$IS_WINDOWS" = true ] && [ -f "venv/Scripts/activate" ]; then
+    # Git Bash on Windows uses the Scripts activation path.
+    source venv/Scripts/activate
+else
+    source venv/bin/activate
+fi
 
 # Install backend dependencies
 if [ ! -f "venv/.dependencies_installed" ] || [ backend/requirements.txt -nt venv/.dependencies_installed ]; then
@@ -122,9 +205,10 @@ echo -e "${BLUE}📦 Setting up Frontend...${NC}"
 cd "$PROJECT_ROOT/frontend"
 
 # Install frontend dependencies
-if [ ! -d "node_modules" ] || [ package.json -nt node_modules/.package-lock.json ]; then
+if [ ! -d "node_modules" ] || [ ! -f "node_modules/.deps_installed" ] || [ package-lock.json -nt node_modules/.deps_installed ]; then
     echo "📦 Installing frontend dependencies..."
     npm install --silent
+    touch node_modules/.deps_installed
     echo -e "${GREEN}✅ Frontend dependencies installed${NC}"
 else
     echo -e "${GREEN}✅ Frontend dependencies already installed${NC}"
@@ -139,9 +223,13 @@ echo -e "${BLUE}🔍 Checking ports...${NC}"
 check_port() {
     local port=$1
     local service=$2
-    if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1 ; then
+    if port_in_use "$port"; then
         echo -e "${RED}❌ Port $port is already in use (required for $service)${NC}"
-        echo "   Kill the process using: lsof -ti:$port | xargs kill -9"
+        if command_exists lsof; then
+            echo "   Kill the process using: lsof -ti:$port | xargs kill -9"
+        else
+            echo "   Kill the process and re-run the script"
+        fi
         return 1
     else
         echo -e "${GREEN}✅ Port $port is available ($service)${NC}"
@@ -160,16 +248,26 @@ echo ""
 
 # 1. Start Redis
 echo -e "${BLUE}▶️  Starting Redis on port $REDIS_PORT...${NC}"
-redis-server --port $REDIS_PORT --daemonize yes --logfile "$PROJECT_ROOT/redis.log"
-sleep 1
+if [ "$REDIS_CONTAINER_STARTED" = true ]; then
+    docker rm -f "$DOCKER_REDIS_CONTAINER" >/dev/null 2>&1 || true
+    docker run -d --name "$DOCKER_REDIS_CONTAINER" -p "$REDIS_PORT:6379" redis:7-alpine >/dev/null
+else
+    redis-server --port "$REDIS_PORT" --logfile "$PROJECT_ROOT/redis.log" > /dev/null 2>&1 &
+    REDIS_PID=$!
+fi
+sleep 2
 
 # Verify Redis is running
-if ! redis-cli -p $REDIS_PORT ping > /dev/null 2>&1; then
+if ! redis_ping; then
     echo -e "${RED}❌ Redis failed to start${NC}"
     exit 1
 fi
-REDIS_PID=$(pgrep -f "redis-server.*$REDIS_PORT")
-echo -e "${GREEN}✅ Redis started (PID: $REDIS_PID)${NC}"
+if [ "$REDIS_CONTAINER_STARTED" = true ]; then
+    REDIS_PID=$(docker ps --filter "name=$DOCKER_REDIS_CONTAINER" --format "{{.ID}}")
+    echo -e "${GREEN}✅ Redis started in Docker (Container: $REDIS_PID)${NC}"
+else
+    echo -e "${GREEN}✅ Redis started (PID: $REDIS_PID)${NC}"
+fi
 
 # 2. Start Backend API
 echo -e "${BLUE}▶️  Starting Backend API on port $BACKEND_PORT...${NC}"
@@ -281,7 +379,7 @@ while true; do
         cleanup
     fi
     
-    if ! redis-cli -p $REDIS_PORT ping > /dev/null 2>&1; then
+    if ! redis_ping; then
         echo -e "${RED}❌ Redis crashed! Check redis.log${NC}"
         cleanup
     fi
