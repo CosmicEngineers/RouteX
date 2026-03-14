@@ -555,67 +555,6 @@ export function ChallengeResultsPanel({
         </div>
       </div>
 
-      {/* Vessel Time Usage */}
-      {results.trips && results.trips.length > 0 && (() => {
-        const vesselUsage: Record<string, { trips: number; totalDays: number }> = {};
-        results.trips!.forEach(trip => {
-          vesselUsage[trip.vessel_id] = vesselUsage[trip.vessel_id] || { trips: 0, totalDays: 0 };
-          vesselUsage[trip.vessel_id].trips += 1;
-          vesselUsage[trip.vessel_id].totalDays += trip.trip_duration_days;
-        });
-        return (
-          <details className="group" open>
-            <summary className="cursor-pointer select-none text-xs font-semibold text-orange-400 hover:text-orange-300 flex items-center gap-1 py-1 transition-colors">
-              <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-              </svg>
-              Vessel Time Usage
-            </summary>
-            <div className="mt-2 space-y-2">
-              {Object.entries(vesselUsage).map(([vesselId, usage]) => {
-                const totalHours = usage.totalDays * 24;
-                const pct = (totalHours / 720) * 100;
-                const ok = totalHours <= 720;
-                return (
-                  <div key={vesselId} className="p-2.5 bg-slate-800/50 rounded-lg border border-slate-700/50">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs font-bold text-cyan-300">{vesselId}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${ok ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
-                        {ok ? '✔ OK' : '✗ Over'}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-4 gap-1 text-[10px] mb-1.5">
-                      <div className="text-center">
-                        <p className="text-slate-500">Trips</p>
-                        <p className="font-semibold text-blue-300">{usage.trips}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-slate-500">Hours</p>
-                        <p className="font-semibold text-cyan-300">{totalHours.toFixed(0)}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-slate-500">Idle</p>
-                        <p className="font-semibold text-yellow-300">{(720 - totalHours).toFixed(0)}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-slate-500">Util%</p>
-                        <p className="font-semibold text-orange-300">{pct.toFixed(0)}%</p>
-                      </div>
-                    </div>
-                    <div className="h-1 bg-slate-700/50 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${ok ? 'bg-gradient-to-r from-cyan-500 to-green-500' : 'bg-gradient-to-r from-orange-500 to-red-500'}`}
-                        style={{ width: `${Math.min(100, pct)}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </details>
-        );
-      })()}
-
       {/* Download */}
       <button
         onClick={onDownloadCSV}
@@ -694,6 +633,67 @@ export function ChallengeResultsPanel({
           </table>
         </div>
       </details>
+
+      {/* Vessel Time Usage */}
+      {results.trips && results.trips.length > 0 && (() => {
+        const vesselUsage: Record<string, { trips: number; totalDays: number }> = {};
+        results.trips!.forEach(trip => {
+          vesselUsage[trip.vessel_id] = vesselUsage[trip.vessel_id] || { trips: 0, totalDays: 0 };
+          vesselUsage[trip.vessel_id].trips += 1;
+          vesselUsage[trip.vessel_id].totalDays += trip.trip_duration_days;
+        });
+        return (
+          <details className="group" open>
+            <summary className="cursor-pointer select-none text-xs font-semibold text-orange-400 hover:text-orange-300 flex items-center gap-1 py-1 transition-colors">
+              <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+              </svg>
+              Vessel Time Usage
+            </summary>
+            <div className="mt-2 space-y-2">
+              {Object.entries(vesselUsage).map(([vesselId, usage]) => {
+                const totalHours = usage.totalDays * 24;
+                const pct = (totalHours / 720) * 100;
+                const ok = totalHours <= 720;
+                return (
+                  <div key={vesselId} className="p-2.5 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs font-bold text-cyan-300">{vesselId}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${ok ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
+                        {ok ? '✔ OK' : '✗ Over'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1 text-[10px] mb-1.5">
+                      <div className="text-center">
+                        <p className="text-slate-500">Trips</p>
+                        <p className="font-semibold text-blue-300">{usage.trips}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-slate-500">Hours</p>
+                        <p className="font-semibold text-cyan-300">{totalHours.toFixed(0)}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-slate-500">Idle</p>
+                        <p className="font-semibold text-yellow-300">{(720 - totalHours).toFixed(0)}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-slate-500">Util%</p>
+                        <p className="font-semibold text-orange-300">{pct.toFixed(0)}%</p>
+                      </div>
+                    </div>
+                    <div className="h-1 bg-slate-700/50 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${ok ? 'bg-gradient-to-r from-cyan-500 to-green-500' : 'bg-gradient-to-r from-orange-500 to-red-500'}`}
+                        style={{ width: `${Math.min(100, pct)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </details>
+        );
+      })()}
 
       {/* Trip Cards */}
       {results.trips && results.trips.length > 0 && (
