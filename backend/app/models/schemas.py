@@ -135,8 +135,9 @@ class HPCLVessel(BaseModel):
     # overwriting the real @validator above.
     
     @validator('id')
-    def validate_hpcl_fleet_size(cls, v):
-        # This would be used to ensure we don't exceed HPCL's 9 vessels
+    def validate_vessel_id(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Vessel ID cannot be empty')
         return v
 
 

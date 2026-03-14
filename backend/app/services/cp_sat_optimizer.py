@@ -581,7 +581,7 @@ class HPCLCPSATOptimizer:
             else:
                 # Additional occurrence — accumulate cargo and cost
                 agg = pattern_map[pattern_key]
-                agg['execution_count'] += 1
+                agg['execution_count'] += route_copy['execution_count']
                 for p, c in route_copy['cargo_per_port'].items():
                     agg['cargo_per_port'][p] = agg['cargo_per_port'].get(p, 0) + c
                 agg['cargo_flow_mt'] += route_copy['cargo_flow_mt']

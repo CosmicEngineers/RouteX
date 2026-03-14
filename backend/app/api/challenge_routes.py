@@ -177,10 +177,10 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
                 trip_duration_days = total_time_hours / 24.0
                 
                 # Get vessel charter rate (in Cr/day)
-                vessel_charter_rate_cr_per_day = 0.5  # Default
                 matching_vessel = [v for v in vessels if v.id == vessel_id]
-                if matching_vessel:
-                    vessel_charter_rate_cr_per_day = matching_vessel[0].daily_charter_rate / 10000000
+                if not matching_vessel:
+                    raise ValueError(f"Vessel '{vessel_id}' referenced in route but not found in fleet")
+                vessel_charter_rate_cr_per_day = matching_vessel[0].daily_charter_rate / 10000000
                 
                 hpcl_trip_cost_cr = trip_duration_days * vessel_charter_rate_cr_per_day
                 total_hpcl_cost_cr += hpcl_trip_cost_cr
