@@ -196,22 +196,25 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
                     "cargo_deliveries": []
                 }
                 
-                # Bug 14 fix: each output row shows the FULL trip cost (charter × days).
-                # The PS output format shows the complete trip cost, not a fractional split.
-                # For 2-port trips, both rows show the same full trip cost.
+                # Each output row shows this port's proportional share of the trip cost.
+                # For a 1-port trip: row cost == full trip cost.
+                # For a 2-port trip: each row shows half the trip cost.
+                # This ensures the "Trip Cost" column sums to the correct total
+                # without double-counting trips that serve two discharge ports.
+                num_ports = len(discharge_ports)
                 for discharge_port in discharge_ports:
                     # Actual cargo for this port from solver (via cargo_per_port)
                     # M2 follow-up: selected_routes are now HPCLRoute objects; per-port cargo
                     # is in cargo_split (renamed from the old raw-dict key cargo_per_port).
                     cargo_per_port = route.cargo_split if route.cargo_split else {}
-                    volume = cargo_per_port.get(discharge_port, int(cargo_quantity / len(discharge_ports)))
+                    volume = cargo_per_port.get(discharge_port, int(cargo_quantity / num_ports))
 
                     output_table.append({
                         "Source": loading_port,
                         "Destination": discharge_port,
                         "Tanker": vessel_id,
                         "Volume (MT)": int(volume),
-                        "Trip Cost (Rs Cr)": round(hpcl_trip_cost_cr, 4),  # Full trip cost per PS
+                        "Trip Cost (Rs Cr)": round(hpcl_trip_cost_cr / num_ports, 4),
                         "Trip ID": trip_obj["trip_id"]
                     })
 
@@ -291,6 +294,7 @@ async def get_output_format_example():
         "notes": [
             "Each row represents cargo delivery from one loading port to one unloading port",
             "A tanker loading from one port and discharging at two ports will have two rows",
-            "Trip Cost = Charter Hire Rate × Total Trip Duration (including loading, sailing, unloading)"
+            "Trip Cost per row = (Charter Hire Rate × Total Trip Duration) / number of discharge ports",
+            "Summing the Trip Cost column gives the correct total transportation cost"
         ]
     }

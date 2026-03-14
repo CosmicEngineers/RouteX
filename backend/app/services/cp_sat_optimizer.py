@@ -250,16 +250,12 @@ class HPCLCPSATOptimizer:
                 var = self.model.NewIntVar(0, vessel_capacity, f"cargo_{route_id}_{port_id}")
                 self.cargo_to_vars[route_id][port_id] = var
 
-            # Total cargo on route <= vessel_capacity * active
+            # PS Constraint 1: "Each tanker must load its FULL capacity from only one loading port."
+            # When a route is active, total cargo delivered across all discharge ports must
+            # equal the vessel's full capacity (equality, not inequality).
+            # When inactive, the constraint forces total cargo to 0.
             total_cargo_expr = sum(self.cargo_to_vars[route_id].values())
-            self.model.Add(total_cargo_expr <= vessel_capacity * self.route_active_vars[route_id])
-
-            # BUG-C4 fix: The total-cargo constraint above is sufficient to bound each
-            # individual port's cargo (since all vars are non-negative). The previous
-            # per-var loop (var <= vessel_capacity * active) was redundant — it allowed
-            # each individual port to receive up to vessel_capacity, which combined with
-            # the total constraint is correct, but was misleadingly phrased. Removing
-            # the redundant loop; total constraint alone enforces the capacity bound.
+            self.model.Add(total_cargo_expr == vessel_capacity * self.route_active_vars[route_id])
 
         # Keep cargo_flow_vars as alias pointing to total per route for backward compat
         self.cargo_flow_vars = {}
@@ -746,7 +742,8 @@ class HPCLCPSATOptimizer:
                     # show activities back-to-back without artificial idle padding.
             
             # Calculate summary metrics
-            total_voyages = len(vessel_routes)
+            # Use execution_count so repeated route patterns are counted as separate trips
+            total_voyages = sum(route.get('execution_count', 1) for route in vessel_routes)
             total_cargo_mt = sum(route.get('scaled_cargo', 0) for route in vessel_routes)
             total_distance_nm = sum(route.get('scaled_distance', 0) for route in vessel_routes)
             total_cost = sum(route.get('scaled_cost', 0) for route in vessel_routes)
