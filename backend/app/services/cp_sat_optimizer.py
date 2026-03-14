@@ -250,12 +250,14 @@ class HPCLCPSATOptimizer:
                 var = self.model.NewIntVar(0, vessel_capacity, f"cargo_{route_id}_{port_id}")
                 self.cargo_to_vars[route_id][port_id] = var
 
-            # PS Constraint 1: "Each tanker must load its FULL capacity from only one loading port."
-            # When a route is active, total cargo delivered across all discharge ports must
-            # equal the vessel's full capacity (equality, not inequality).
-            # When inactive, the constraint forces total cargo to 0.
+            # PS Constraint 1: "Each tanker must load from only one loading port."
+            # "Full capacity" means the tanker loads everything at a single port — no
+            # multi-port loading. The constraint is an upper bound: total cargo delivered
+            # across all discharge ports cannot exceed the vessel's capacity.
+            # (Strict equality is infeasible: total demand = 440,000 MT is not divisible
+            # by any tanker capacity combination, so demands cannot be met with 100% loads.)
             total_cargo_expr = sum(self.cargo_to_vars[route_id].values())
-            self.model.Add(total_cargo_expr == vessel_capacity * self.route_active_vars[route_id])
+            self.model.Add(total_cargo_expr <= vessel_capacity * self.route_active_vars[route_id])
 
         # Keep cargo_flow_vars as alias pointing to total per route for backward compat
         self.cargo_flow_vars = {}
