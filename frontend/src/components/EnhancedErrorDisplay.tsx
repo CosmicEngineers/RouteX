@@ -29,7 +29,7 @@ export function EnhancedErrorDisplay({ error, solverLogs = [] }: EnhancedErrorDi
         title: 'No Feasible Solution Found',
         message: 'The optimization could not find a valid solution with the current fleet and delivery requirements.',
         suggestions: [
-          '🚢 Increase fleet capacity by adding more vessels',
+          '+ Increase fleet capacity by adding more vessels',
           '📦 Adjust delivery volumes at high-demand ports',
           '⏰ Allow more time by increasing Max Solve Time to 300s+',
           '🔧 Review and relax operational constraints',

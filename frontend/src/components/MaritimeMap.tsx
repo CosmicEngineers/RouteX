@@ -5,6 +5,7 @@ import { HPCLVessel, HPCLPort } from './HPCLDashboard';
 import { calculateMaritimeRoute } from '../utils/jps-pathfinding';
 import { formatNumber } from '../utils/formatters';
 import type { Trip } from './ChallengeOutput';
+import { TankerIcon, tankerSvgString } from './TankerIcon';
 
 // Real-world HPCL terminal anchors for Challenge 7.1 ports
 // Coordinates sourced from official HPCL location data — mapped to PS abstract IDs L1-L6, U1-U11
@@ -101,7 +102,7 @@ export function MaritimeMap({
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [showBaseline, setShowBaseline] = useState(false);
-  const [showVessels, setShowVessels] = useState(true);
+  const [showVessels, setShowVessels] = useState(false);
 
   // Load Google Maps script
   useEffect(() => {
@@ -512,21 +513,6 @@ export function MaritimeMap({
       (currentRoute ? enhancedVessels.filter(v => v.id === currentRoute.vessel) : enhancedVessels);
 
     visibleVessels.forEach(vessel => {
-      const marker = new google.maps.Marker({
-        position: { lat: vessel.lat, lng: vessel.lon },
-        map: map,
-        title: vessel.name,
-        icon: {
-          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-            <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-              <text x="16" y="24" font-size="24" text-anchor="middle">🚢</text>
-            </svg>
-          `),
-          scaledSize: new google.maps.Size(32, 32),
-          anchor: new google.maps.Point(16, 16)
-        }
-      });
-
       const statusColor = {
         available: '#10b981',
         sailing: '#3b82f6',
@@ -534,6 +520,17 @@ export function MaritimeMap({
         unloading: '#a855f7',
         maintenance: '#ef4444'
       }[vessel.status] || '#6b7280';
+
+      const marker = new google.maps.Marker({
+        position: { lat: vessel.lat, lng: vessel.lon },
+        map: map,
+        title: vessel.name,
+        icon: {
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(tankerSvgString(statusColor, vessel.id)),
+          scaledSize: new google.maps.Size(28, 28),
+          anchor: new google.maps.Point(14, 14)
+        }
+      });
 
       const infoWindow = new google.maps.InfoWindow({
         content: `
@@ -706,7 +703,10 @@ export function MaritimeMap({
               onClick={() => setShowVessels(v => !v)}
               title="Toggle tanker visibility"
             >
-              <span className="text-white/80 text-xs font-medium">🚢 Vessels</span>
+              <span className="text-white/80 text-xs font-medium flex items-center gap-1.5">
+                <TankerIcon size={13} color="#94a3b8" />
+                Vessels
+              </span>
               <div className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${showVessels ? 'bg-cyan-400' : 'bg-white/20'}`}>
                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-md transition-transform duration-200 ${showVessels ? 'translate-x-4' : 'translate-x-0.5'}`} />
               </div>
