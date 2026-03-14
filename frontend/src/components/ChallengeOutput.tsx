@@ -616,6 +616,85 @@ export function ChallengeResultsPanel({
         );
       })()}
 
+      {/* Download */}
+      <button
+        onClick={onDownloadCSV}
+        className="w-full py-2.5 rounded-xl font-semibold text-xs transition-all duration-300 btn-primary-gradient flex items-center justify-center gap-2"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        Export CSV
+      </button>
+
+      {/* Full details collapsible */}
+      <details className="group">
+        <summary className="cursor-pointer select-none px-4 py-3 bg-gradient-to-r from-slate-800/50 to-slate-800/30 rounded-xl border border-cyan-500/20 text-xs font-semibold text-slate-300 hover:border-cyan-500/40 transition-all flex items-center gap-2">
+          <svg className="w-4 h-4 text-cyan-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+          </svg>
+          📋 Full Trip Details Table
+        </summary>
+        <div className="mt-3 overflow-x-auto rounded-lg border border-slate-700/50">
+          <table className="w-full text-xs divide-y divide-slate-700/50">
+            <thead className="table-header">
+              <tr>
+                <th className="px-3 py-2 text-left text-cyan-400 font-bold">TRIP</th>
+                <th className="px-3 py-2 text-left text-cyan-400 font-bold">VESSEL</th>
+                <th className="px-3 py-2 text-left text-cyan-400 font-bold">LOAD</th>
+                <th className="px-3 py-2 text-left text-cyan-400 font-bold">DISCHARGE</th>
+                <th className="px-3 py-2 text-right text-cyan-400 font-bold">MT</th>
+                <th className="px-3 py-2 text-right text-cyan-400 font-bold">₹ Cr</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-700/50">
+              {(results.trips ?? []).map((trip, i) => {
+                const vessel = vessels.find(v => v.id === trip.vessel_id);
+                const cap = vessel?.capacity_mt ?? 50000;
+                const cargo = trip.cargo_deliveries.reduce((s, d) => s + d.volume_mt, 0);
+                const isSplit = trip.discharge_ports.length >= 2;
+                const isFull = Math.abs(cargo - cap) < 1;
+                return (
+                  <tr
+                    key={i}
+                    className={`table-row ${isSplit ? 'border-l-2 border-l-cyan-500' : ''}`}
+                    style={{ backgroundColor: i % 2 === 0 ? 'rgba(51,65,85,0.4)' : 'rgba(30,41,59,0.4)' }}
+                  >
+                    <td className="px-3 py-2 font-bold text-yellow-400 whitespace-nowrap">{trip.trip_id}</td>
+                    <td className="px-3 py-2 text-cyan-300 whitespace-nowrap">
+                      {trip.vessel_id}
+                      {isFull && (
+                        <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-green-500/20 text-green-300 align-middle">100%</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-green-300 whitespace-nowrap">{trip.loading_port}</td>
+                    <td className="px-3 py-2 text-blue-300 whitespace-nowrap">
+                      {trip.discharge_ports.join(' → ')}
+                      {isSplit && (
+                        <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-cyan-500/20 text-cyan-400 align-middle">Co-load</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right font-semibold text-slate-200">{formatNumber(cargo)}</td>
+                    <td className="px-3 py-2 text-right font-bold text-green-300">₹{trip.hpcl_charter_cost_cr.toFixed(4)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot className="table-header font-bold">
+              <tr>
+                <td colSpan={4} className="px-3 py-2 text-white text-xs">
+                  TOTAL ({results.trips?.length ?? 0} trips)
+                </td>
+                <td className="px-3 py-2 text-right text-white">{formatNumber(results.summary.total_volume_mt)}</td>
+                <td className="px-3 py-2 text-right text-green-300">
+                  ₹{(results.summary.hpcl_transportation_cost_cr ?? results.summary.total_cost_cr).toFixed(4)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </details>
+
       {/* Trip Cards */}
       {results.trips && results.trips.length > 0 && (
         <div>
@@ -742,84 +821,6 @@ export function ChallengeResultsPanel({
         </div>
       )}
 
-      {/* Download */}
-      <button
-        onClick={onDownloadCSV}
-        className="w-full py-2.5 rounded-xl font-semibold text-xs transition-all duration-300 btn-primary-gradient flex items-center justify-center gap-2"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-        Export CSV
-      </button>
-
-      {/* Full details collapsible */}
-      <details className="group">
-        <summary className="cursor-pointer select-none px-4 py-3 bg-gradient-to-r from-slate-800/50 to-slate-800/30 rounded-xl border border-cyan-500/20 text-xs font-semibold text-slate-300 hover:border-cyan-500/40 transition-all flex items-center gap-2">
-          <svg className="w-4 h-4 text-cyan-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-          </svg>
-          📋 Full Trip Details Table
-        </summary>
-        <div className="mt-3 overflow-x-auto rounded-lg border border-slate-700/50">
-          <table className="w-full text-xs divide-y divide-slate-700/50">
-            <thead className="table-header">
-              <tr>
-                <th className="px-3 py-2 text-left text-cyan-400 font-bold">TRIP</th>
-                <th className="px-3 py-2 text-left text-cyan-400 font-bold">VESSEL</th>
-                <th className="px-3 py-2 text-left text-cyan-400 font-bold">LOAD</th>
-                <th className="px-3 py-2 text-left text-cyan-400 font-bold">DISCHARGE</th>
-                <th className="px-3 py-2 text-right text-cyan-400 font-bold">MT</th>
-                <th className="px-3 py-2 text-right text-cyan-400 font-bold">₹ Cr</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700/50">
-              {(results.trips ?? []).map((trip, i) => {
-                const vessel = vessels.find(v => v.id === trip.vessel_id);
-                const cap = vessel?.capacity_mt ?? 50000;
-                const cargo = trip.cargo_deliveries.reduce((s, d) => s + d.volume_mt, 0);
-                const isSplit = trip.discharge_ports.length >= 2;
-                const isFull = Math.abs(cargo - cap) < 1;
-                return (
-                  <tr
-                    key={i}
-                    className={`table-row ${isSplit ? 'border-l-2 border-l-cyan-500' : ''}`}
-                    style={{ backgroundColor: i % 2 === 0 ? 'rgba(51,65,85,0.4)' : 'rgba(30,41,59,0.4)' }}
-                  >
-                    <td className="px-3 py-2 font-bold text-yellow-400 whitespace-nowrap">{trip.trip_id}</td>
-                    <td className="px-3 py-2 text-cyan-300 whitespace-nowrap">
-                      {trip.vessel_id}
-                      {isFull && (
-                        <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-green-500/20 text-green-300 align-middle">100%</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-green-300 whitespace-nowrap">{trip.loading_port}</td>
-                    <td className="px-3 py-2 text-blue-300 whitespace-nowrap">
-                      {trip.discharge_ports.join(' → ')}
-                      {isSplit && (
-                        <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-cyan-500/20 text-cyan-400 align-middle">Co-load</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-right font-semibold text-slate-200">{formatNumber(cargo)}</td>
-                    <td className="px-3 py-2 text-right font-bold text-green-300">₹{trip.hpcl_charter_cost_cr.toFixed(4)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot className="table-header font-bold">
-              <tr>
-                <td colSpan={4} className="px-3 py-2 text-white text-xs">
-                  TOTAL ({results.trips?.length ?? 0} trips)
-                </td>
-                <td className="px-3 py-2 text-right text-white">{formatNumber(results.summary.total_volume_mt)}</td>
-                <td className="px-3 py-2 text-right text-green-300">
-                  ₹{(results.summary.hpcl_transportation_cost_cr ?? results.summary.total_cost_cr).toFixed(4)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </details>
     </div>
   );
 }

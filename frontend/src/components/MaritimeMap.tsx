@@ -32,6 +32,10 @@ export const COASTAL_COORD_MAP: Record<string, { lat: number; lng: number; name:
   U11: { lat: 12.915, lng: 74.790, name: 'Mangalore Terminal',               state: 'Karnataka',      locationCode: '1895' }, // Mangalore harbour waters
 };
 
+// Official HPCL brand palette
+const HP_BLUE = '#004C99'; // Loading ports — HPCL primary blue (supply source)
+const HP_RED  = '#ED1C24'; // Unloading ports — HPCL red (demand / destination)
+
 // Google Maps API Key
 const GOOGLE_MAPS_API_KEY = 'AIzaSyCPRoWBNwsGeC6TTl0149U1xKPBwq3QsLs';
 
@@ -97,6 +101,7 @@ export function MaritimeMap({
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [showBaseline, setShowBaseline] = useState(false);
+  const [showVessels, setShowVessels] = useState(true);
 
   // Load Google Maps script
   useEffect(() => {
@@ -240,9 +245,44 @@ export function MaritimeMap({
   }, [time]);
 
   // Current route data for visualization
-  const currentRoute = currentRouteIndex >= 0 && currentRouteIndex < optimizationRoutes.length 
-    ? optimizationRoutes[currentRouteIndex] 
+  const currentRoute = currentRouteIndex >= 0 && currentRouteIndex < optimizationRoutes.length
+    ? optimizationRoutes[currentRouteIndex]
     : null;
+
+  // Fleet stats — real numbers from CP-SAT output when available, static network summary otherwise
+  const fleetStats = useMemo(() => {
+    if (challengeTrips.length > 0) {
+      const uniqueVessels = new Set(challengeTrips.map(t => t.vessel_id));
+      const uniqueDischarge = new Set(challengeTrips.flatMap(t => t.discharge_ports));
+      const totalCargo = challengeTrips.reduce(
+        (sum, t) => sum + t.cargo_deliveries.reduce((s, d) => s + d.volume_mt, 0), 0
+      );
+      const totalCost = challengeTrips.reduce((sum, t) => sum + t.hpcl_charter_cost_cr, 0);
+      const coLoads = challengeTrips.filter(t => t.discharge_ports.length >= 2).length;
+      return {
+        mode: 'optimizer' as const,
+        items: [
+          { label: 'Trips Scheduled', value: String(challengeTrips.length),       accent: '#facc15' },
+          { label: 'Total Cost',       value: `₹${totalCost.toFixed(2)} Cr`,      accent: '#4ade80' },
+          { label: 'Cargo Delivered',  value: `${(totalCargo / 1000).toFixed(0)}K MT`, accent: '#22d3ee' },
+          { label: 'Vessels Active',   value: String(uniqueVessels.size),          accent: HP_BLUE   },
+          { label: 'Ports Served',     value: String(uniqueDischarge.size),        accent: HP_RED    },
+          { label: 'Co-loads',         value: String(coLoads),                     accent: '#a78bfa' },
+        ],
+      };
+    }
+    return {
+      mode: 'idle' as const,
+      items: [
+        { label: 'Loading Terminals',  value: String(enhancedPorts.filter(p => p.type === 'loading').length),   accent: HP_BLUE   },
+        { label: 'Unloading Ports',    value: String(enhancedPorts.filter(p => p.type === 'unloading').length), accent: HP_RED    },
+        { label: 'Fleet Size',         value: String(enhancedVessels.length),                                    accent: '#22d3ee' },
+        { label: '50K MT Tankers',     value: String(enhancedVessels.filter(v => v.capacity_mt === 50000).length), accent: '#60a5fa' },
+        { label: '25K MT Tankers',     value: String(enhancedVessels.filter(v => v.capacity_mt === 25000).length), accent: '#818cf8' },
+        { label: 'Total Demand',       value: '440K MT',                                                          accent: '#4ade80' },
+      ],
+    };
+  }, [challengeTrips, enhancedPorts, enhancedVessels]);
 
   // Create route arcs for the current step
   const currentRouteArcs = useMemo(() => {
@@ -378,19 +418,28 @@ export function MaritimeMap({
       const isInRoute = currentRoute && !showLiveStatus &&
         currentRoute.route.some((step: any) => step.port === port.name);
 
-      // Loading ports: HPCL-blue hexagon with pulse ring (supply source)
-      // Unloading ports: Cyan teardrop pin (distribution hub)
+      // Loading ports: HP Blue hexagonal marker with glow halo (supply source)
+      // Unloading ports: HP Red teardrop pin with glow halo (demand / destination)
       const markerSvg = isLoading
-        ? `<svg width="44" height="44" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="22" cy="22" r="20" fill="#0B5ED7" fill-opacity="0.20"/>
-            <circle cx="22" cy="22" r="14" fill="#0B5ED7" stroke="#93c5fd" stroke-width="2"/>
-            <text x="22" y="27" fill="#ffffff" font-size="8.5" font-weight="700"
+        ? `<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+            <!-- Outer glow ring -->
+            <circle cx="24" cy="24" r="23" fill="${HP_BLUE}" fill-opacity="0.18"/>
+            <!-- Mid halo -->
+            <circle cx="24" cy="24" r="18" fill="${HP_BLUE}" fill-opacity="0.28"/>
+            <!-- Main body -->
+            <circle cx="24" cy="24" r="13" fill="${HP_BLUE}" stroke="#ffffff" stroke-width="2.5"/>
+            <text x="24" y="29" fill="#ffffff" font-size="8.5" font-weight="700"
                   font-family="Arial,sans-serif" text-anchor="middle">${port.id}</text>
           </svg>`
-        : `<svg width="34" height="40" viewBox="0 0 34 40" xmlns="http://www.w3.org/2000/svg">
-            <path d="M17 2C9.3 2 3 8.3 3 16c0 10.2 14 24 14 24s14-13.8 14-24C31 8.3 24.7 2 17 2z"
-                  fill="${isInRoute ? '#FCD34D' : '#22d3ee'}" stroke="#001529" stroke-width="1.5"/>
-            <text x="17" y="19" fill="#001529" font-size="${port.id.length > 3 ? '6.5' : '7.5'}" font-weight="700"
+        : `<svg width="36" height="44" viewBox="0 0 36 44" xmlns="http://www.w3.org/2000/svg">
+            <!-- Glow shadow for red pin -->
+            <ellipse cx="18" cy="42" rx="9" ry="3" fill="${HP_RED}" fill-opacity="0.25"/>
+            <!-- Teardrop body -->
+            <path d="M18 2C10.3 2 4 8.3 4 16c0 10.2 14 26 14 26s14-15.8 14-26C32 8.3 25.7 2 18 2z"
+                  fill="${isInRoute ? '#FCD34D' : HP_RED}" stroke="#ffffff" stroke-width="2"/>
+            <!-- Inner circle accent -->
+            <circle cx="18" cy="16" r="5" fill="#ffffff" fill-opacity="0.25"/>
+            <text x="18" y="20" fill="#ffffff" font-size="${port.id.length > 3 ? '6.5' : '7.5'}" font-weight="700"
                   font-family="Arial,sans-serif" text-anchor="middle">${port.id}</text>
           </svg>`;
 
@@ -401,11 +450,11 @@ export function MaritimeMap({
         icon: {
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(markerSvg),
           scaledSize: isLoading
-            ? new google.maps.Size(44, 44)
-            : new google.maps.Size(34, 40),
+            ? new google.maps.Size(48, 48)
+            : new google.maps.Size(36, 44),
           anchor: isLoading
-            ? new google.maps.Point(22, 22)
-            : new google.maps.Point(17, 38),
+            ? new google.maps.Point(24, 24)
+            : new google.maps.Point(18, 42),
         },
         zIndex: isLoading ? 20 : 10,
       });
@@ -427,8 +476,8 @@ export function MaritimeMap({
           <div style="font-family:Arial,sans-serif;padding:10px 12px;min-width:230px;
                       background:#0f172a;border-radius:8px;border:1px solid #1e293b;">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-              <span style="background:${isLoading ? '#0B5ED7' : '#22d3ee'};
-                           color:${isLoading ? '#fff' : '#001529'};
+              <span style="background:${isLoading ? HP_BLUE : HP_RED};
+                           color:#ffffff;
                            font-weight:700;font-size:11px;padding:2px 8px;border-radius:4px;">
                 ${port.id}
               </span>
@@ -437,7 +486,7 @@ export function MaritimeMap({
             ${locCodeRow}
             <p style="margin:3px 0;font-size:11px;">
               <span style="color:#64748b;">Type:</span>
-              <span style="color:${isLoading ? '#60a5fa' : '#22d3ee'};margin-left:5px;">
+              <span style="color:${isLoading ? '#60a5fa' : HP_RED};margin-left:5px;">
                 ${isLoading ? '⛽ Loading Port (Supply Source)' : '🏭 IRD / Distribution Terminal'}
               </span>
             </p>
@@ -457,8 +506,9 @@ export function MaritimeMap({
       markersRef.current.push(marker);
     });
 
-    // Add vessel markers
-    const visibleVessels = showLiveStatus ? enhancedVessels : 
+    // Add vessel markers (only when layer is enabled)
+    if (showVessels) {
+    const visibleVessels = showLiveStatus ? enhancedVessels :
       (currentRoute ? enhancedVessels.filter(v => v.id === currentRoute.vessel) : enhancedVessels);
 
     visibleVessels.forEach(vessel => {
@@ -508,6 +558,7 @@ export function MaritimeMap({
 
       markersRef.current.push(marker);
     });
+    } // end showVessels
 
     // Draw route polylines with coastal routing
     if (currentRoute && !showLiveStatus) {
@@ -598,7 +649,7 @@ export function MaritimeMap({
       }
     }
 
-  }, [enhancedPorts, currentRoute, showLiveStatus, isMapLoaded, currentRouteIndex, challengeTrips]);
+  }, [enhancedPorts, currentRoute, showLiveStatus, isMapLoaded, currentRouteIndex, challengeTrips, showVessels]);
 
   // Separate effect to update vessel positions without recreating markers
   useEffect(() => {
@@ -643,12 +694,22 @@ export function MaritimeMap({
               </div>
             )}
             <div className="flex items-center space-x-1">
-              <div className="w-3 h-3 bg-green-400 rounded-full"></div>
+              <div className="w-3 h-3 rounded-full" style={{background: HP_BLUE}}></div>
               <span>Loading Ports</span>
             </div>
             <div className="flex items-center space-x-1">
-              <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
+              <div className="w-3 h-3 rounded-full" style={{background: HP_RED}}></div>
               <span>Unloading Ports</span>
+            </div>
+            <div
+              className="flex items-center gap-2 cursor-pointer select-none"
+              onClick={() => setShowVessels(v => !v)}
+              title="Toggle tanker visibility"
+            >
+              <span className="text-white/80 text-xs font-medium">🚢 Vessels</span>
+              <div className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${showVessels ? 'bg-cyan-400' : 'bg-white/20'}`}>
+                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-md transition-transform duration-200 ${showVessels ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              </div>
             </div>
           </div>
         </div>
@@ -751,31 +812,36 @@ export function MaritimeMap({
       )}
 
       {/* Fleet Statistics */}
-      <div className="px-6 py-4 glass-card border-t border-slate-700/50">
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm">
-          <div className="text-center">
-            <div className="font-bold text-green-400 text-lg">{enhancedPorts.filter(p => p.type === 'loading').length}</div>
-            <div className="text-slate-300">Loading Terminals</div>
+      <div className="px-5 py-3 bg-slate-900/80 border-t border-slate-700/60 backdrop-blur-sm">
+        <div className="flex items-center gap-4">
+          {/* Mode badge */}
+          <div className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase ${
+            fleetStats.mode === 'optimizer'
+              ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'
+              : 'bg-slate-700/50 text-slate-400 border border-slate-600/40'
+          }`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${fleetStats.mode === 'optimizer' ? 'bg-cyan-400 animate-pulse' : 'bg-slate-500'}`} />
+            {fleetStats.mode === 'optimizer' ? 'Optimizer' : 'Fleet'}
           </div>
-          <div className="text-center">
-            <div className="font-bold text-blue-400 text-lg">{enhancedPorts.filter(p => p.type === 'unloading').length}</div>
-            <div className="text-slate-300">Distribution Ports</div>
-          </div>
-          <div className="text-center">
-            <div className="font-bold text-emerald-400 text-lg">{enhancedVessels.filter(v => v.status === 'available').length}</div>
-            <div className="text-slate-300">Available Vessels</div>
-          </div>
-          <div className="text-center">
-            <div className="font-bold text-cyan-400 text-lg">{enhancedVessels.filter(v => v.status === 'sailing').length}</div>
-            <div className="text-slate-300">At Sea</div>
-          </div>
-          <div className="text-center">
-            <div className="font-bold text-yellow-400 text-lg">{enhancedVessels.filter(v => v.status === 'loading').length}</div>
-            <div className="text-slate-300">Loading</div>
-          </div>
-          <div className="text-center">
-            <div className="font-bold text-purple-400 text-lg">{enhancedVessels.filter(v => v.status === 'unloading').length}</div>
-            <div className="text-slate-300">Unloading</div>
+
+          {/* Divider */}
+          <div className="w-px h-8 bg-slate-700/60 shrink-0" />
+
+          {/* Stat cells */}
+          <div className="flex-1 grid grid-cols-3 md:grid-cols-6 gap-0 divide-x divide-slate-700/50">
+            {fleetStats.items.map((stat, i) => (
+              <div key={i} className="px-3 flex flex-col items-center justify-center min-w-0">
+                <span
+                  className="text-base font-extrabold leading-tight tabular-nums truncate"
+                  style={{ color: stat.accent }}
+                >
+                  {stat.value}
+                </span>
+                <span className="text-[10px] text-slate-500 mt-0.5 leading-tight text-center">
+                  {stat.label}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
