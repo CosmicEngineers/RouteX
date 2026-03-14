@@ -450,6 +450,7 @@ class HPCLRouteGenerator:
 
                 # EXACT metrics from PS trip time tables
                 'total_time_hours': round(total_time_hours, 2),
+                'trip_centihours': int(round(total_time_hours * 100)),  # hours × 100, used by optimizer
                 'total_time_days': round(total_time_days, 3),
                 'total_distance_nm': round(total_distance_nm, 2),
 

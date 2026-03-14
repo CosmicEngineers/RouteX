@@ -37,7 +37,8 @@ class OptimizationInput(BaseModel):
     vessels: Optional[List[VesselInput]] = None
     demands: Optional[List[DemandInput]] = None
     round_trip: Optional[bool] = False
-    optimization_objective: Optional[str] = "cost"  # cost, emissions, time, balanced
+    optimization_objective: Optional[str] = "cost"
+    solver_profile: Optional[str] = "quick"  # quick | balanced | thorough | production
 
 
 @router.get("/data")
@@ -117,16 +118,16 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
         # No pre-flight capacity check with magic-number multiplier.
         # Let the CP-SAT solver determine feasibility via hard demand constraints.
 
-        # Initialize CP-SAT optimizer with quick profile for web UI
-        optimizer = HPCLCPSATOptimizer(solver_profile="quick")
-        
+        # Initialize CP-SAT optimizer with the requested solver profile
+        solver_profile = (input_data.solver_profile or "quick") if input_data else "quick"
+        optimizer = HPCLCPSATOptimizer(solver_profile=solver_profile)
+
         # Get optimization objective
         optimization_objective = "cost"
         if input_data and input_data.optimization_objective:
             optimization_objective = input_data.optimization_objective
-        
-        # Run CP-SAT optimization.
-        # Increase solve time for better solution quality (was 15s — often too short for complex problems).
+
+        # Run CP-SAT optimization — time limit is set by the solver profile in config.py.
         optimization_result = await optimizer.optimize_hpcl_fleet(
             vessels=vessels,
             loading_ports=loading_ports,
@@ -134,7 +135,6 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
             monthly_demands=monthly_demands,
             fuel_price_per_mt=45000.0,
             optimization_objective=optimization_objective,
-            max_solve_time_seconds=60  # 60s for better solution quality
         )
         
         # Check if optimization was successful
@@ -203,11 +203,11 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
                 # without double-counting trips that serve two discharge ports.
                 num_ports = len(discharge_ports)
                 for discharge_port in discharge_ports:
-                    # Actual cargo for this port from solver (via cargo_per_port)
-                    # M2 follow-up: selected_routes are now HPCLRoute objects; per-port cargo
-                    # is in cargo_split (renamed from the old raw-dict key cargo_per_port).
+                    # cargo_split holds TOTAL cargo across all execution_count trips.
+                    # Divide by execution_count to get the per-trip delivery volume.
                     cargo_per_port = route.cargo_split if route.cargo_split else {}
-                    volume = cargo_per_port.get(discharge_port, int(cargo_quantity / num_ports))
+                    total_port_cargo = cargo_per_port.get(discharge_port, int(cargo_quantity / num_ports))
+                    volume = total_port_cargo // execution_count if execution_count > 0 else total_port_cargo
 
                     output_table.append({
                         "Source": loading_port,
@@ -226,10 +226,11 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
                 trips.append(trip_obj)
                 trip_counter += 1
         
-        # Calculate summary statistics (no post-processing needed - solver satisfies demand exactly)
+        # Calculate summary statistics
         total_volume = sum(row["Volume (MT)"] for row in output_table)
         total_hpcl_cost_cr = total_hpcl_cost_cr  # Already calculated above
-        total_demand = sum(d.demand_mt for d in monthly_demands)  # Compute inline (pre-flight check removed)
+        total_demand = sum(d.demand_mt for d in monthly_demands)
+        safety_buffer_mt = max(0, total_volume - total_demand)  # over-delivery from full-capacity rule
 
         return {
             "status": "success",
@@ -245,8 +246,10 @@ async def run_challenge_optimization(input_data: OptimizationInput = Body(defaul
                 "total_cost_cr": round(total_hpcl_cost_cr, 4),  # Alias for compatibility
                 "total_volume_mt": total_volume,
                 "total_demand_mt": total_demand,
-                "satisfied_demand_mt": total_volume,
-                "demand_satisfaction_percentage": round((total_volume / total_demand) * 100, 2) if total_demand > 0 else 0,
+                "satisfied_demand_mt": min(total_volume, total_demand),
+                # Capped at 100%: over-delivery is a safety buffer, not a 102% "satisfaction"
+                "demand_satisfaction_percentage": min(100.0, round((total_volume / total_demand) * 100, 2)) if total_demand > 0 else 0,
+                "safety_buffer_mt": safety_buffer_mt,
                 "fleet_utilization": round(optimization_result.fleet_utilization, 2),
                 "round_trip": input_data.round_trip if input_data else False
             },

@@ -69,6 +69,13 @@ export function ChallengeOutput() {
   const [error, setError] = useState<string | null>(null);
   const [showInputs, setShowInputs] = useState(true);
   const [expandedTripIdx, setExpandedTripIdx] = useState<number | null>(null);
+  const [solverProfile, setSolverProfile] = useState<'quick' | 'balanced' | 'thorough'>('quick');
+
+  const SOLVER_PROFILES = {
+    quick:    { label: '⚡ Quick',    time: '~15s',  desc: 'Fast result' },
+    balanced: { label: '⚖ Balanced', time: '~30s',  desc: 'Better quality' },
+    thorough: { label: '🏆 Thorough', time: '~5m',   desc: 'Global optimum' },
+  } as const;
   
   // Clear any old cached results on mount to ensure fresh data
   useEffect(() => {
@@ -175,7 +182,8 @@ export function ChallengeOutput() {
         cache: 'no-store', // Prevent browser from caching the response
         body: JSON.stringify({
           vessels,
-          demands
+          demands,
+          solver_profile: solverProfile,
         })
       });
       
@@ -237,31 +245,53 @@ export function ChallengeOutput() {
           </h2>
           <p className="text-slate-400">Minimize transportation costs while meeting all delivery demands</p>
         </div>
-        <div className="flex gap-3">
-          {results && (
-            <button
-              onClick={clearResults}
-              className="px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300 bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30 hover:border-red-500/50"
-              title="Clear saved optimization results and start fresh"
-            >
-              Clear Results
-            </button>
-          )}
-          <button
-            onClick={runOptimization}
-            disabled={loading}
-            className="px-8 py-3 rounded-xl font-semibold text-sm transition-all duration-300 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/50 hover:shadow-cyan-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Find the most cost-effective routes for your fleet"
-          >
-            {loading ? (
-              <span className="flex items-center gap-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Finding Optimal Routes...
-              </span>
-            ) : (
-              'Optimize Routes'
+        <div className="flex flex-col items-end gap-3">
+          {/* Solver precision toggle */}
+          <div className="flex rounded-xl overflow-hidden border border-slate-700">
+            {(['quick', 'balanced', 'thorough'] as const).map((profile) => (
+              <button
+                key={profile}
+                onClick={() => setSolverProfile(profile)}
+                disabled={loading}
+                title={SOLVER_PROFILES[profile].desc}
+                className={`px-4 py-2 text-xs font-semibold transition-all disabled:cursor-not-allowed ${
+                  solverProfile === profile
+                    ? 'bg-cyan-600 text-white'
+                    : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {SOLVER_PROFILES[profile].label}
+                <span className="ml-1 opacity-60">{SOLVER_PROFILES[profile].time}</span>
+              </button>
+            ))}
+          </div>
+          {/* Action buttons */}
+          <div className="flex gap-3">
+            {results && (
+              <button
+                onClick={clearResults}
+                className="px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300 bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30 hover:border-red-500/50"
+                title="Clear saved optimization results and start fresh"
+              >
+                Clear Results
+              </button>
             )}
-          </button>
+            <button
+              onClick={runOptimization}
+              disabled={loading}
+              className="px-8 py-3 rounded-xl font-semibold text-sm transition-all duration-300 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/50 hover:shadow-cyan-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Find the most cost-effective routes for your fleet"
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Optimizing ({SOLVER_PROFILES[solverProfile].time})...
+                </span>
+              ) : (
+                'Optimize Routes'
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
