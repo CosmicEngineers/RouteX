@@ -465,7 +465,7 @@ export function ChallengeResultsPanel({
       {/* ════════════════════════════════════════════
           ZONE 1 — SUMMARY STRIP (compact inline)
           ════════════════════════════════════════════ */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5 flex-shrink-0">
         <div className="section-label text-blue-600 flex-shrink-0">
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
           Data Intelligence
@@ -483,7 +483,7 @@ export function ChallengeResultsPanel({
       </div>
 
       {/* Summary strip — 3 inline compact cards */}
-      <div className="grid grid-cols-3 gap-1.5">
+      <div className="grid grid-cols-3 gap-1.5 flex-shrink-0">
         <div className="rounded-xl px-2.5 py-2 text-center" style={{background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', border: '1px solid rgba(37,99,235,0.12)', boxShadow: '0 2px 8px rgba(37,99,235,0.08)'}}>
           <p className="text-[9px] text-blue-500 font-bold uppercase tracking-wider">Demand</p>
           <p className="text-sm font-extrabold text-blue-700" style={{textShadow: '0 0 12px rgba(37,99,235,0.15)'}}>
@@ -507,10 +507,10 @@ export function ChallengeResultsPanel({
       {/* ════════════════════════════════════════════
           ZONE 2 — HERO KPI (dominant card)
           ════════════════════════════════════════════ */}
-      <div className="relative overflow-hidden rounded-2xl" style={{
+      <div className="relative overflow-hidden rounded-2xl flex-shrink-0" style={{
         background: 'linear-gradient(135deg, #1e40af 0%, #0891b2 100%)',
         boxShadow: '0 8px 32px rgba(30,64,175,0.3), 0 0 0 1px rgba(255,255,255,0.1) inset',
-        padding: '16px 18px',
+        padding: '16px 18px 20px',
       }}>
         {/* Shine overlay */}
         <div className="absolute inset-0 pointer-events-none" style={{background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%)'}} />
@@ -535,12 +535,11 @@ export function ChallengeResultsPanel({
 
       {/* Savings — inline expandable (not floating) */}
       {impact.savingsCr > 0 && (
-        <details className="group rounded-xl overflow-hidden" style={{background: 'linear-gradient(135deg, #f0fdf4, #ecfdf5)', border: '1px solid rgba(34,197,94,0.15)', boxShadow: '0 2px 8px rgba(34,197,94,0.08)'}}>
-          <summary className="cursor-pointer select-none flex items-center gap-2 px-3 py-2 hover:bg-green-50/50 transition-colors">
-            <svg className="w-3.5 h-3.5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-            <span className="text-xs font-extrabold text-green-700">−₹{impact.savingsCr.toFixed(4)} Cr</span>
-            <span className="text-[10px] text-green-500">vs ₹{impact.baselineCr}</span>
-            <svg className="w-3 h-3 text-green-400 ml-auto transition-transform group-open:rotate-180 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+        <details className="group rounded-xl overflow-hidden" style={{background: 'linear-gradient(180deg, #ffffff, #f8fafc)', border: '1px solid rgba(148,163,184,0.12)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)'}}>
+          <summary className="cursor-pointer select-none flex items-center gap-1.5 px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:shadow-md transition-all">
+            <svg className="w-3 h-3 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+            <span className="normal-case tracking-normal"><span className="font-extrabold text-green-700 text-xs">−₹{impact.savingsCr.toFixed(4)} Cr</span> <span className="text-green-500 font-medium">vs ₹{impact.baselineCr}</span></span>
+            <svg className="w-3 h-3 transition-transform group-open:rotate-90 flex-shrink-0 text-blue-500 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
           </summary>
           <div className="px-3 pb-2.5 pt-0 text-[10px] text-slate-600 leading-relaxed border-t border-green-200/50 space-y-1">
             <p className="font-bold text-green-700 pt-1.5">₹{impact.savingsCr.toFixed(2)} Cr saved ≈ {Math.round(impact.savingsCr * 100)} Lakhs/month</p>
@@ -554,7 +553,7 @@ export function ChallengeResultsPanel({
           ════════════════════════════════════════════ */}
 
       {/* Demand compliance bar */}
-      <div className="px-3 py-2.5 rounded-xl" style={{background: 'linear-gradient(180deg, #ffffff, #f8fafc)', border: '1px solid rgba(148,163,184,0.12)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)'}}>
+      <div className="px-3 py-2.5 rounded-xl flex-shrink-0" style={{background: 'linear-gradient(180deg, #ffffff, #f8fafc)', border: '1px solid rgba(148,163,184,0.12)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)'}}>
         <div className="flex justify-between items-center mb-1.5">
           <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Demand Compliance</span>
           <span className="text-xs font-extrabold text-blue-700">
@@ -567,10 +566,10 @@ export function ChallengeResultsPanel({
       </div>
 
       {/* HPCL Compliance — compact inline */}
-      <details className="group">
-        <summary className="cursor-pointer select-none flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold text-green-700 hover:shadow-md transition-all" style={{background: 'linear-gradient(135deg, #f0fdf4, #ecfdf5)', border: '1px solid rgba(34,197,94,0.12)'}}>
-          <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+      <details className="group rounded-xl overflow-hidden" style={{background: 'linear-gradient(180deg, #ffffff, #f8fafc)', border: '1px solid rgba(148,163,184,0.12)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)'}}>
+        <summary className="cursor-pointer select-none flex items-center gap-1.5 px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:shadow-md transition-all">
           ✅ All 6 HPCL Constraints Satisfied
+          <svg className="w-3 h-3 transition-transform group-open:rotate-90 flex-shrink-0 text-blue-500 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
         </summary>
         <div className="mt-1.5 grid grid-cols-2 gap-1 px-1">
           {['Single-port loading','≤2 discharge ports','Capacity respected','≤720h/month','All demands met','Cost = Charter×Duration'].map(c => (
@@ -581,62 +580,11 @@ export function ChallengeResultsPanel({
         </div>
       </details>
 
-      {/* Vessel Time Usage — dense horizontal layout */}
-      {results.trips && results.trips.length > 0 && (() => {
-        const vesselUsage: Record<string, { trips: number; totalDays: number }> = {};
-        results.trips!.forEach(trip => {
-          vesselUsage[trip.vessel_id] = vesselUsage[trip.vessel_id] || { trips: 0, totalDays: 0 };
-          vesselUsage[trip.vessel_id].trips += 1;
-          vesselUsage[trip.vessel_id].totalDays += trip.trip_duration_days;
-        });
-        return (
-          <details className="group" open>
-            <summary className="cursor-pointer select-none flex items-center gap-1.5 text-[10px] font-bold text-amber-700 uppercase tracking-wider py-1 hover:text-amber-800 transition-colors">
-              <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              Fleet Utilization ({Object.keys(vesselUsage).length} vessels)
-            </summary>
-            <div className="mt-1.5 space-y-1">
-              {Object.entries(vesselUsage).map(([vesselId, usage]) => {
-                const totalHours = usage.totalDays * 24;
-                const pct = (totalHours / 720) * 100;
-                const idle = 720 - totalHours;
-                const ok = totalHours <= 720;
-                return (
-                  <div key={vesselId} className="flex items-center gap-2 px-2.5 py-2 rounded-lg hover:shadow-md transition-all" style={{background: 'linear-gradient(180deg, #ffffff, #f8fafc)', border: '1px solid rgba(148,163,184,0.1)', boxShadow: '0 1px 4px rgba(0,0,0,0.03)'}}>
-                    {/* Vessel ID */}
-                    <span className="text-[11px] font-extrabold text-blue-600 w-7 flex-shrink-0">{vesselId}</span>
-                    {/* Stats inline */}
-                    <div className="flex items-center gap-2 text-[10px] flex-shrink-0">
-                      <span className="text-slate-500">{usage.trips}<span className="text-slate-400 ml-0.5">trips</span></span>
-                      <span className="text-blue-600 font-bold">{totalHours.toFixed(0)}<span className="text-slate-400 ml-0.5">h</span></span>
-                      <span className="text-amber-600">{idle.toFixed(0)}<span className="text-slate-400 ml-0.5">idle</span></span>
-                    </div>
-                    {/* Progress bar */}
-                    <div className="flex-1 h-2 rounded-full overflow-hidden" style={{background: 'rgba(148,163,184,0.12)', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.04)'}}>
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${ok ? 'bg-gradient-to-r from-blue-500 to-emerald-500' : 'bg-gradient-to-r from-orange-500 to-red-500'}`}
-                        style={{ width: `${Math.min(100, pct)}%`, boxShadow: `0 0 6px ${ok ? 'rgba(37,99,235,0.3)' : 'rgba(239,68,68,0.3)'}` }}
-                      />
-                    </div>
-                    {/* Pct + badge */}
-                    <span className="text-[10px] font-extrabold w-8 text-right" style={{color: ok ? '#2563eb' : '#dc2626'}}>{pct.toFixed(0)}%</span>
-                    <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold flex-shrink-0 ${ok ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                      {ok ? 'OK' : '!'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </details>
-        );
-      })()}
-
       {/* Full trip table — accordion */}
-      <details className="group">
-        <summary className="cursor-pointer select-none flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-[10px] font-bold text-slate-600 uppercase tracking-wider hover:shadow-md transition-all" style={{background: 'linear-gradient(180deg, #ffffff, #f8fafc)', border: '1px solid rgba(148,163,184,0.12)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)'}}>
-          <svg className="w-3 h-3 text-blue-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
-          📋 Full Trip Details Table({results.trips?.length ?? 0})
+      <details className="group rounded-xl" open style={{background: 'linear-gradient(180deg, #ffffff, #f8fafc)', border: '1px solid rgba(148,163,184,0.12)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)'}}>
+        <summary className="cursor-pointer select-none flex items-center gap-1.5 px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:shadow-md transition-all">
+          📋 Trip Details ({results.trips?.length ?? 0})
+          <svg className="w-3 h-3 transition-transform group-open:rotate-90 flex-shrink-0 text-blue-500 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
         </summary>
         <div className="mt-1.5 rounded-xl overflow-hidden" style={{border: '1px solid rgba(148,163,184,0.12)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)'}}>
           <table className="w-full text-[10px] divide-y divide-slate-100">
@@ -676,11 +624,11 @@ export function ChallengeResultsPanel({
 
       {/* Trip Cards — compact accordion */}
       {results.trips && results.trips.length > 0 && (
-        <details className="group">
-          <summary className="cursor-pointer select-none flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider py-1 hover:text-slate-700 transition-colors">
-            <svg className="w-3 h-3 transition-transform group-open:rotate-90 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" /></svg>
+        <details className="group rounded-xl overflow-hidden" style={{background: 'linear-gradient(180deg, #ffffff, #f8fafc)', border: '1px solid rgba(148,163,184,0.12)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)'}}>
+          <summary className="cursor-pointer select-none flex items-center gap-1.5 px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:shadow-md transition-all">
+            <svg className="w-3 h-3 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" /></svg>
             Trip Plan ({results.trips.length})
+            <svg className="w-3 h-3 transition-transform group-open:rotate-90 flex-shrink-0 text-blue-500 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
           </summary>
           <div className="mt-1.5 space-y-1">
             {results.trips.map((trip, idx) => {

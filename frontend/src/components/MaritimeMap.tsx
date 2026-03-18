@@ -638,7 +638,15 @@ export function MaritimeMap({
 
       // Auto-zoom to fit all active route endpoints with generous padding
       if (boundsHasPoints) {
-        map.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60 });
+        try {
+          const ne = bounds.getNorthEast();
+          const sw = bounds.getSouthWest();
+          if (ne && sw && isFinite(ne.lat()) && isFinite(ne.lng())) {
+            map.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60 });
+          }
+        } catch {
+          // bounds may be invalid during rapid re-renders — safe to skip
+        }
       }
     }
 
