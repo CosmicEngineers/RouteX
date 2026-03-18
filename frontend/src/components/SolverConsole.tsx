@@ -111,21 +111,22 @@ export function SolverConsole({ isLoading, solverProfile, startTime }: SolverCon
   if (!isLoading && visibleLines.length === 0) return null;
 
   return (
-    <div className="terminal-style rounded-xl border border-slate-700/50 p-4 text-xs space-y-0.5 max-h-48 overflow-y-auto">
-      <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-700/40">
-        <span className="text-cyan-400 font-semibold tracking-widest text-[10px] uppercase">
+    <div className="elevated-card !rounded-xl !p-4 text-xs space-y-0.5 max-h-48 overflow-y-auto" style={{fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', monospace", background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)'}}>
+      <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-200/60">
+        <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+        <span className="text-blue-600 font-bold tracking-widest text-[10px] uppercase">
           Solver Console
         </span>
         {isLoading && (
-          <span className="flex items-center gap-1 text-slate-400">
+          <span className="flex items-center gap-1 text-slate-500">
             <span
-              className="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-pulse"
+              className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse"
             />
             RUNNING
           </span>
         )}
         {done && (
-          <span className="text-green-400 font-semibold">COMPLETE</span>
+          <span className="text-green-600 font-semibold">COMPLETE</span>
         )}
       </div>
 
@@ -134,19 +135,19 @@ export function SolverConsole({ isLoading, solverProfile, startTime }: SolverCon
           key={i}
           className={
             line.type === 'success'
-              ? 'text-green-400 font-semibold'
+              ? 'text-green-600 font-semibold'
               : line.type === 'warning'
-              ? 'text-yellow-300'
+              ? 'text-amber-600'
               : line.type === 'dim'
-              ? 'text-slate-500'
-              : 'text-cyan-200'
+              ? 'text-slate-400'
+              : 'text-slate-700'
           }
         >
-          <span className="text-slate-600 mr-2 select-none">›</span>
+          <span className="text-slate-400 mr-2 select-none">›</span>
           {line.text}
           {/* Blinking cursor on the last active line */}
           {i === visibleLines.length - 1 && isLoading && (
-            <span className="ml-0.5 inline-block w-1.5 h-3 bg-cyan-400 animate-pulse align-baseline" />
+            <span className="ml-0.5 inline-block w-1.5 h-3 bg-blue-500 animate-pulse align-baseline" />
           )}
         </div>
       ))}

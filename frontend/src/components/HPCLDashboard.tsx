@@ -168,82 +168,84 @@ export default function HPCLDashboard() {
   return (
     <div
       className="relative w-screen h-screen overflow-hidden"
-      style={{ background: '#001529' }}
+      style={{ background: 'linear-gradient(135deg, #eef2f7 0%, #e8edf5 50%, #edf1f8 100%)' }}
     >
-      {/* Subtle ambient glow overlays */}
-      <div className="absolute inset-0 pointer-events-none z-0">
-        <div className="absolute top-1/4 left-1/3 w-96 h-96 rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, #1890ff 0%, transparent 70%)' }} />
-        <div className="absolute bottom-1/3 right-1/4 w-80 h-80 rounded-full opacity-8"
-          style={{ background: 'radial-gradient(circle, #22d3ee 0%, transparent 70%)' }} />
+      {/* Subtle ambient glow accents */}
+      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full opacity-[0.04]"
+          style={{ background: 'radial-gradient(circle, #2563eb 0%, transparent 70%)' }} />
+        <div className="absolute -bottom-32 -right-32 w-80 h-80 rounded-full opacity-[0.03]"
+          style={{ background: 'radial-gradient(circle, #0891b2 0%, transparent 70%)' }} />
       </div>
 
       {/* ── Top Header Bar ─────────────────────────────────────────────────── */}
-      <header className="relative z-20 flex items-center justify-between px-5 py-2.5 border-b border-slate-800/60"
-        style={{ background: 'rgba(0, 21, 41, 0.95)', backdropFilter: 'blur(12px)' }}
+      <header className="relative z-20 flex items-center justify-between px-5 py-2.5"
+        style={{
+          background: 'rgba(255,255,255,0.82)',
+          backdropFilter: 'blur(20px) saturate(1.4)',
+          borderBottom: '1px solid rgba(148,163,184,0.15)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.03)'
+        }}
       >
         <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
             <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
               <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
             </svg>
           </div>
           <div>
-            <span className="text-sm font-bold text-slate-100">RouteX</span>
-            <span className="ml-2 text-xs text-slate-500">HPCL Challenge 7.1 — Coastal Fleet Optimizer</span>
+            <span className="text-sm font-extrabold text-slate-800 tracking-tight">RouteX</span>
+            <span className="ml-2 text-[11px] text-slate-400 font-medium">HPCL Challenge 7.1 — Coastal Fleet Optimizer</span>
           </div>
         </div>
-        <div className="flex items-center gap-4 text-xs text-slate-500">
+        <div className="flex items-center gap-5 text-xs">
           {results && (
-            <span className="text-green-400 font-semibold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
+            <span className="text-green-600 font-semibold flex items-center gap-1.5 bg-green-50 px-2.5 py-1 rounded-full border border-green-200">
+              <span className="status-dot bg-green-500" style={{width:6,height:6}} />
               Solution Ready
             </span>
           )}
           {loading && (
-            <span className="text-cyan-400 font-semibold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block animate-pulse" />
+            <span className="text-blue-600 font-semibold flex items-center gap-1.5 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block animate-pulse" />
               Optimizing…
             </span>
           )}
-          <span className="text-slate-600">9 Tankers · 6 Loading · 11 Unloading</span>
-          <span className="text-slate-600">440,000 MT/month</span>
+          <div className="flex items-center gap-3 text-slate-400">
+            <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-medium">9 Tankers</span>
+            <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-medium">6 Loading · 11 Unloading</span>
+            <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-medium">440,000 MT/mo</span>
+          </div>
         </div>
       </header>
 
-      {/* ── Three-Pane Body ────────────────────────────────────────────────── */}
-      <div className="relative z-10 flex" style={{ height: 'calc(100vh - 46px)' }}>
+      {/* ── Three-Pane Cockpit Body ──────────────────────────────────────── */}
+      <div className="relative z-10 flex" style={{ height: 'calc(100vh - 50px)' }}>
 
-        {/* LEFT — Solver Config Sidebar */}
+        {/* LEFT — Command Center */}
         <div
-          className="flex-none overflow-hidden border-r border-slate-800/60"
-          style={{
-            width: '280px',
-            background: 'rgba(2, 12, 27, 0.92)',
-            backdropFilter: 'blur(12px)',
-          }}
+          className="flex-none overflow-hidden cockpit-panel"
+          style={{ width: '290px' }}
         >
           <ChallengeConfigPanel {...sharedProps} />
         </div>
 
-        {/* CENTER — MaritimeMap (fullscreen) */}
-        <div className="flex-1 relative overflow-hidden">
-          <MaritimeMap
-            vessels={mapVessels}
-            ports={mapPorts}
-            showLiveStatus={true}
-            challengeTrips={challengeTrips}
-          />
+        {/* CENTER — Main Cockpit Screen */}
+        <div className="flex-1 relative overflow-hidden p-1.5">
+          <div className="cockpit-screen w-full h-full">
+            <MaritimeMap
+              vessels={mapVessels}
+              ports={mapPorts}
+              showLiveStatus={true}
+              challengeTrips={challengeTrips}
+            />
+          </div>
         </div>
 
-        {/* RIGHT — Impact / Results Panel */}
+        {/* RIGHT — Analytics Console */}
         <div
-          className="flex-none overflow-hidden border-l border-slate-800/60"
-          style={{
-            width: '380px',
-            background: 'rgba(2, 12, 27, 0.92)',
-            backdropFilter: 'blur(12px)',
-          }}
+          className="flex-none overflow-hidden cockpit-panel"
+          style={{ width: '390px' }}
         >
           <ChallengeResultsPanel
             results={results}

@@ -7,7 +7,7 @@ export function ImprovedHeader() {
   return (
     <div className="relative overflow-hidden">
       {/* Animated Background */}
-      <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900">
+      <div className="absolute inset-0 bg-gradient-to-r from-white via-blue-50 to-white">
         <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:30px_30px]"></div>
         <div className="absolute inset-0">
           <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
@@ -29,10 +29,10 @@ export function ImprovedHeader() {
               </div>
             </div>
             <div>
-              <h1 className="text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-cyan-200">
+              <h1 className="text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-600">
                 HPCL RouteX
               </h1>
-              <p className="text-blue-300 font-semibold text-sm flex items-center gap-2 mt-1">
+              <p className="text-blue-600 font-semibold text-sm flex items-center gap-2 mt-1">
                 <Lightning size={16} weight="bold" className="text-yellow-400" />
                 AI-Powered Coastal Fleet Route Optimization
               </p>
@@ -44,13 +44,13 @@ export function ImprovedHeader() {
             <div className="glass-effect rounded-xl px-5 py-3 backdrop-blur-xl border border-white/20">
               <div className="flex items-center gap-3">
                 <div className="flex flex-col items-end">
-                  <span className="text-xs text-blue-200 font-medium">System Status</span>
+                  <span className="text-xs text-blue-600 font-medium">System Status</span>
                   <div className="flex items-center gap-2">
                     <span className="relative flex h-3 w-3">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
                     </span>
-                    <span className="text-sm font-bold text-green-300">Online</span>
+                    <span className="text-sm font-bold text-green-600">Online</span>
                   </div>
                 </div>
                 <Activity className="h-8 w-8 text-green-400" />
@@ -60,8 +60,8 @@ export function ImprovedHeader() {
             <div className="glass-effect rounded-xl px-5 py-3 backdrop-blur-xl border border-white/20">
               <div className="flex items-center gap-3">
                 <div className="flex flex-col items-end">
-                  <span className="text-xs text-blue-200 font-medium">Solver Engine</span>
-                  <span className="text-sm font-bold text-blue-300">Google OR-Tools</span>
+                  <span className="text-xs text-blue-600 font-medium">Solver Engine</span>
+                  <span className="text-sm font-bold text-blue-700">Google OR-Tools</span>
                 </div>
                 <Target className="h-8 w-8 text-blue-400" />
               </div>

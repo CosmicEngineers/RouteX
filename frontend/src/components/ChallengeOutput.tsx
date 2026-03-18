@@ -154,38 +154,48 @@ export function ChallengeConfigPanel({
     <div className="flex flex-col h-full overflow-y-auto space-y-4 p-4">
       {/* Header */}
       <div>
-        <div className="text-[10px] font-bold tracking-widest text-cyan-400 uppercase mb-1">
+        <div className="section-label text-blue-600 mb-1">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
           Command Center
         </div>
-        <h2 className="text-lg font-bold text-slate-100 leading-tight">
+        <h2 className="text-lg font-extrabold text-slate-800 leading-tight tracking-tight">
           Coastal Fleet Optimizer
         </h2>
-        <p className="text-xs text-slate-500 mt-0.5">HPCL Challenge 7.1</p>
+        <p className="text-[11px] text-slate-400 mt-0.5 font-medium">HPCL Challenge 7.1</p>
       </div>
 
+      <div className="section-divider" />
+
       {/* Fleet Health */}
-      <div className="glass-card rounded-xl border border-green-500/30 p-3">
+      <div className="elevated-card p-3.5 glow-green">
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-xs font-bold text-green-400 uppercase tracking-wide">Fleet Health</span>
+          <div className="status-dot bg-green-500" style={{color:'#22c55e'}} />
+          <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest">Fleet Health</span>
         </div>
-        <div className="text-sm font-bold text-slate-100 mb-1">
+        <div className="text-sm font-extrabold text-slate-800 mb-1">
           {vessels.length}/{vessels.length} Tankers Ready
         </div>
-        <div className="flex gap-3 text-xs text-slate-400">
-          <span className="text-green-300">{largeVessels}×50K MT</span>
-          <span className="text-cyan-300">{smallVessels}×25K MT</span>
+        <div className="flex gap-3 text-xs">
+          <span className="bg-green-50 text-green-700 px-2 py-0.5 rounded-full font-semibold border border-green-200">{largeVessels}×50K</span>
+          <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-semibold border border-blue-200">{smallVessels}×25K</span>
         </div>
-        <div className="mt-2 text-xs text-slate-500">
-          Fleet capacity: <span className="text-slate-300 font-semibold">{formatNumber(totalFleetMt)} MT</span>
-          {' | '}
-          Demand: <span className="text-slate-300 font-semibold">{formatNumber(totalDemandMt)} MT</span>
+        <div className="mt-2.5">
+          <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+            <span>Fleet: <span className="text-slate-700 font-bold">{formatNumber(totalFleetMt)} MT</span></span>
+            <span>Demand: <span className="text-slate-700 font-bold">{formatNumber(totalDemandMt)} MT</span></span>
+          </div>
+          <div className="progress-track">
+            <div className="progress-fill" style={{width: `${Math.min(100, (totalDemandMt / totalFleetMt) * 100)}%`}} />
+          </div>
         </div>
       </div>
+
+      <div className="section-divider" />
 
       {/* Solver Profile */}
       <div>
-        <div className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">
+        <div className="section-label text-slate-500 mb-2.5">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
           Solver Precision
         </div>
         <div className="flex flex-col gap-1.5">
@@ -195,24 +205,27 @@ export function ChallengeConfigPanel({
               onClick={() => onSetSolverProfile(key)}
               disabled={loading}
               title={p.desc}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                solverProfile === key
-                  ? 'bg-cyan-600/80 text-white border border-cyan-500/60'
-                  : 'bg-slate-800/60 text-slate-400 border border-slate-700/50 hover:text-slate-200 hover:border-slate-600'
+              className={`toggle-selector w-full flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed ${
+                solverProfile === key ? 'active' : 'inactive'
               }`}
             >
-              <span>{p.label}</span>
-              <span className="opacity-60 font-normal">{p.time}</span>
+              <span className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${solverProfile === key ? 'bg-white/80' : 'bg-slate-400'}`} />
+                {p.label}
+              </span>
+              <span className="opacity-60 font-normal text-[11px]">{p.time}</span>
             </button>
           ))}
         </div>
       </div>
 
+      <div className="section-divider" />
+
       {/* Run Button */}
       <button
         onClick={onRunOptimization}
         disabled={loading}
-        className="w-full py-3 rounded-xl font-bold text-sm transition-all duration-300 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/30 hover:shadow-cyan-500/40 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 flex items-center justify-center gap-2"
+        className="btn-primary-gradient w-full py-3.5 rounded-xl font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         {loading ? (
           <>
@@ -220,7 +233,10 @@ export function ChallengeConfigPanel({
             Running…
           </>
         ) : (
-          <>▶ Run Optimization</>
+          <>
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>
+            Run Optimization
+          </>
         )}
       </button>
 
@@ -235,9 +251,12 @@ export function ChallengeConfigPanel({
 
       {/* Error */}
       {error && !loading && (
-        <div className="p-3 bg-red-900/20 border border-red-500/40 rounded-lg">
-          <p className="text-xs font-bold text-red-400 mb-1">Connection Error</p>
-          <p className="text-xs text-red-300/80 leading-relaxed">{error}</p>
+        <div className="elevated-card p-3 border-red-200 bg-red-50">
+          <p className="text-xs font-bold text-red-600 mb-1 flex items-center gap-1">
+            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
+            Connection Error
+          </p>
+          <p className="text-xs text-red-500 leading-relaxed">{error}</p>
         </div>
       )}
 
@@ -245,7 +264,7 @@ export function ChallengeConfigPanel({
       {results && !loading && (
         <button
           onClick={onClearResults}
-          className="w-full py-2 rounded-lg text-xs font-semibold text-red-400 border border-red-500/30 bg-red-600/10 hover:bg-red-600/20 transition-all"
+          className="w-full py-2 rounded-xl text-xs font-semibold text-red-500 border border-red-200 bg-red-50/50 hover:bg-red-100 transition-all"
         >
           Clear Results
         </button>
@@ -257,47 +276,48 @@ export function ChallengeConfigPanel({
         onToggle={(e) => setShowParams((e.target as HTMLDetailsElement).open)}
         className="group"
       >
-        <summary className="cursor-pointer text-xs font-semibold text-slate-400 hover:text-slate-200 select-none flex items-center gap-1 transition-colors py-1">
+        <summary className="cursor-pointer text-xs font-semibold text-slate-400 hover:text-slate-600 select-none flex items-center gap-1.5 transition-colors py-1">
           <svg
             className="w-3 h-3 transition-transform group-open:rotate-90"
             fill="currentColor" viewBox="0 0 20 20"
           >
             <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
           </svg>
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
           Fleet Parameters
         </summary>
         <div className="mt-3 space-y-4">
           {/* Vessel table */}
           <div>
-            <div className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">Tanker Fleet</div>
-            <div className="overflow-x-auto rounded-lg border border-slate-700/50">
+            <div className="section-label text-slate-500 mb-2">Tanker Fleet</div>
+            <div className="elevated-card overflow-hidden !rounded-xl !p-0">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-slate-700/50">
-                    <th className="px-2 py-1.5 text-left text-slate-500 font-medium">ID</th>
-                    <th className="px-2 py-1.5 text-right text-slate-500 font-medium">Cap (MT)</th>
-                    <th className="px-2 py-1.5 text-right text-slate-500 font-medium">Rate (₹Cr)</th>
+                  <tr className="border-b border-slate-100 bg-slate-50/50">
+                    <th className="px-2.5 py-2 text-left text-slate-500 font-medium">ID</th>
+                    <th className="px-2.5 py-2 text-right text-slate-500 font-medium">Cap (MT)</th>
+                    <th className="px-2.5 py-2 text-right text-slate-500 font-medium">Rate (₹Cr)</th>
                   </tr>
                 </thead>
                 <tbody>
                   {vessels.map((v, i) => (
-                    <tr key={v.id} className="border-b border-slate-800/50 last:border-0">
-                      <td className="px-2 py-1 font-semibold text-cyan-400">{v.id}</td>
-                      <td className="px-2 py-1 text-right">
+                    <tr key={v.id} className="border-b border-slate-50 last:border-0 hover:bg-blue-50/30 transition-colors">
+                      <td className="px-2.5 py-1.5 font-bold text-blue-600">{v.id}</td>
+                      <td className="px-2.5 py-1.5 text-right">
                         <input
                           type="number"
                           value={v.capacity_mt}
                           onChange={(e) => onUpdateVessel(i, 'capacity_mt', parseInt(e.target.value) || 0)}
-                          className="w-16 px-1 py-0.5 text-right bg-slate-800 border border-slate-700 rounded text-slate-200 focus:border-cyan-500 outline-none"
+                          className="custom-input w-16 px-1.5 py-0.5 text-right text-xs"
                         />
                       </td>
-                      <td className="px-2 py-1 text-right">
+                      <td className="px-2.5 py-1.5 text-right">
                         <input
                           type="number"
                           step="0.01"
                           value={v.charter_rate_cr_per_day}
                           onChange={(e) => onUpdateVessel(i, 'charter_rate_cr_per_day', parseFloat(e.target.value) || 0)}
-                          className="w-14 px-1 py-0.5 text-right bg-slate-800 border border-slate-700 rounded text-slate-200 focus:border-cyan-500 outline-none"
+                          className="custom-input w-14 px-1.5 py-0.5 text-right text-xs"
                         />
                       </td>
                     </tr>
@@ -309,25 +329,25 @@ export function ChallengeConfigPanel({
 
           {/* Demand table */}
           <div>
-            <div className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">Port Demands (MT/month)</div>
-            <div className="overflow-x-auto rounded-lg border border-slate-700/50">
+            <div className="section-label text-slate-500 mb-2">Port Demands (MT/month)</div>
+            <div className="elevated-card overflow-hidden !rounded-xl !p-0">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-slate-700/50">
-                    <th className="px-2 py-1.5 text-left text-slate-500 font-medium">Port</th>
-                    <th className="px-2 py-1.5 text-right text-slate-500 font-medium">Demand</th>
+                  <tr className="border-b border-slate-100 bg-slate-50/50">
+                    <th className="px-2.5 py-2 text-left text-slate-500 font-medium">Port</th>
+                    <th className="px-2.5 py-2 text-right text-slate-500 font-medium">Demand</th>
                   </tr>
                 </thead>
                 <tbody>
                   {demands.map((d, i) => (
-                    <tr key={d.port_id} className="border-b border-slate-800/50 last:border-0">
-                      <td className="px-2 py-1 font-semibold text-blue-300">{d.port_id}</td>
-                      <td className="px-2 py-1 text-right">
+                    <tr key={d.port_id} className="border-b border-slate-50 last:border-0 hover:bg-blue-50/30 transition-colors">
+                      <td className="px-2.5 py-1.5 font-bold text-blue-600">{d.port_id}</td>
+                      <td className="px-2.5 py-1.5 text-right">
                         <input
                           type="number"
                           value={d.demand_mt}
                           onChange={(e) => onUpdateDemand(i, parseInt(e.target.value) || 0)}
-                          className="w-20 px-1 py-0.5 text-right bg-slate-800 border border-slate-700 rounded text-slate-200 focus:border-cyan-500 outline-none"
+                          className="custom-input w-20 px-1.5 py-0.5 text-right text-xs"
                         />
                       </td>
                     </tr>
@@ -339,13 +359,13 @@ export function ChallengeConfigPanel({
 
           {/* Loading ports info */}
           <div>
-            <div className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">Loading Ports (6)</div>
+            <div className="section-label text-slate-500 mb-2">Loading Ports (6)</div>
             <div className="space-y-1">
               {LOADING_PORTS.map(p => (
-                <div key={p.id} className="flex justify-between text-xs py-1 px-2 rounded bg-cyan-900/10 border border-cyan-900/30">
-                  <span className="font-semibold text-cyan-300">{p.id}</span>
-                  <span className="text-slate-400">{p.name}</span>
-                  <span className="text-green-400 font-semibold text-[10px]">Unlimited</span>
+                <div key={p.id} className="flex justify-between text-xs py-1.5 px-2.5 rounded-lg bg-blue-50/60 border border-blue-100/60 hover:bg-blue-50 transition-colors">
+                  <span className="font-bold text-blue-600">{p.id}</span>
+                  <span className="text-slate-500">{p.name}</span>
+                  <span className="text-green-600 font-semibold text-[10px]">Unlimited</span>
                 </div>
               ))}
             </div>
@@ -353,17 +373,17 @@ export function ChallengeConfigPanel({
 
           {/* Constraints */}
           <div>
-            <div className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">Constraints</div>
-            <div className="space-y-2 text-xs text-slate-400">
+            <div className="section-label text-slate-500 mb-2">Constraints</div>
+            <div className="space-y-2 text-xs text-slate-600">
               {[
                 ['1', 'Single-port full loading per trip'],
                 ['2', 'Max 2 discharge ports per trip'],
                 ['3', 'Unlimited supply at loading ports'],
                 ['4', 'Full demand satisfaction (100%)'],
               ].map(([n, text]) => (
-                <div key={n} className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-cyan-900/30 border border-cyan-700/30 flex items-center justify-center text-[10px] font-bold text-cyan-400 flex-shrink-0">{n}</span>
-                  <span>{text}</span>
+                <div key={n} className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 flex items-center justify-center text-[10px] font-bold text-blue-600 flex-shrink-0 shadow-sm">{n}</span>
+                  <span className="pt-0.5">{text}</span>
                 </div>
               ))}
             </div>
@@ -389,21 +409,21 @@ export function ChallengeResultsPanel({
   // Empty state
   if (!results && !loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-8 space-y-4">
-        <div className="w-16 h-16 rounded-full bg-slate-800/50 border border-slate-700/50 flex items-center justify-center">
-          <svg className="w-8 h-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="flex flex-col items-center justify-center h-full text-center p-8 space-y-5">
+        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-50 border border-slate-200 flex items-center justify-center shadow-lg">
+          <svg className="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
         </div>
         <div>
-          <p className="text-sm font-semibold text-slate-400">No Results Yet</p>
-          <p className="text-xs text-slate-600 mt-1">Run optimization to see cost breakdown,<br />route plan and constraint compliance.</p>
+          <p className="text-sm font-bold text-slate-600">No Results Yet</p>
+          <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">Run optimization to see cost breakdown,<br />route plan and constraint compliance.</p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/5 border border-blue-500/20">
-          <svg className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="elevated-card flex items-center gap-2 px-4 py-2">
+          <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <span className="text-xs text-slate-500">Click <span className="text-blue-400 font-semibold">▶ Run Optimization</span></span>
+          <span className="text-xs text-slate-600">Click <span className="text-blue-600 font-bold">▶ Run Optimization</span></span>
         </div>
       </div>
     );
@@ -417,17 +437,17 @@ export function ChallengeResultsPanel({
   ) {
     return (
       <div className="p-4 space-y-4">
-        <div className="p-5 bg-yellow-900/30 border-2 border-yellow-500/50 rounded-xl">
-          <h3 className="text-lg font-bold text-yellow-400 mb-2">⚠️ No Feasible Solution</h3>
-          <p className="text-sm text-yellow-200 mb-3">
+        <div className="p-5 bg-amber-50 border-2 border-amber-300 rounded-xl">
+          <h3 className="text-lg font-bold text-amber-700 mb-2">⚠️ No Feasible Solution</h3>
+          <p className="text-sm text-amber-600 mb-3">
             Solver status: <strong>{results.optimization_status}</strong>
           </p>
-          <ul className="text-xs text-slate-400 space-y-1 list-disc list-inside mb-4">
+          <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside mb-4">
             <li>Demands cannot be met with current fleet capacity</li>
             <li>720h/month time constraint may be too restrictive</li>
             <li>Try reducing demands or adding fleet capacity</li>
           </ul>
-          <button onClick={onClearResults} className="px-3 py-1.5 bg-yellow-600/80 hover:bg-yellow-600 rounded text-white text-xs font-semibold transition-colors">
+          <button onClick={onClearResults} className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 rounded text-white text-xs font-semibold transition-colors">
             Clear & Try Again
           </button>
         </div>
@@ -440,201 +460,128 @@ export function ChallengeResultsPanel({
   const isOptimal = impact.isOptimal;
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto p-4 space-y-4">
-      {/* Header */}
-      <div className="text-[10px] font-bold tracking-widest text-cyan-400 uppercase">
-        Optimization Results
+    <div className="flex flex-col h-full overflow-y-auto p-3 space-y-2.5">
+
+      {/* ════════════════════════════════════════════
+          ZONE 1 — SUMMARY STRIP (compact inline)
+          ════════════════════════════════════════════ */}
+      <div className="flex items-center gap-1.5">
+        <div className="section-label text-blue-600 flex-shrink-0">
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+          Data Intelligence
+        </div>
+        <div className="flex-1" />
+        {results && (
+          <button
+            onClick={onDownloadCSV}
+            className="text-[10px] px-2 py-1 rounded-lg bg-blue-50 text-blue-600 font-bold border border-blue-200 hover:bg-blue-100 transition-colors flex items-center gap-1"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3" /></svg>
+            Download CSV
+          </button>
+        )}
       </div>
 
-      {/* HPCL Compliance */}
-      <div className="p-3 bg-gradient-to-r from-green-900/20 to-cyan-900/20 border border-green-500/30 rounded-xl">
-        <div className="text-[10px] font-bold text-green-400 uppercase tracking-wide mb-2 flex items-center gap-1">
-          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
-          </svg>
-          HPCL Compliance
+      {/* Summary strip — 3 inline compact cards */}
+      <div className="grid grid-cols-3 gap-1.5">
+        <div className="rounded-xl px-2.5 py-2 text-center" style={{background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', border: '1px solid rgba(37,99,235,0.12)', boxShadow: '0 2px 8px rgba(37,99,235,0.08)'}}>
+          <p className="text-[9px] text-blue-500 font-bold uppercase tracking-wider">Demand</p>
+          <p className="text-sm font-extrabold text-blue-700" style={{textShadow: '0 0 12px rgba(37,99,235,0.15)'}}>
+            {impact.demandPct >= 99.9 ? '100%' : `${impact.demandPct.toFixed(0)}%`}
+          </p>
         </div>
-        <div className="grid grid-cols-2 gap-1 text-[10px] text-green-300">
-          {[
-            'Single-port loading',
-            '≤2 discharge ports',
-            'Capacity respected',
-            '≤720h/month',
-            'All demands met',
-            'Cost = Charter×Duration',
-          ].map(item => (
-            <div key={item} className="flex items-center gap-1">
-              <span>✅</span> {item}
+        <div className="rounded-xl px-2.5 py-2 text-center" style={{background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', border: '1px solid rgba(34,197,94,0.12)', boxShadow: '0 2px 8px rgba(34,197,94,0.08)'}}>
+          <p className="text-[9px] text-green-600 font-bold uppercase tracking-wider">Trips</p>
+          <p className="text-sm font-extrabold text-green-700" style={{textShadow: '0 0 12px rgba(34,197,94,0.15)'}}>
+            {impact.tripCount}
+          </p>
+        </div>
+        <div className="rounded-xl px-2.5 py-2 text-center" style={{background: isOptimal ? 'linear-gradient(135deg, #f0fdf4, #dcfce7)' : 'linear-gradient(135deg, #fffbeb, #fef3c7)', border: `1px solid ${isOptimal ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)'}`, boxShadow: `0 2px 8px ${isOptimal ? 'rgba(34,197,94,0.08)' : 'rgba(245,158,11,0.08)'}`}}>
+          <p className="text-[9px] font-bold uppercase tracking-wider" style={{color: isOptimal ? '#16a34a' : '#d97706'}}>Status</p>
+          <p className="text-sm font-extrabold" style={{color: isOptimal ? '#15803d' : '#b45309'}}>
+            {isOptimal ? '✓ Opt' : '⚠ Feas'}
+          </p>
+        </div>
+      </div>
+
+      {/* ════════════════════════════════════════════
+          ZONE 2 — HERO KPI (dominant card)
+          ════════════════════════════════════════════ */}
+      <div className="relative overflow-hidden rounded-2xl" style={{
+        background: 'linear-gradient(135deg, #1e40af 0%, #0891b2 100%)',
+        boxShadow: '0 8px 32px rgba(30,64,175,0.3), 0 0 0 1px rgba(255,255,255,0.1) inset',
+        padding: '16px 18px',
+      }}>
+        {/* Shine overlay */}
+        <div className="absolute inset-0 pointer-events-none" style={{background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%)'}} />
+        <div className="relative">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest flex items-center gap-1.5">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              HPCL Transportation Cost
+            </p>
+            {impact.savingsCr > 0 && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-400/20 text-green-200 font-bold border border-green-400/30">
+                ↓ {impact.savingsPct.toFixed(1)}%
+              </span>
+            )}
+          </div>
+          <p className="text-4xl font-black text-white tracking-tight" style={{textShadow: '0 2px 12px rgba(0,0,0,0.2)'}}>
+            ₹{impact.totalCostCr.toFixed(4)}
+          </p>
+          <p className="text-[10px] text-blue-200/70 mt-0.5 font-medium">Crore · Charter Rate × Duration</p>
+        </div>
+      </div>
+
+      {/* Savings — inline expandable (not floating) */}
+      {impact.savingsCr > 0 && (
+        <details className="group rounded-xl overflow-hidden" style={{background: 'linear-gradient(135deg, #f0fdf4, #ecfdf5)', border: '1px solid rgba(34,197,94,0.15)', boxShadow: '0 2px 8px rgba(34,197,94,0.08)'}}>
+          <summary className="cursor-pointer select-none flex items-center gap-2 px-3 py-2 hover:bg-green-50/50 transition-colors">
+            <svg className="w-3.5 h-3.5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+            <span className="text-xs font-extrabold text-green-700">−₹{impact.savingsCr.toFixed(4)} Cr</span>
+            <span className="text-[10px] text-green-500">vs ₹{impact.baselineCr}</span>
+            <svg className="w-3 h-3 text-green-400 ml-auto transition-transform group-open:rotate-180 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+          </summary>
+          <div className="px-3 pb-2.5 pt-0 text-[10px] text-slate-600 leading-relaxed border-t border-green-200/50 space-y-1">
+            <p className="font-bold text-green-700 pt-1.5">₹{impact.savingsCr.toFixed(2)} Cr saved ≈ {Math.round(impact.savingsCr * 100)} Lakhs/month</p>
+            <p>The <span className="font-semibold text-green-700">₹{impact.baselineCr} Cr baseline</span> uses greedy nearest-port heuristic. RouteX's <span className="font-semibold text-blue-700">CP-SAT optimizer</span> finds the provably cost-minimal plan across all constraints.</p>
+          </div>
+        </details>
+      )}
+
+      {/* ════════════════════════════════════════════
+          ZONE 3 — MODULAR DATA STACK
+          ════════════════════════════════════════════ */}
+
+      {/* Demand compliance bar */}
+      <div className="px-3 py-2.5 rounded-xl" style={{background: 'linear-gradient(180deg, #ffffff, #f8fafc)', border: '1px solid rgba(148,163,184,0.12)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)'}}>
+        <div className="flex justify-between items-center mb-1.5">
+          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Demand Compliance</span>
+          <span className="text-xs font-extrabold text-blue-700">
+            {formatNumber(impact.totalVolumeMt)} / {formatNumber(results.summary.total_demand_mt)} MT
+          </span>
+        </div>
+        <div className="progress-track">
+          <div className="progress-fill" style={{ width: `${Math.min(100, impact.demandPct)}%` }} />
+        </div>
+      </div>
+
+      {/* HPCL Compliance — compact inline */}
+      <details className="group">
+        <summary className="cursor-pointer select-none flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold text-green-700 hover:shadow-md transition-all" style={{background: 'linear-gradient(135deg, #f0fdf4, #ecfdf5)', border: '1px solid rgba(34,197,94,0.12)'}}>
+          <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          ✅ All 6 HPCL Constraints Satisfied
+        </summary>
+        <div className="mt-1.5 grid grid-cols-2 gap-1 px-1">
+          {['Single-port loading','≤2 discharge ports','Capacity respected','≤720h/month','All demands met','Cost = Charter×Duration'].map(c => (
+            <div key={c} className="flex items-center gap-1 text-[10px] text-green-600 px-2 py-1 rounded bg-green-50/50">
+              <span>✓</span> {c}
             </div>
           ))}
         </div>
-      </div>
-
-      {/* Primary KPI — Transportation Cost */}
-      <div className={`terminal-style p-4 rounded-xl border-2 border-cyan-500/50 bg-gradient-to-br from-cyan-900/30 to-blue-900/20 ${impact.costGlowClass}`}>
-        <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-1">
-          HPCL Transportation Cost
-        </p>
-        <p className={`text-3xl font-bold ${impact.costGlowClass ? 'text-cyan-300' : 'text-cyan-200'}`}>
-          ₹{impact.totalCostCr.toFixed(4)} Cr
-        </p>
-        <p className="text-[10px] text-cyan-400/70 mt-1">Charter Rate × Trip Duration</p>
-      </div>
-
-      {/* Savings Ticker + Greedy Baseline Context */}
-      {impact.savingsCr > 0 && (
-        <div className="rounded-xl border border-green-500/30 bg-green-900/10 overflow-hidden">
-          <div className="p-3">
-            <p className="text-[10px] font-bold text-green-400 uppercase tracking-wide mb-1">
-              vs. Greedy Baseline (₹{impact.baselineCr} Cr)
-            </p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-xl font-bold text-green-300">
-                −₹{impact.savingsCr.toFixed(4)} Cr
-              </span>
-              <span className="text-sm text-green-400 font-semibold">
-                ({impact.savingsPct.toFixed(1)}% savings)
-              </span>
-            </div>
-          </div>
-          <details className="group border-t border-green-500/20">
-            <summary className="cursor-pointer select-none px-3 py-1.5 text-[10px] text-green-600 hover:text-green-400 flex items-center gap-1 transition-colors">
-              <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-              </svg>
-              What is the ₹{impact.baselineCr} Cr baseline?
-            </summary>
-            <div className="px-3 pb-3 space-y-1.5 text-[10px] text-green-200/70 leading-relaxed">
-              <p>
-                The <span className="font-semibold text-green-300">₹{impact.baselineCr} Cr greedy baseline</span> represents
-                a standard heuristic planning approach — assign each tank demand to the nearest
-                available loading port, ignoring co-loading opportunities and time constraints.
-              </p>
-              <p>
-                RouteX uses <span className="font-semibold text-green-300">CP-SAT constraint programming</span> to
-                search 6,534 route combinations simultaneously and finds the provably
-                cost-minimal plan under all HPCL policy constraints.
-              </p>
-              <p className="text-green-300 font-semibold">
-                ₹{impact.savingsCr.toFixed(2)} Cr saved ≈ {Math.round(impact.savingsCr * 100)} Lakhs
-                per month in charter costs.
-              </p>
-            </div>
-          </details>
-        </div>
-      )}
-
-      {/* Demand Compliance */}
-      <div className="p-3 terminal-style rounded-xl border border-blue-500/30">
-        <div className="flex justify-between items-center mb-1">
-          <p className="text-xs font-semibold text-blue-400">Demand Compliance</p>
-          <span className="text-xs font-bold text-blue-300">
-            {impact.demandPct >= 99.9 ? '100%' : `${impact.demandPct.toFixed(1)}%`}
-          </span>
-        </div>
-        <div className="h-1.5 bg-slate-700/50 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-blue-500 to-cyan-400"
-            style={{ width: `${Math.min(100, impact.demandPct)}%` }}
-          />
-        </div>
-        <p className="text-[10px] text-blue-200/60 mt-1">
-          {formatNumber(impact.totalVolumeMt)} MT delivered = {formatNumber(results.summary.total_demand_mt)} MT required
-        </p>
-      </div>
-
-      {/* Quick stats row */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="p-2.5 terminal-style rounded-lg border border-slate-700/50 text-center">
-          <p className="text-[10px] text-slate-500 mb-0.5">Total Trips</p>
-          <p className="text-lg font-bold text-cyan-300">{impact.tripCount}</p>
-        </div>
-        <div className="p-2.5 terminal-style rounded-lg border border-slate-700/50 text-center">
-          <p className="text-[10px] text-slate-500 mb-0.5">Status</p>
-          <p className="text-sm font-bold text-green-400">✅ Optimal</p>
-        </div>
-      </div>
-
-      {/* Download */}
-      <button
-        onClick={onDownloadCSV}
-        className="w-full py-2.5 rounded-xl font-semibold text-xs transition-all duration-300 btn-primary-gradient flex items-center justify-center gap-2"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-        Export CSV
-      </button>
-
-      {/* Full details collapsible */}
-      <details className="group">
-        <summary className="cursor-pointer select-none px-4 py-3 bg-gradient-to-r from-slate-800/50 to-slate-800/30 rounded-xl border border-cyan-500/20 text-xs font-semibold text-slate-300 hover:border-cyan-500/40 transition-all flex items-center gap-2">
-          <svg className="w-4 h-4 text-cyan-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-          </svg>
-          📋 Full Trip Details Table
-        </summary>
-        <div className="mt-3 overflow-x-auto rounded-lg border border-slate-700/50">
-          <table className="w-full text-xs divide-y divide-slate-700/50">
-            <thead className="table-header">
-              <tr>
-                <th className="px-3 py-2 text-left text-cyan-400 font-bold">TRIP</th>
-                <th className="px-3 py-2 text-left text-cyan-400 font-bold">VESSEL</th>
-                <th className="px-3 py-2 text-left text-cyan-400 font-bold">LOAD</th>
-                <th className="px-3 py-2 text-left text-cyan-400 font-bold">DISCHARGE</th>
-                <th className="px-3 py-2 text-right text-cyan-400 font-bold">MT</th>
-                <th className="px-3 py-2 text-right text-cyan-400 font-bold">₹ Cr</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700/50">
-              {(results.trips ?? []).map((trip, i) => {
-                const vessel = vessels.find(v => v.id === trip.vessel_id);
-                const cap = vessel?.capacity_mt ?? 50000;
-                const cargo = trip.cargo_deliveries.reduce((s, d) => s + d.volume_mt, 0);
-                const isSplit = trip.discharge_ports.length >= 2;
-                const isFull = Math.abs(cargo - cap) < 1;
-                return (
-                  <tr
-                    key={i}
-                    className={`table-row ${isSplit ? 'border-l-2 border-l-cyan-500' : ''}`}
-                    style={{ backgroundColor: i % 2 === 0 ? 'rgba(51,65,85,0.4)' : 'rgba(30,41,59,0.4)' }}
-                  >
-                    <td className="px-3 py-2 font-bold text-yellow-400 whitespace-nowrap">{trip.trip_id}</td>
-                    <td className="px-3 py-2 text-cyan-300 whitespace-nowrap">
-                      {trip.vessel_id}
-                      {isFull && (
-                        <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-green-500/20 text-green-300 align-middle">100%</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-green-300 whitespace-nowrap">{trip.loading_port}</td>
-                    <td className="px-3 py-2 text-blue-300 whitespace-nowrap">
-                      {trip.discharge_ports.join(' → ')}
-                      {isSplit && (
-                        <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-cyan-500/20 text-cyan-400 align-middle">Co-load</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-right font-semibold text-slate-200">{formatNumber(cargo)}</td>
-                    <td className="px-3 py-2 text-right font-bold text-green-300">₹{trip.hpcl_charter_cost_cr.toFixed(4)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot className="table-header font-bold">
-              <tr>
-                <td colSpan={4} className="px-3 py-2 text-white text-xs">
-                  TOTAL ({results.trips?.length ?? 0} trips)
-                </td>
-                <td className="px-3 py-2 text-right text-white">{formatNumber(results.summary.total_volume_mt)}</td>
-                <td className="px-3 py-2 text-right text-green-300">
-                  ₹{(results.summary.hpcl_transportation_cost_cr ?? results.summary.total_cost_cr).toFixed(4)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
       </details>
 
-      {/* Vessel Time Usage */}
+      {/* Vessel Time Usage — dense horizontal layout */}
       {results.trips && results.trips.length > 0 && (() => {
         const vesselUsage: Record<string, { trips: number; totalDays: number }> = {};
         results.trips!.forEach(trip => {
@@ -644,49 +591,39 @@ export function ChallengeResultsPanel({
         });
         return (
           <details className="group" open>
-            <summary className="cursor-pointer select-none text-xs font-semibold text-orange-400 hover:text-orange-300 flex items-center gap-1 py-1 transition-colors">
-              <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-              </svg>
-              Vessel Time Usage
+            <summary className="cursor-pointer select-none flex items-center gap-1.5 text-[10px] font-bold text-amber-700 uppercase tracking-wider py-1 hover:text-amber-800 transition-colors">
+              <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              Fleet Utilization ({Object.keys(vesselUsage).length} vessels)
             </summary>
-            <div className="mt-2 space-y-2">
+            <div className="mt-1.5 space-y-1">
               {Object.entries(vesselUsage).map(([vesselId, usage]) => {
                 const totalHours = usage.totalDays * 24;
                 const pct = (totalHours / 720) * 100;
+                const idle = 720 - totalHours;
                 const ok = totalHours <= 720;
                 return (
-                  <div key={vesselId} className="p-2.5 bg-slate-800/50 rounded-lg border border-slate-700/50">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs font-bold text-cyan-300">{vesselId}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${ok ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
-                        {ok ? '✔ OK' : '✗ Over'}
-                      </span>
+                  <div key={vesselId} className="flex items-center gap-2 px-2.5 py-2 rounded-lg hover:shadow-md transition-all" style={{background: 'linear-gradient(180deg, #ffffff, #f8fafc)', border: '1px solid rgba(148,163,184,0.1)', boxShadow: '0 1px 4px rgba(0,0,0,0.03)'}}>
+                    {/* Vessel ID */}
+                    <span className="text-[11px] font-extrabold text-blue-600 w-7 flex-shrink-0">{vesselId}</span>
+                    {/* Stats inline */}
+                    <div className="flex items-center gap-2 text-[10px] flex-shrink-0">
+                      <span className="text-slate-500">{usage.trips}<span className="text-slate-400 ml-0.5">trips</span></span>
+                      <span className="text-blue-600 font-bold">{totalHours.toFixed(0)}<span className="text-slate-400 ml-0.5">h</span></span>
+                      <span className="text-amber-600">{idle.toFixed(0)}<span className="text-slate-400 ml-0.5">idle</span></span>
                     </div>
-                    <div className="grid grid-cols-4 gap-1 text-[10px] mb-1.5">
-                      <div className="text-center">
-                        <p className="text-slate-500">Trips</p>
-                        <p className="font-semibold text-blue-300">{usage.trips}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-slate-500">Hours</p>
-                        <p className="font-semibold text-cyan-300">{totalHours.toFixed(0)}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-slate-500">Idle</p>
-                        <p className="font-semibold text-yellow-300">{(720 - totalHours).toFixed(0)}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-slate-500">Util%</p>
-                        <p className="font-semibold text-orange-300">{pct.toFixed(0)}%</p>
-                      </div>
-                    </div>
-                    <div className="h-1 bg-slate-700/50 rounded-full overflow-hidden">
+                    {/* Progress bar */}
+                    <div className="flex-1 h-2 rounded-full overflow-hidden" style={{background: 'rgba(148,163,184,0.12)', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.04)'}}>
                       <div
-                        className={`h-full ${ok ? 'bg-gradient-to-r from-cyan-500 to-green-500' : 'bg-gradient-to-r from-orange-500 to-red-500'}`}
-                        style={{ width: `${Math.min(100, pct)}%` }}
+                        className={`h-full rounded-full transition-all duration-500 ${ok ? 'bg-gradient-to-r from-blue-500 to-emerald-500' : 'bg-gradient-to-r from-orange-500 to-red-500'}`}
+                        style={{ width: `${Math.min(100, pct)}%`, boxShadow: `0 0 6px ${ok ? 'rgba(37,99,235,0.3)' : 'rgba(239,68,68,0.3)'}` }}
                       />
                     </div>
+                    {/* Pct + badge */}
+                    <span className="text-[10px] font-extrabold w-8 text-right" style={{color: ok ? '#2563eb' : '#dc2626'}}>{pct.toFixed(0)}%</span>
+                    <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold flex-shrink-0 ${ok ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                      {ok ? 'OK' : '!'}
+                    </span>
                   </div>
                 );
               })}
@@ -695,13 +632,57 @@ export function ChallengeResultsPanel({
         );
       })()}
 
-      {/* Trip Cards */}
+      {/* Full trip table — accordion */}
+      <details className="group">
+        <summary className="cursor-pointer select-none flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-[10px] font-bold text-slate-600 uppercase tracking-wider hover:shadow-md transition-all" style={{background: 'linear-gradient(180deg, #ffffff, #f8fafc)', border: '1px solid rgba(148,163,184,0.12)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)'}}>
+          <svg className="w-3 h-3 text-blue-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+          📋 Full Trip Details Table({results.trips?.length ?? 0})
+        </summary>
+        <div className="mt-1.5 rounded-xl overflow-hidden" style={{border: '1px solid rgba(148,163,184,0.12)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)'}}>
+          <table className="w-full text-[10px] divide-y divide-slate-100">
+            <thead className="table-header">
+              <tr>
+                <th className="px-2 py-1.5 text-left text-blue-700 font-bold">TRIP</th>
+                <th className="px-2 py-1.5 text-left text-blue-700 font-bold">VESSEL</th>
+                <th className="px-2 py-1.5 text-left text-blue-700 font-bold">ROUTE</th>
+                <th className="px-2 py-1.5 text-right text-blue-700 font-bold">MT</th>
+                <th className="px-2 py-1.5 text-right text-blue-700 font-bold">₹Cr</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {(results.trips ?? []).map((trip, i) => {
+                const cargo = trip.cargo_deliveries.reduce((s, d) => s + d.volume_mt, 0);
+                return (
+                  <tr key={i} className="table-row hover:bg-blue-50/30" style={{backgroundColor: i % 2 === 0 ? '#f8fafc' : '#ffffff'}}>
+                    <td className="px-2 py-1.5 font-bold text-amber-600">{trip.trip_id}</td>
+                    <td className="px-2 py-1.5 text-blue-600 font-semibold">{trip.vessel_id}</td>
+                    <td className="px-2 py-1.5 text-slate-600">{trip.loading_port}→{trip.discharge_ports.join('→')}</td>
+                    <td className="px-2 py-1.5 text-right font-semibold text-slate-700">{formatNumber(cargo)}</td>
+                    <td className="px-2 py-1.5 text-right font-bold text-green-700">₹{trip.hpcl_charter_cost_cr.toFixed(4)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot className="table-header font-bold">
+              <tr>
+                <td colSpan={3} className="px-2 py-1.5 text-slate-800">TOTAL ({results.trips?.length ?? 0})</td>
+                <td className="px-2 py-1.5 text-right text-slate-800">{formatNumber(results.summary.total_volume_mt)}</td>
+                <td className="px-2 py-1.5 text-right text-green-700">₹{(results.summary.hpcl_transportation_cost_cr ?? results.summary.total_cost_cr).toFixed(4)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </details>
+
+      {/* Trip Cards — compact accordion */}
       {results.trips && results.trips.length > 0 && (
-        <div>
-          <div className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">
-            Optimized Trip Plan
-          </div>
-          <div className="space-y-1.5">
+        <details className="group">
+          <summary className="cursor-pointer select-none flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider py-1 hover:text-slate-700 transition-colors">
+            <svg className="w-3 h-3 transition-transform group-open:rotate-90 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" /></svg>
+            Trip Plan ({results.trips.length})
+          </summary>
+          <div className="mt-1.5 space-y-1">
             {results.trips.map((trip, idx) => {
               const vessel = vessels.find(v => v.id === trip.vessel_id);
               const capacity = vessel?.capacity_mt || 50000;
@@ -709,86 +690,70 @@ export function ChallengeResultsPanel({
               const isSplit = trip.discharge_ports.length >= 2;
               const isFullCapacity = Math.abs(totalCargo - capacity) < 1;
 
+              const isActive = expandedTripIdx === idx;
               return (
                 <div
                   key={idx}
-                  className={`rounded-lg border transition-all duration-200 ${
-                    isSplit
-                      ? 'border-l-2 border-l-cyan-500 border-slate-700/50 bg-slate-800/40'
-                      : 'border-slate-700/50 bg-slate-800/40'
-                  } ${expandedTripIdx === idx ? 'border-cyan-500/50 bg-slate-800/60' : 'hover:bg-slate-800/60'}`}
+                  className={`rounded-lg overflow-hidden transition-all duration-200 ${isActive ? 'shadow-lg' : 'shadow-sm hover:shadow-md'}`}
+                  style={{
+                    background: isActive ? 'linear-gradient(180deg, #f0f7ff, #e8f2ff)' : 'linear-gradient(180deg, #ffffff, #f8fafc)',
+                    border: isActive ? '1px solid rgba(37,99,235,0.2)' : '1px solid rgba(148,163,184,0.1)',
+                    borderLeft: isActive ? '3px solid #2563eb' : isSplit ? '3px solid #2563eb' : '3px solid transparent',
+                    boxShadow: isActive ? '0 6px 20px rgba(37,99,235,0.12)' : undefined,
+                  }}
                 >
                   <button
                     onClick={() => setExpandedTripIdx(expandedTripIdx === idx ? null : idx)}
-                    className="w-full text-left p-2.5 focus:outline-none"
+                    className="w-full text-left px-2.5 py-2 focus:outline-none"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs font-bold text-cyan-400">{trip.trip_id} · {trip.vessel_id}</span>
-                          {isSplit && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold">
-                              Co-load
-                            </span>
-                          )}
-                          {isFullCapacity && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-300 border border-green-500/30 font-semibold">
-                              100% Utilized
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-900/30 text-green-400">{trip.loading_port}</span>
-                          {trip.discharge_ports.map((p, pi) => (
-                            <span key={pi} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-400">→ {p}</span>
-                          ))}
-                        </div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">
-                          {trip.trip_duration_days} days · <span className="text-cyan-400 font-semibold">₹{trip.hpcl_charter_cost_cr} Cr</span>
-                        </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0 flex-wrap">
+                        <span className="text-[11px] font-extrabold text-blue-600">{trip.trip_id}</span>
+                        <span className="text-[10px] text-slate-400">·</span>
+                        <span className="text-[10px] font-semibold text-slate-600">{trip.vessel_id}</span>
+                        <span className="text-[10px] text-slate-400">{trip.loading_port}→{trip.discharge_ports.join('→')}</span>
+                        {isSplit && <span className="text-[8px] px-1 py-0.5 rounded bg-blue-100 text-blue-600 font-bold">CO</span>}
+                        {isFullCapacity && <span className="text-[8px] px-1 py-0.5 rounded bg-green-100 text-green-700 font-bold">FULL</span>}
                       </div>
-                      <svg
-                        className={`w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5 transition-transform ${expandedTripIdx === idx ? 'rotate-180' : ''}`}
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-[10px] font-bold text-blue-600">₹{trip.hpcl_charter_cost_cr.toFixed(2)}</span>
+                        <svg
+                          className={`w-3 h-3 text-slate-400 transition-transform ${expandedTripIdx === idx ? 'rotate-180' : ''}`}
+                          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
                     </div>
                   </button>
 
                   {expandedTripIdx === idx && (
-                    <div className="px-2.5 pb-2.5 pt-0 space-y-2 border-t border-slate-700/40">
-                      <div className="grid grid-cols-3 gap-1.5 text-[10px] mt-2">
-                        <div className="p-1.5 rounded bg-slate-900/50 text-center">
-                          <p className="text-slate-500">Vessel</p>
-                          <p className="font-semibold text-cyan-300">{trip.vessel_id}</p>
+                    <div className="px-2.5 pb-2 pt-0 space-y-1.5 border-t border-slate-100">
+                      <div className="grid grid-cols-3 gap-1 text-[10px] mt-1.5">
+                        <div className="p-1 rounded bg-slate-50 text-center">
+                          <p className="text-slate-400 font-medium">Vessel</p>
+                          <p className="font-bold text-blue-600">{trip.vessel_id}</p>
                         </div>
-                        <div className="p-1.5 rounded bg-slate-900/50 text-center">
-                          <p className="text-slate-500">Capacity</p>
-                          <p className="font-semibold text-slate-300">{formatNumber(capacity)}</p>
+                        <div className="p-1 rounded bg-slate-50 text-center">
+                          <p className="text-slate-400 font-medium">Cap</p>
+                          <p className="font-bold text-slate-700">{formatNumber(capacity)}</p>
                         </div>
-                        <div className="p-1.5 rounded bg-slate-900/50 text-center">
-                          <p className="text-slate-500">Duration</p>
-                          <p className="font-semibold text-blue-300">{trip.trip_duration_days}d</p>
+                        <div className="p-1 rounded bg-slate-50 text-center">
+                          <p className="text-slate-400 font-medium">Duration</p>
+                          <p className="font-bold text-blue-600">{trip.trip_duration_days}d</p>
                         </div>
                       </div>
-                      <div className="p-2 rounded bg-slate-900/30 text-[10px]">
-                        <p className="font-semibold text-slate-400 mb-1">Cargo Deliveries</p>
+                      <div className="p-1.5 rounded bg-slate-50 text-[10px]">
+                        <p className="font-bold text-slate-500 mb-0.5">Cargo</p>
                         {trip.cargo_deliveries.map((d, di) => (
-                          <div key={di} className="flex justify-between py-0.5 border-b border-slate-700/30 last:border-0">
-                            <span className="text-slate-400">{d.port}</span>
-                            <span className="font-semibold text-blue-300">{formatNumber(d.volume_mt)} MT</span>
+                          <div key={di} className="flex justify-between py-0.5 border-b border-slate-100 last:border-0">
+                            <span className="text-slate-600">{d.port}</span>
+                            <span className="font-bold text-blue-600">{formatNumber(d.volume_mt)} MT</span>
                           </div>
                         ))}
-                        <div className="flex justify-between pt-1 mt-1 border-t border-cyan-500/30 font-bold">
-                          <span className="text-cyan-300">Total</span>
-                          <span className="text-cyan-300">{formatNumber(totalCargo)} MT</span>
-                        </div>
-                      </div>
-                      <div className="p-2 rounded bg-cyan-900/20 border border-cyan-500/20 text-[10px]">
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Charter × Duration</span>
-                          <span className="text-cyan-200 font-semibold">₹{trip.hpcl_charter_cost_cr} Cr</span>
+                        <div className="flex justify-between pt-0.5 mt-0.5 border-t border-blue-200 font-bold">
+                          <span className="text-blue-700">Total</span>
+                          <span className="text-blue-700">{formatNumber(totalCargo)} MT</span>
                         </div>
                       </div>
                     </div>
@@ -797,7 +762,7 @@ export function ChallengeResultsPanel({
               );
             })}
           </div>
-        </div>
+        </details>
       )}
 
       {/* Fallback: flat route list */}
@@ -806,14 +771,14 @@ export function ChallengeResultsPanel({
           <div className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">Routes</div>
           <div className="space-y-1.5">
             {results.optimization_results.map((route, idx) => (
-              <div key={idx} className="p-2.5 rounded-lg border border-slate-700/50 bg-slate-800/40">
+              <div key={idx} className="p-2.5 rounded-lg border border-slate-200 bg-white">
                 <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                  <span className="font-bold text-cyan-400">{route.Tanker}</span>
-                  <span className="px-1.5 py-0.5 rounded bg-green-900/30 text-green-400 text-[10px]">{route.Source}</span>
-                  <span className="px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-400 text-[10px]">→ {route.Destination}</span>
+                  <span className="font-bold text-blue-600">{route.Tanker}</span>
+                  <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 text-[10px]">{route.Source}</span>
+                  <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px]">→ {route.Destination}</span>
                 </div>
                 <div className="text-[10px] text-slate-500 mt-0.5">
-                  {formatNumber(route['Volume (MT)'])} MT · <span className="text-cyan-400 font-semibold">₹{route['Trip Cost (Rs Cr)'].toFixed(4)} Cr</span>
+                  {formatNumber(route['Volume (MT)'])} MT · <span className="text-blue-600 font-semibold">₹{route['Trip Cost (Rs Cr)'].toFixed(4)} Cr</span>
                 </div>
               </div>
             ))}

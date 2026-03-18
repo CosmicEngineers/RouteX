@@ -17,29 +17,26 @@ interface StatsCardProps {
 
 export function StatsCard({ title, value, subtitle, icon: Icon, gradient, trend }: StatsCardProps) {
   return (
-    <div className="relative group">
-      {/* Glow effect */}
-      <div className={`absolute -inset-0.5 ${gradient} rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-300`}></div>
-      
+    <div className="card-hover group">
       {/* Card content */}
-      <div className="relative rounded-2xl p-6 shadow-xl card-hover" style={{ backgroundColor: "#EAF8FF" }}>
+      <div className="elevated-card relative p-6">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
-            <h3 className="text-3xl font-black text-gray-900 mb-1">{value}</h3>
+            <p className="text-sm font-medium text-slate-500 mb-1">{title}</p>
+            <h3 className="text-3xl kpi-value text-slate-800 mb-1">{value}</h3>
             {subtitle && (
-              <p className="text-xs text-gray-500">{subtitle}</p>
+              <p className="text-xs text-slate-400 font-medium">{subtitle}</p>
             )}
             {trend && (
-              <div className={`inline-flex items-center gap-1 mt-2 px-2 py-1 rounded-full text-xs font-semibold ${
-                trend.isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+              <div className={`inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-full text-xs font-bold border ${
+                trend.isPositive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
               }`}>
                 <span>{trend.isPositive ? '↑' : '↓'}</span>
                 <span>{trend.value}</span>
               </div>
             )}
           </div>
-          <div className={`${gradient} p-3 rounded-xl shadow-lg`}>
+          <div className={`${gradient} p-3 rounded-xl`} style={{boxShadow: '0 4px 16px rgba(37,99,235,0.3), inset 0 1px 0 rgba(255,255,255,0.2)'}}>
             <Icon className="h-6 w-6 text-white" />
           </div>
         </div>

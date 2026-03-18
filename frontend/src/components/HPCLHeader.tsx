@@ -58,7 +58,7 @@ export function HPCLHeader({ systemStatus, isOptimizing }: HPCLHeaderProps) {
   };
 
   return (
-    <header className="bg-slate-900/80 backdrop-blur-md border-b border-blue-500/30 shadow-lg">
+    <header className="bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
           {/* HPCL Logo and Title */}
@@ -67,10 +67,10 @@ export function HPCLHeader({ systemStatus, isOptimizing }: HPCLHeaderProps) {
               <Boat size={32} weight="duotone" className="text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
                 HPCL Coastal Fleet Optimizer
               </h1>
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-slate-500">
                 Strategic Optimization for Hindustan Petroleum Corporation Limited
               </p>
             </div>
@@ -79,17 +79,17 @@ export function HPCLHeader({ systemStatus, isOptimizing }: HPCLHeaderProps) {
           {/* System Status and Info */}
           <div className="flex items-center space-x-6">
             {/* Fleet Summary */}
-            <div className="hidden md:flex items-center space-x-4 text-sm text-slate-400">
+            <div className="hidden md:flex items-center space-x-4 text-sm text-slate-500">
               <div className="text-center">
-                <div className="font-semibold text-cyan-400">9</div>
+                <div className="font-semibold text-blue-600">9</div>
                 <div>Vessels</div>
               </div>
               <div className="text-center">
-                <div className="font-semibold text-cyan-400">17</div>
+                <div className="font-semibold text-blue-600">17</div>
                 <div>Ports</div>
               </div>
               <div className="text-center">
-                <div className="font-semibold text-cyan-400">6:11</div>
+                <div className="font-semibold text-blue-600">6:11</div>
                 <div>Load:Discharge</div>
               </div>
             </div>
@@ -103,19 +103,19 @@ export function HPCLHeader({ systemStatus, isOptimizing }: HPCLHeaderProps) {
             )}
 
             {/* System Status Indicator */}
-            <div className="flex items-center space-x-2 bg-slate-800/50 px-3 py-2 rounded-full border border-slate-700">
+            <div className="flex items-center space-x-2 bg-slate-100 px-3 py-2 rounded-full border border-slate-200">
               {getStatusIcon()}
-              <span className="text-sm font-medium text-slate-300">
+              <span className="text-sm font-medium text-slate-600">
                 {getStatusText()}
               </span>
             </div>
 
             {/* Current Time */}
             <div className="hidden lg:block text-right">
-              <div className="text-sm font-medium text-cyan-400">
+              <div className="text-sm font-medium text-blue-600">
                 {currentTime} IST
               </div>
-              <div className="text-xs text-slate-400">
+              <div className="text-xs text-slate-500">
                 {currentDate}
               </div>
             </div>

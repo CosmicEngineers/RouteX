@@ -334,31 +334,27 @@ export function MaritimeMap({
       zoom: 6,
       mapTypeId: 'terrain', // Terrain with dark styling
       styles: [
-        // Dark water - Deep maritime blue
+        // Light water — clean soft blue
         {
           featureType: 'water',
           elementType: 'geometry',
-          stylers: [{ color: '#001529' }] // Maritime navy
+          stylers: [{ color: '#bde0fe' }]
         },
         {
           featureType: 'water',
           elementType: 'labels.text.fill',
-          stylers: [{ color: '#22d3ee' }] // Cyan text
+          stylers: [{ color: '#1e40af' }]
         },
         {
           featureType: 'water',
           elementType: 'labels.text.stroke',
-          stylers: [{ color: '#001529' }]
+          stylers: [{ color: '#ffffff' }]
         },
-        // Dark land for maritime focus
+        // Light land
         {
           featureType: 'landscape',
           elementType: 'geometry',
-          stylers: [{ color: '#1a2332' }]
-        },
-        {
-          featureType: 'landscape',
-          stylers: [{ lightness: -30 }]
+          stylers: [{ color: '#f0f4f0' }]
         },
         // Hide roads - not relevant for maritime
         {
@@ -379,21 +375,21 @@ export function MaritimeMap({
         {
           featureType: 'administrative',
           elementType: 'geometry.stroke',
-          stylers: [{ color: '#1890ff' }, { weight: 0.8 }]
+          stylers: [{ color: '#94a3b8' }, { weight: 0.8 }]
         },
         {
           featureType: 'administrative',
           elementType: 'labels.text.fill',
-          stylers: [{ color: '#94a3b8' }]
+          stylers: [{ color: '#475569' }]
         },
-        // Dark everything else
+        // Default labels
         {
           elementType: 'labels.text.fill',
-          stylers: [{ color: '#94a3b8' }]
+          stylers: [{ color: '#475569' }]
         },
         {
           elementType: 'labels.text.stroke',
-          stylers: [{ color: '#0f172a' }]
+          stylers: [{ color: '#ffffff' }]
         }
       ]
     });
@@ -475,25 +471,25 @@ export function MaritimeMap({
       const infoWindow = new google.maps.InfoWindow({
         content: `
           <div style="font-family:Arial,sans-serif;padding:10px 12px;min-width:230px;
-                      background:#0f172a;border-radius:8px;border:1px solid #1e293b;">
+                      background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
               <span style="background:${isLoading ? HP_BLUE : HP_RED};
                            color:#ffffff;
                            font-weight:700;font-size:11px;padding:2px 8px;border-radius:4px;">
                 ${port.id}
               </span>
-              <span style="color:#f1f5f9;font-weight:700;font-size:13px;">${port.officialName}</span>
+              <span style="color:#1e293b;font-weight:700;font-size:13px;">${port.officialName}</span>
             </div>
             ${locCodeRow}
             <p style="margin:3px 0;font-size:11px;">
               <span style="color:#64748b;">Type:</span>
-              <span style="color:${isLoading ? '#60a5fa' : HP_RED};margin-left:5px;">
+              <span style="color:${isLoading ? '#2563eb' : HP_RED};margin-left:5px;">
                 ${isLoading ? '⛽ Loading Port (Supply Source)' : '🏭 IRD / Distribution Terminal'}
               </span>
             </p>
             <p style="margin:3px 0;font-size:11px;">
               <span style="color:#64748b;">State:</span>
-              <span style="color:#e2e8f0;margin-left:5px;">${port.state}</span>
+              <span style="color:#1e293b;margin-left:5px;">${port.state}</span>
             </p>
             <p style="margin:3px 0;font-size:11px;">
               <span style="color:#64748b;">${isLoading ? 'Supply:' : 'Monthly Demand:'}</span>
@@ -663,9 +659,9 @@ export function MaritimeMap({
   }, [enhancedVessels, enhancedPorts.length, isMapLoaded]);
 
   return (
-    <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+    <div className="cockpit-screen overflow-visible">
       {/* Enhanced Map Header */}
-      <div className="px-6 py-4 bg-linear-to-r from-blue-900 to-blue-700 text-white">
+      <div className="px-6 py-4 text-white relative" style={{background: 'linear-gradient(135deg, #2563eb 0%, #0891b2 100%)', boxShadow: '0 4px 16px rgba(37,99,235,0.25)'}}>
         <div className="flex justify-between items-center">
           <div>
             <h3 className="text-xl font-bold">
@@ -707,7 +703,7 @@ export function MaritimeMap({
                 <TankerIcon size={11} color="#facc15" />
                 Vessels
               </span>
-              <div className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${showVessels ? 'bg-cyan-400' : 'bg-white/20'}`}>
+              <div className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${showVessels ? 'bg-cyan-300' : 'bg-white/30'}`}>
                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-md transition-transform duration-200 ${showVessels ? 'translate-x-4' : 'translate-x-0.5'}`} />
               </div>
             </div>
@@ -722,19 +718,19 @@ export function MaritimeMap({
           <div className="absolute top-4 left-4 z-10 flex items-center space-x-3">
             <button
               onClick={() => setIsPlaying(!isPlaying)}
-              className="p-3 bg-slate-900/90 backdrop-blur-sm border border-slate-700/50 rounded-lg text-white hover:bg-slate-800/90 transition-all shadow-lg"
+              className="p-3 bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg text-slate-700 hover:bg-white transition-all shadow-lg"
               title={isPlaying ? 'Pause animation' : 'Play animation'}
               aria-label={isPlaying ? 'Pause' : 'Play'}
             >
               {isPlaying ? '⏸' : '▶'}
             </button>
             
-            <div className="flex items-center space-x-2 bg-slate-900/90 backdrop-blur-sm border border-slate-700/50 rounded-lg px-4 py-2">
-              <span className="text-white text-sm">Speed:</span>
+            <div className="flex items-center space-x-2 bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg px-4 py-2 shadow-lg">
+              <span className="text-slate-700 text-sm">Speed:</span>
               <select
                 value={playbackSpeed}
                 onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
-                className="bg-slate-800 text-white text-sm rounded px-2 py-1 border border-slate-600"
+                className="bg-slate-50 text-slate-700 text-sm rounded px-2 py-1 border border-slate-300"
                 aria-label="Playback speed"
               >
                 <option value="0.5">0.5x</option>
@@ -748,8 +744,8 @@ export function MaritimeMap({
               onClick={() => setShowBaseline(!showBaseline)}
               className={`px-4 py-2 backdrop-blur-sm border rounded-lg font-medium transition-all shadow-lg ${
                 showBaseline
-                  ? 'bg-purple-500/90 border-purple-400/50 text-white'
-                  : 'bg-slate-900/90 border-slate-700/50 text-slate-300 hover:bg-slate-800/90'
+                  ? 'bg-purple-500 border-purple-400 text-white'
+                  : 'bg-white/90 border-slate-200 text-slate-600 hover:bg-white'
               }`}
               title="Toggle baseline routes"
             >
@@ -771,14 +767,14 @@ export function MaritimeMap({
 
       {/* Route Navigation Controls - Only show in route mode */}
       {!showLiveStatus && optimizationRoutes.length > 0 && (
-        <div className="px-6 py-4 bg-gray-50 border-t">
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
           <div className="flex items-center justify-between">
             <button
               onClick={onPrevRoute}
               disabled={currentRouteIndex <= 0}
               className={`px-4 py-2 rounded-lg font-medium transition-all ${
                 currentRouteIndex <= 0 
-                  ? 'bg-slate-700 text-slate-400 cursor-not-allowed' 
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
                   : 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:shadow-lg hover:shadow-cyan-500/50'
               }`}
             >
@@ -786,11 +782,11 @@ export function MaritimeMap({
             </button>
             
             <div className="text-center">
-              <div className="text-sm font-semibold text-slate-100">
+              <div className="text-sm font-semibold text-slate-800">
                 Route {(currentRouteIndex + 1)} of {totalRoutes}
               </div>
               {currentRoute && (
-                <div className="text-xs text-slate-400 mt-1">
+                <div className="text-xs text-slate-500 mt-1">
                   {currentRoute.description}
                 </div>
               )}
@@ -801,7 +797,7 @@ export function MaritimeMap({
               disabled={currentRouteIndex >= totalRoutes - 1}
               className={`px-4 py-2 rounded-lg font-medium transition-all ${
                 currentRouteIndex >= totalRoutes - 1
-                  ? 'bg-slate-700 text-slate-400 cursor-not-allowed' 
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
                   : 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:shadow-lg hover:shadow-cyan-500/50'
               }`}
             >
@@ -812,23 +808,23 @@ export function MaritimeMap({
       )}
 
       {/* Fleet Statistics */}
-      <div className="px-5 py-3 bg-slate-900/80 border-t border-slate-700/60 backdrop-blur-sm">
+      <div className="px-5 py-3 backdrop-blur-sm" style={{background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%)', borderTop: '1px solid rgba(148,163,184,0.15)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7)'}}>
         <div className="flex items-center gap-4">
           {/* Mode badge */}
           <div className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase ${
             fleetStats.mode === 'optimizer'
-              ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'
-              : 'bg-slate-700/50 text-slate-400 border border-slate-600/40'
+              ? 'bg-blue-50 text-blue-600 border border-blue-200'
+              : 'bg-slate-100 text-slate-500 border border-slate-200'
           }`}>
-            <div className={`w-1.5 h-1.5 rounded-full ${fleetStats.mode === 'optimizer' ? 'bg-cyan-400 animate-pulse' : 'bg-slate-500'}`} />
+            <div className={`w-1.5 h-1.5 rounded-full ${fleetStats.mode === 'optimizer' ? 'bg-blue-500 animate-pulse' : 'bg-slate-400'}`} />
             {fleetStats.mode === 'optimizer' ? 'Optimizer' : 'Fleet'}
           </div>
 
           {/* Divider */}
-          <div className="w-px h-8 bg-slate-700/60 shrink-0" />
+          <div className="w-px h-8 bg-slate-200 shrink-0" />
 
           {/* Stat cells */}
-          <div className="flex-1 grid grid-cols-3 md:grid-cols-6 gap-0 divide-x divide-slate-700/50">
+          <div className="flex-1 grid grid-cols-3 md:grid-cols-6 gap-0 divide-x divide-slate-200">
             {fleetStats.items.map((stat, i) => (
               <div key={i} className="px-3 flex flex-col items-center justify-center min-w-0">
                 <span
@@ -837,7 +833,7 @@ export function MaritimeMap({
                 >
                   {stat.value}
                 </span>
-                <span className="text-[10px] text-slate-300 mt-0.5 leading-tight text-center">
+                <span className="text-[10px] text-slate-600 mt-0.5 leading-tight text-center">
                   {stat.label}
                 </span>
               </div>
