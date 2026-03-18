@@ -256,29 +256,31 @@ Runs CP-SAT optimization and returns results in Challenge 7.1 format.
   ],
 
   "summary": {
-    "total_trips": 18,
-    "total_routes": 20,
-    "hpcl_transportation_cost_cr": 8.4532,
-    "total_cost_cr": 8.4532,
-    "total_volume_mt": 450000,
+    "total_trips": 11,
+    "total_routes": 9,
+    "hpcl_transportation_cost_cr": 2.7317,
+    "total_cost_cr": 2.7317,
+    "total_volume_mt": 475000,
     "total_demand_mt": 440000,
     "satisfied_demand_mt": 440000,
     "demand_satisfaction_percentage": 100.0,
-    "safety_buffer_mt": 10000,
-    "fleet_utilization": 76.3,
-    "round_trip": false
+    "safety_buffer_mt": 35000,
+    "fleet_utilization": 13.81,
+    "round_trip": false,
+    "_note": "Multi-run ranges: cost ₹2.66–2.80 Cr, trips 10–12, volume 475K–500K MT, util 11.75–14.23%"
   },
 
   "kpis": {
-    "total_cost": 84532000.0,
+    "total_cost": 27317000.0,
     "total_distance_nm": 12450.5,
-    "total_cargo_mt": 450000,
-    "fleet_utilization": 76.3,
-    "demand_satisfaction_rate": 100.0
+    "total_cargo_mt": 475000,
+    "fleet_utilization": 13.81,
+    "demand_satisfaction_rate": 100.0,
+    "_note": "cargo_mt varies 475,000–500,000 MT across runs"
   },
 
   "recommendations": [
-    "Fleet utilization at 76.3% — consider consolidating routes for Vessel T7",
+    "Fleet utilization at 13.81% — significant idle capacity available for additional demand",
     "All 11 unloading ports satisfied with ≥ demanded volumes"
   ],
 
@@ -341,14 +343,14 @@ Returns example rows and column definitions.
       "Destination": "U1",
       "Tanker": "T1",
       "Volume (MT)": 40000,
-      "Trip Cost (Rs Cr)": 0.504
+      "Trip Cost (Rs Cr)": 0.252
     },
     {
       "Source": "L2",
       "Destination": "U2",
       "Tanker": "T2",
       "Volume (MT)": 50000,
-      "Trip Cost (Rs Cr)": 0.539
+      "Trip Cost (Rs Cr)": 0.294
     }
   ],
   "notes": [
@@ -554,12 +556,12 @@ GET /api/v1/analytics/kpis/{month}
 ```json
 {
   "month": "2026-03",
-  "total_shipments": 18,
-  "total_cargo_mt": 450000,
-  "fleet_utilization": 76.3,
+  "total_shipments": 11,
+  "total_cargo_mt": 475000,
+  "fleet_utilization": 13.81,
   "on_time_delivery_rate": 98.5,
-  "total_cost": 84532000.0,
-  "cost_per_mt": 187.8,
+  "total_cost": 27317000.0,
+  "cost_per_mt": 57.5,
   "demurrage_incidents": 0,
   "demurrage_cost": 0.0,
   "avg_voyage_duration": 11.4,
@@ -692,14 +694,14 @@ Note: `execution_count` > 1 means this voyage **pattern** repeated that many tim
 {
   "request_id": "hpcl_opt_1741952400",
   "month": "2026-03",
-  "optimization_status": "optimal",
-  "solve_time_seconds": 3.47,
+  "optimization_status": "feasible",
+  "solve_time_seconds": 14.99,
   "selected_routes": [HPCLRoute...],
   "vessel_schedules": [VesselSchedule...],
-  "total_cost": 84532000.0,
+  "total_cost": 27317000.0,
   "total_distance_nm": 12450.5,
-  "total_cargo_mt": 450000.0,
-  "fleet_utilization": 76.3,
+  "total_cargo_mt": 475000.0,
+  "fleet_utilization": 13.81,
   "demands_met": {"U1": 40000, "U2": 135000, ...},
   "unmet_demand": {},
   "demand_satisfaction_rate": 100.0,

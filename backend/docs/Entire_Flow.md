@@ -34,7 +34,7 @@ The problem is fully defined by five PS tables, stored as pure Python dicts:
 │  │ T5   │  50,000  │        0.53         │                         │
 │  │ T6   │  50,000  │        0.57         │                         │
 │  │ T7   │  50,000  │        0.65         │                         │
-│  │ T8   │  25,000  │        0.39         │  ← cheapest overall     │
+│  │ T8   │  25,000  │        0.39         │  ← 2nd cheapest         │
 │  │ T9   │  25,000  │        0.38         │  ← cheapest overall     │
 │  └──────┴──────────┴─────────────────────┘                         │
 │                                                                     │
@@ -451,15 +451,24 @@ fleet_utilization  = avg(utilization_v for v in vessels)
 ```python
 OptimizationResult(
   request_id             = "hpcl_opt_1741952400",
-  optimization_status    = "optimal",
+  optimization_status    = "feasible",
   selected_routes        = [...],      # HPCLRoute list
   vessel_schedules       = [...],      # VesselSchedule list (Gantt)
-  total_cost             = 84,532,000, # Rs (charter only)
-  fleet_utilization      = 76.3,
+  total_cost             = 27,317,000, # Rs (charter only) — varies 26,595,000–28,002,000
+  total_volume_mt        = 475,000,    # varies 475,000–500,000 MT across runs
+  fleet_utilization      = 13.81,      # varies 11.75–14.23% across runs
   demands_met            = {"U1":40000, "U2":135000, ...},
   demand_satisfaction_rate = 100.0,
-  solve_time_seconds     = 3.47
+  solve_time_seconds     = 14.99
 )
+
+# Multi-run convergence (8 runs, ~15s each):
+#   Cost:        ₹2.66–2.80 Cr
+#   Trips:       10–12
+#   Utilization: 11.75–14.23%
+#   Routes:      7–9 selected
+#   Demand:      100% satisfied in all runs
+# The narrow band confirms solution robustness.
 ```
 
 ---
@@ -544,13 +553,14 @@ Row 2: Source=L3, Dest=U7, Tanker=T3, Volume=5000,  Cost=0.2397
   ],
 
   "summary": {
-    "total_trips": 18,
-    "hpcl_transportation_cost_cr": 8.4532,
-    "total_volume_mt": 450000,
+    "total_trips": 11,
+    "hpcl_transportation_cost_cr": 2.7317,
+    "total_volume_mt": 475000,
     "total_demand_mt": 440000,
     "demand_satisfaction_percentage": 100.0,
-    "safety_buffer_mt": 10000,
-    "fleet_utilization": 76.3
+    "safety_buffer_mt": 35000,
+    "fleet_utilization": 13.81,
+    "_note": "Volume varies 475,000–500,000 MT across runs (buffer: 35,000–60,000 MT)"
   }
 }
 ```
@@ -565,10 +575,11 @@ Row 2: Source=L3, Dest=U7, Tanker=T3, Volume=5000,  Cost=0.2397
 ChallengeOutput receives API response
         │
         ├── Tab 1: Summary Cards
-        │     ├── Total Trips: 18
-        │     ├── Total Cost: ₹8.45 Cr
+        │     ├── Total Trips: 10–12
+        │     ├── Total Cost: ₹2.66–2.80 Cr
+        │     ├── Total Volume: 475K–500K MT
         │     ├── Demand Satisfied: 100%
-        │     └── Fleet Utilization: 76.3%
+        │     └── Fleet Utilization: 11.75–14.23%
         │
         ├── Tab 2: Optimization Results Table
         │     Source│Destination│Tanker│Volume (MT)│Trip Cost (Rs Cr)
