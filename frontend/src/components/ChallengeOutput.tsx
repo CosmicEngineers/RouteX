@@ -713,6 +713,108 @@ export function ChallengeResultsPanel({
         </details>
       )}
 
+      {/* Fleet Utilization Insights */}
+      {results.trips && results.trips.length > 0 && (() => {
+        // Compute per-tanker utilization (Sailing + Loading + Unloading)
+        const AVAILABLE_HOURS = 720; // 30 days × 24 h/day
+        const LOADING_RATE_MT_H = 2000;   // 2,000 MT/h at loading port
+        const UNLOADING_RATE_MT_H = 1500; // 1,500 MT/h at discharge ports
+        const tankerMap: Record<string, { activeHours: number; trips: number }> = {};
+
+        // Seed ALL fleet vessels so idle ones show at 0%
+        vessels.forEach(v => { tankerMap[v.id] = { activeHours: 0, trips: 0 }; });
+
+        results.trips.forEach(trip => {
+          if (!tankerMap[trip.vessel_id]) {
+            tankerMap[trip.vessel_id] = { activeHours: 0, trips: 0 };
+          }
+          const totalCargo = trip.cargo_deliveries.reduce((s, d) => s + d.volume_mt, 0);
+          const sailingHours = trip.trip_duration_days * 24;
+          const loadingHours = totalCargo / LOADING_RATE_MT_H;
+          const unloadingHours = totalCargo / UNLOADING_RATE_MT_H;
+          tankerMap[trip.vessel_id].activeHours += sailingHours + loadingHours + unloadingHours;
+          tankerMap[trip.vessel_id].trips += 1;
+        });
+
+        const tankerEntries = Object.entries(tankerMap).sort((a, b) => b[1].activeHours - a[1].activeHours);
+        const fleetSize = vessels.length; // full fleet denominator (9 vessels)
+        const utilizations = tankerEntries.map(([, d]) => (d.activeHours / AVAILABLE_HOURS) * 100);
+        const totalActiveHours = tankerEntries.reduce((s, [, d]) => s + d.activeHours, 0);
+        const totalAvailableHours = fleetSize * AVAILABLE_HOURS;
+        // Fleet-wide average: total active hours / total available hours
+        const avgUtil = (totalActiveHours / totalAvailableHours) * 100;
+        const activeUtils = utilizations.filter(u => u > 0);
+        const maxUtil = activeUtils.length > 0 ? Math.max(...activeUtils) : 0;
+        const minUtil = activeUtils.length > 0 ? Math.min(...activeUtils) : 0;
+        const slack = (100 - avgUtil);
+        const deployMode = avgUtil >= 20 ? 'High Throughput' : avgUtil >= 10 ? 'Balanced' : 'Cost-Optimal';
+        const deployColor = avgUtil >= 20 ? 'text-blue-600' : avgUtil >= 10 ? 'text-blue-600' : 'text-green-600';
+        const headroom = slack >= 70 ? 'High' : slack >= 40 ? 'Moderate' : 'Limited';
+
+        return (
+          <details className="group rounded-xl overflow-hidden" style={{background: 'linear-gradient(180deg, #ffffff, #f8fafc)', border: '1px solid rgba(148,163,184,0.12)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)'}}>
+            <summary className="cursor-pointer select-none flex items-center gap-1.5 px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:shadow-md transition-all">
+              <svg className="w-3 h-3 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              <span className="normal-case tracking-normal">
+                <span className="font-extrabold text-slate-700 text-xs">Fleet Utilization</span>
+                <span className="text-slate-400 font-medium ml-1">({fleetSize} Tankers)</span>
+                <span className="text-slate-300 mx-1">•</span>
+                <span className="text-slate-500 font-semibold">Avg {avgUtil.toFixed(1)}%</span>
+                <span className="text-slate-300 mx-1">•</span>
+                <span className={`font-semibold ${deployColor}`}>{deployMode}</span>
+              </span>
+              <svg className="w-3 h-3 transition-transform group-open:rotate-90 flex-shrink-0 text-blue-500 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </summary>
+            <div className="px-3 pb-3 pt-1.5 space-y-2.5 border-t border-slate-100">
+              {/* Layer 1: Summary Cards */}
+              <div className="grid grid-cols-4 gap-1.5">
+                <div className="rounded-lg p-2 text-center" style={{background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', border: '1px solid rgba(37,99,235,0.12)'}}>
+                  <p className="text-[8px] text-blue-500 font-bold uppercase tracking-wider">Utilization</p>
+                  <p className="text-sm font-extrabold text-blue-700">{avgUtil.toFixed(1)}%</p>
+                  <p className="text-[7px] text-blue-400 font-medium">(derived)</p>
+                </div>
+                <div className="rounded-lg p-2 text-center" style={{background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', border: '1px solid rgba(34,197,94,0.12)'}}>
+                  <p className="text-[8px] text-green-600 font-bold uppercase tracking-wider">Slack</p>
+                  <p className="text-sm font-extrabold text-green-700">{slack.toFixed(1)}%</p>
+                </div>
+                <div className="rounded-lg p-2 text-center" style={{background: 'linear-gradient(135deg, #faf5ff, #f3e8ff)', border: '1px solid rgba(147,51,234,0.12)'}}>
+                  <p className="text-[8px] text-purple-600 font-bold uppercase tracking-wider">Headroom</p>
+                  <p className="text-sm font-extrabold text-purple-700">{headroom}</p>
+                </div>
+                <div className="rounded-lg p-2 text-center" style={{background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)', border: '1px solid rgba(16,185,129,0.12)'}}>
+                  <p className="text-[8px] text-emerald-600 font-bold uppercase tracking-wider">Deploy Mode</p>
+                  <p className="text-sm font-extrabold text-emerald-700">{deployMode}</p>
+                </div>
+              </div>
+
+              {/* Layer 2: Per-Tanker Progress Bars */}
+              <div className="space-y-1.5">
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Per-Tanker Breakdown</p>
+                {tankerEntries.map(([id, data]) => {
+                  const util = (data.activeHours / AVAILABLE_HOURS) * 100;
+                  const barColor = util > 40 ? 'from-amber-400 to-orange-500' : 'from-blue-400 to-cyan-500';
+                  return (
+                    <div key={id} className="flex items-center gap-2">
+                      <span className="text-[10px] font-extrabold text-blue-600 w-7 flex-shrink-0">{id}</span>
+                      <div className="flex-1 h-3 rounded-full overflow-hidden" style={{background: 'rgba(148,163,184,0.12)'}}>
+                        <div className={`h-full rounded-full bg-gradient-to-r ${barColor} transition-all duration-500`} style={{width: `${Math.max(2, Math.min(100, util))}%`}} />
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-700 w-10 text-right flex-shrink-0">{util.toFixed(0)}%</span>
+                      <span className="text-[9px] text-slate-400 font-medium w-14 flex-shrink-0 text-right">({data.trips} trip{data.trips !== 1 ? 's' : ''})</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Narrative footnote */}
+              <p className="text-[9px] text-slate-400 leading-relaxed pt-0.5 border-t border-slate-100">
+                Utilization = (Sailing + Loading @2000 MT/h + Unloading @1500 MT/h) / 720h per vessel. Computed across the full {fleetSize}-tanker fleet. Lower values indicate headroom for additional demand — <span className="font-semibold text-slate-500">intentional under-utilization avoids over-stressing assets.</span>
+              </p>
+            </div>
+          </details>
+        );
+      })()}
+
       {/* Fallback: flat route list */}
       {(!results.trips || results.trips.length === 0) && results.optimization_results.length > 0 && (
         <div>

@@ -244,7 +244,7 @@ export default function HPCLDashboard() {
 
         {/* RIGHT — Analytics Console */}
         <div
-          className="flex-none overflow-hidden cockpit-panel"
+          className="flex-none overflow-y-auto cockpit-panel"
           style={{ width: '390px' }}
         >
           <ChallengeResultsPanel

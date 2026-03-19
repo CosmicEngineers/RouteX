@@ -111,10 +111,9 @@ export function SolverConsole({ isLoading, solverProfile, startTime }: SolverCon
   if (!isLoading && visibleLines.length === 0) return null;
 
   return (
-    <div className="elevated-card !rounded-xl !p-4 text-xs space-y-0.5 max-h-48 overflow-y-auto" style={{fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', monospace", background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)'}}>
-      <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-200/60">
-        <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-        <span className="text-blue-600 font-bold tracking-widest text-[10px] uppercase">
+    <div className="terminal-style rounded-xl border border-slate-200 p-4 text-xs space-y-0.5 max-h-48 overflow-y-auto">
+      <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-200">
+        <span className="text-blue-600 font-semibold tracking-widest text-[10px] uppercase">
           Solver Console
         </span>
         {isLoading && (
