@@ -105,9 +105,8 @@ const LOADING_PORTS: Port[] = [
 ];
 
 export const SOLVER_PROFILES = {
-  quick:    { label: '⚡ Quick',    time: '~15s',  desc: 'Fast result, good quality' },
-  balanced: { label: '⚖ Balanced', time: '~30s',  desc: 'Better quality solution' },
-  thorough: { label: '🏆 Thorough', time: '~5m',   desc: 'Global optimum search' },
+  quick:   { label: '⚡ Quick',   time: '~15s',  desc: 'Fast result for demos and quick checks' },
+  optimal: { label: '🏆 Optimal', time: '~10m',  desc: 'Minimum achievable cost — proven optimal' },
 } as const;
 
 // ─── Shared Props ─────────────────────────────────────────────────────────────
@@ -115,14 +114,14 @@ export const SOLVER_PROFILES = {
 export interface ChallengeSharedProps {
   vessels: Vessel[];
   demands: Demand[];
-  solverProfile: 'quick' | 'balanced' | 'thorough';
+  solverProfile: 'quick' | 'optimal';
   results: OptimizationResponse | null;
   loading: boolean;
   error: string | null;
   optimizationStartTime: number | null;
   onUpdateVessel: (index: number, field: keyof Vessel, value: number) => void;
   onUpdateDemand: (index: number, value: number) => void;
-  onSetSolverProfile: (p: 'quick' | 'balanced' | 'thorough') => void;
+  onSetSolverProfile: (p: 'quick' | 'optimal') => void;
   onRunOptimization: () => void;
   onClearResults: () => void;
   onDownloadCSV: () => void;
@@ -846,7 +845,7 @@ export function ChallengeOutput() {
   const [results, setResults] = useState<OptimizationResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [solverProfile, setSolverProfile] = useState<'quick' | 'balanced' | 'thorough'>('quick');
+  const [solverProfile, setSolverProfile] = useState<'quick' | 'optimal'>('quick');
   const [vessels, setVessels]   = useState<Vessel[]>(DEFAULT_VESSELS);
   const [demands,  setDemands]  = useState<Demand[]>(DEFAULT_DEMANDS);
   const [optimizationStartTime, setOptimizationStartTime] = useState<number | null>(null);

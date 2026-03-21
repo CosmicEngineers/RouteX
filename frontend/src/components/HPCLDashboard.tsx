@@ -54,7 +54,7 @@ export default function HPCLDashboard() {
   // ── Challenge optimization state (lifted from ChallengeOutput) ───────────
   const [vessels, setVessels] = useState<Vessel[]>(DEFAULT_VESSELS);
   const [demands, setDemands] = useState<Demand[]>(DEFAULT_DEMANDS);
-  const [solverProfile, setSolverProfile] = useState<'quick' | 'balanced' | 'thorough'>('quick');
+  const [solverProfile, setSolverProfile] = useState<'quick' | 'optimal'>('quick');
   const [results, setResults]   = useState<OptimizationResponse | null>(null);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);

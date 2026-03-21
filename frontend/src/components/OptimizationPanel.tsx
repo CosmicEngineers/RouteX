@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Play, Gear, Calendar, CurrencyDollar, Target, WarningCircle, CaretDown, CaretUp, Lightning } from 'phosphor-react';
 import { HPCLVessel, HPCLPort } from './HPCLDashboard';
 
-type SolverPreset = 'quick' | 'balanced' | 'thorough';
+type SolverPreset = 'quick' | 'optimal';
 
 interface ValidationError {
   field: string;
@@ -22,8 +22,8 @@ interface OptimizationPanelProps {
 export function OptimizationPanel({ vessels, ports, onStartOptimization, isOptimizing }: OptimizationPanelProps) {
   const [fuelPrice, setFuelPrice] = useState(45000); // ₹45,000 per MT
   const [optimizationObjective, setOptimizationObjective] = useState('cost');
-  const [solverPreset, setSolverPreset] = useState<SolverPreset>('balanced');
-  const [maxSolveTime, setMaxSolveTime] = useState(120); // 2 minutes
+  const [solverPreset, setSolverPreset] = useState<SolverPreset>('quick');
+  const [maxSolveTime, setMaxSolveTime] = useState(15); // 15 seconds
   const [selectedVessels, setSelectedVessels] = useState<string[]>([]);
   const [isRoundTrip, setIsRoundTrip] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -47,9 +47,8 @@ export function OptimizationPanel({ vessels, ports, onStartOptimization, isOptim
 
   // Solver preset configurations
   const presetConfigs = {
-    quick: { time: 30, workers: 2, description: 'Fast optimization for demos (30s)' },
-    balanced: { time: 120, workers: 4, description: 'Balanced speed and quality (2 min)' },
-    thorough: { time: 300, workers: 8, description: 'High-quality solution (5 min)' }
+    quick:   { time: 15,  workers: 2, description: 'Fast result for demos (15s)' },
+    optimal: { time: 600, workers: 8, description: 'Minimum achievable cost (10 min)' }
   };
 
   // Validation logic
@@ -178,10 +177,8 @@ export function OptimizationPanel({ vessels, ports, onStartOptimization, isOptim
               onChange={(e) => setMaxSolveTime(Number(e.target.value))}
               className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600/50 rounded-lg text-slate-100 text-base focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
             >
-              <option value={60}>1 minute (Quick)</option>
-              <option value={180}>3 minutes (Balanced)</option>
-              <option value={300}>5 minutes (Thorough)</option>
-              <option value={600}>10 minutes (Comprehensive)</option>
+              <option value={15}>15 seconds (Quick)</option>
+              <option value={600}>10 minutes (Optimal)</option>
             </select>
           </div>
 

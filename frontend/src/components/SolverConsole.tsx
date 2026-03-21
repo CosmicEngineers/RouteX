@@ -15,42 +15,31 @@ const PROFILE_LOGS: Record<string, LogLine[]> = {
     { text: 'Enumerating 6,534 co-loading route combinations...', type: 'info', delayMs: 3000 },
     { text: 'Applying 720h/month vessel time constraints...', type: 'info', delayMs: 5000 },
     { text: 'Setting demand equality constraints (U1–U11)...', type: 'info', delayMs: 7000 },
-    { text: 'Running branch-and-bound (quick profile)...', type: 'info', delayMs: 9000 },
+    { text: 'Running branch-and-bound (quick profile, 2 workers)...', type: 'info', delayMs: 9000 },
     { text: 'Current Best: ₹2.85 Cr — searching deeper...', type: 'warning', delayMs: 11000 },
     { text: 'Propagating constraints, pruning dominated routes...', type: 'dim', delayMs: 13000 },
   ],
-  balanced: [
-    { text: 'Initializing CP-SAT solver engine...', type: 'info', delayMs: 800 },
-    { text: 'Loading vessel fleet: T1–T9 (7×50K MT, 2×25K MT)', type: 'dim', delayMs: 2000 },
-    { text: 'Enumerating 6,534 co-loading route combinations...', type: 'info', delayMs: 4000 },
-    { text: 'Discarding routes that exceed 720h/month capacity...', type: 'info', delayMs: 7000 },
-    { text: 'Enforcing hull GCD cargo split constraints...', type: 'info', delayMs: 10000 },
-    { text: 'Setting demand equality constraints (U1–U11)...', type: 'info', delayMs: 13000 },
-    { text: 'Running branch-and-bound (balanced profile)...', type: 'info', delayMs: 16000 },
-    { text: 'Current Best: ₹2.78 Cr — searching deeper...', type: 'warning', delayMs: 20000 },
-    { text: 'Exploring co-loading split trip combinations...', type: 'dim', delayMs: 24000 },
-    { text: 'Tightening objective bound...', type: 'dim', delayMs: 27000 },
-  ],
-  thorough: [
-    { text: 'Initializing CP-SAT solver engine (thorough mode)...', type: 'info', delayMs: 1000 },
+  optimal: [
+    { text: 'Initializing CP-SAT solver engine (optimal mode, 8 workers)...', type: 'info', delayMs: 1000 },
     { text: 'Loading vessel fleet: T1–T9 (7×50K MT, 2×25K MT)', type: 'dim', delayMs: 3000 },
     { text: 'Enumerating 6,534 co-loading route combinations...', type: 'info', delayMs: 6000 },
     { text: 'Discarding 1,200 sub-optimal routes via Dominance Pruning...', type: 'info', delayMs: 12000 },
-    { text: 'Enforcing hull GCD cargo split: min_chunk = GCD(caps)', type: 'info', delayMs: 18000 },
+    { text: 'Enforcing hull GCD cargo split: min_chunk = GCD(50000, 25000)', type: 'info', delayMs: 18000 },
     { text: 'Setting demand equality constraints (U1–U11)...', type: 'info', delayMs: 24000 },
-    { text: 'Applying 720h/month vessel time constraints...', type: 'info', delayMs: 30000 },
-    { text: 'Running CP-SAT branch-and-bound (5-min budget)...', type: 'info', delayMs: 40000 },
-    { text: 'Current Best: ₹2.78 Cr — searching for deeper optima...', type: 'warning', delayMs: 60000 },
-    { text: 'Exploring 847 co-loading combinations with U2 (135K MT)...', type: 'dim', delayMs: 90000 },
-    { text: 'Current Best: ₹2.71 Cr — continuing search...', type: 'warning', delayMs: 140000 },
-    { text: 'Tightening bounds, LP relaxation active...', type: 'dim', delayMs: 200000 },
-    { text: 'Verifying global optimality conditions...', type: 'dim', delayMs: 260000 },
+    { text: 'Applying 720h/month vessel time budget constraints...', type: 'info', delayMs: 32000 },
+    { text: 'Running CP-SAT branch-and-bound (10-min budget)...', type: 'info', delayMs: 45000 },
+    { text: 'Current Best: ₹2.78 Cr — searching for deeper optima...', type: 'warning', delayMs: 80000 },
+    { text: 'Exploring 847 co-loading combinations with U2 (135K MT)...', type: 'dim', delayMs: 150000 },
+    { text: 'Current Best: ₹2.71 Cr — continuing proof of optimality...', type: 'warning', delayMs: 240000 },
+    { text: 'Tightening objective bound via LP relaxation...', type: 'dim', delayMs: 360000 },
+    { text: 'Exploring remaining search nodes for global minimum...', type: 'dim', delayMs: 480000 },
+    { text: 'Verifying global optimality — no better solution exists...', type: 'dim', delayMs: 540000 },
   ],
 };
 
 interface SolverConsoleProps {
   isLoading: boolean;
-  solverProfile: 'quick' | 'balanced' | 'thorough';
+  solverProfile: 'quick' | 'optimal';
   startTime: number | null;
 }
 

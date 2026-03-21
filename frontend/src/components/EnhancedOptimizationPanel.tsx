@@ -12,14 +12,12 @@ interface EnhancedOptimizationPanelProps {
 }
 
 const presetConfigs = {
-  quick: { name: 'Quick', time: 30, workers: 2, description: 'Fast results for testing scenarios' },
-  balanced: { name: 'Balanced', time: 120, workers: 4, description: 'Recommended for most use cases' },
-  thorough: { name: 'Thorough', time: 300, workers: 8, description: 'Maximum optimization quality' },
-  production: { name: 'Production', time: 600, workers: 8, description: 'Production-grade route planning' }
+  quick:   { name: 'Quick',   time: 15,  workers: 2, description: 'Fast result for demos and quick checks' },
+  optimal: { name: 'Optimal', time: 600, workers: 8, description: 'Minimum achievable cost — proven optimal' },
 };
 
 export function EnhancedOptimizationPanel({ availableVessels, availablePorts: _availablePorts, onStartOptimization }: EnhancedOptimizationPanelProps) {
-  const [selectedPreset, setSelectedPreset] = useState('balanced');
+  const [selectedPreset, setSelectedPreset] = useState('quick');
   const [fuelPrice, setFuelPrice] = useState(45000);
   const [maxSolveTime, setMaxSolveTime] = useState(120);
   const [optimizationObjective, setOptimizationObjective] = useState('cost');

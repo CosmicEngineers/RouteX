@@ -57,27 +57,17 @@ class HPCLSettings(BaseSettings):
     solver_num_workers: int = 4  # Number of parallel search workers
     solver_log_progress: bool = True  # Log search progress
     
-    # Solver Profiles (Quick, Balanced, Thorough)
+    # Solver Profiles (Quick, Optimal)
     solver_profiles: Dict[str, Dict[str, Any]] = {
         "quick": {
             "max_time_seconds": 15,
             "num_workers": 2,
-            "description": "Fast optimization for demos"
+            "description": "Fast result for demos and quick checks"
         },
-        "balanced": {
-            "max_time_seconds": 30,
-            "num_workers": 4,
-            "description": "Balanced speed and quality"
-        },
-        "thorough": {
-            "max_time_seconds": 120,
-            "num_workers": 8,
-            "description": "Maximum optimization quality"
-        },
-        "production": {
+        "optimal": {
             "max_time_seconds": 600,
             "num_workers": 8,
-            "description": "Production-grade optimization"
+            "description": "Maximum quality — provably minimum cost"
         }
     }
     

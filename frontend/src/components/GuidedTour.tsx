@@ -20,7 +20,7 @@ const tourSteps: TourStep[] = [
   {
     target: 'solver-preset',
     title: '⚡ Solver Presets',
-    content: 'Choose Quick (30s) for demos, Balanced (2min) for daily use, or Thorough (5min) for best results.',
+    content: 'Choose Quick (15s) for fast demos, or Optimal (10min) to find the provably minimum cost.',
     position: 'right'
   },
   {

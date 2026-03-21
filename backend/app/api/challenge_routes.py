@@ -38,7 +38,7 @@ class OptimizationInput(BaseModel):
     demands: Optional[List[DemandInput]] = None
     round_trip: Optional[bool] = False
     optimization_objective: Optional[str] = "cost"
-    solver_profile: Optional[str] = "quick"  # quick | balanced | thorough | production
+    solver_profile: Optional[str] = "quick"  # quick | optimal
 
 
 @router.get("/data")
