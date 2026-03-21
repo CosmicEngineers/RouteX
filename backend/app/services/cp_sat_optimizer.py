@@ -28,7 +28,7 @@ class HPCLCPSATOptimizer:
     With configurable solver parameters and structured logging
     """
     
-    def __init__(self, solver_profile: str = "balanced"):
+    def __init__(self, solver_profile: str = "quick"):
         self.route_optimizer = HPCLRouteOptimizer()
         self.model = None
         self.solver = None
@@ -66,8 +66,8 @@ class HPCLCPSATOptimizer:
         
         # Get solver configuration from profile
         profile_config = self.settings.solver_profiles.get(
-            self.solver_profile, 
-            self.settings.solver_profiles["balanced"]
+            self.solver_profile,
+            self.settings.solver_profiles["quick"]
         )
         
         # Override with custom parameters if provided
