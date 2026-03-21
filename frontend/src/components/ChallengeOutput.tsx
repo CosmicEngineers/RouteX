@@ -746,7 +746,7 @@ export function ChallengeResultsPanel({
         const maxUtil = activeUtils.length > 0 ? Math.max(...activeUtils) : 0;
         const minUtil = activeUtils.length > 0 ? Math.min(...activeUtils) : 0;
         const slack = (100 - avgUtil);
-        const deployMode = avgUtil >= 20 ? 'High Throughput' : avgUtil >= 10 ? 'Balanced' : 'Cost-Optimal';
+        const fleetStatus = avgUtil >= 20 ? 'Active' : avgUtil >= 10 ? 'Moderate' : 'Low-Use';
         const deployColor = avgUtil >= 20 ? 'text-blue-600' : avgUtil >= 10 ? 'text-blue-600' : 'text-green-600';
         const headroom = slack >= 70 ? 'High' : slack >= 40 ? 'Moderate' : 'Limited';
 
@@ -760,7 +760,7 @@ export function ChallengeResultsPanel({
                 <span className="text-slate-300 mx-1">•</span>
                 <span className="text-slate-500 font-semibold">Avg {avgUtil.toFixed(1)}%</span>
                 <span className="text-slate-300 mx-1">•</span>
-                <span className={`font-semibold ${deployColor}`}>{deployMode}</span>
+                <span className={`font-semibold ${deployColor}`}>{fleetStatus}</span>
               </span>
               <svg className="w-3 h-3 transition-transform group-open:rotate-90 flex-shrink-0 text-blue-500 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </summary>
@@ -780,9 +780,10 @@ export function ChallengeResultsPanel({
                   <p className="text-[8px] text-purple-600 font-bold uppercase tracking-wider">Headroom</p>
                   <p className="text-sm font-extrabold text-purple-700">{headroom}</p>
                 </div>
-                <div className="rounded-lg p-2 text-center" style={{background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)', border: '1px solid rgba(16,185,129,0.12)'}}>
-                  <p className="text-[8px] text-emerald-600 font-bold uppercase tracking-wider">Deploy Mode</p>
-                  <p className="text-sm font-extrabold text-emerald-700">{deployMode}</p>
+                <div className="rounded-lg p-2 text-center" style={{background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)', border: '1px solid rgba(16,185,129,0.12)'}}
+                >
+                  <p className="text-[8px] text-emerald-600 font-bold uppercase tracking-wider">Fleet Status</p>
+                  <p className="text-sm font-extrabold text-emerald-700">{fleetStatus}</p>
                 </div>
               </div>
 

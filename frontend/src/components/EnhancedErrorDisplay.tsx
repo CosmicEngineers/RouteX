@@ -46,7 +46,7 @@ export function EnhancedErrorDisplay({ error, solverLogs = [] }: EnhancedErrorDi
         message: 'Optimization stopped after reaching the maximum solve time. A partial solution may be available.',
         suggestions: [
           '⏱️ Increase solver time to 300s or 600s for better results',
-          '⚡ Use "Fast" mode for quicker approximate solutions',
+          '⚡ Use "Quick" mode for a fast approximate solution (15s)',
           '📉 Reduce problem complexity by limiting vessels or routes',
           '🔧 Enable route filtering to speed up solving'
         ]

@@ -20,7 +20,7 @@ const PROFILE_LOGS: Record<string, LogLine[]> = {
     { text: 'Propagating constraints, pruning dominated routes...', type: 'dim', delayMs: 13000 },
   ],
   optimal: [
-    { text: 'Initializing CP-SAT solver engine (optimal mode, 8 workers)...', type: 'info', delayMs: 1000 },
+    { text: 'Initializing CP-SAT solver engine (optimal profile, 8 workers)...', type: 'info', delayMs: 1000 },
     { text: 'Loading vessel fleet: T1–T9 (7×50K MT, 2×25K MT)', type: 'dim', delayMs: 3000 },
     { text: 'Enumerating 6,534 co-loading route combinations...', type: 'info', delayMs: 6000 },
     { text: 'Discarding 1,200 sub-optimal routes via Dominance Pruning...', type: 'info', delayMs: 12000 },
